@@ -1,0 +1,270 @@
+/* Admin Login Styles - Minimal Design */
+:root {
+    --admin-primary: #FF3366;
+    --admin-dark: #2C3E50;
+    --admin-light: #F8F9FA;
+    --admin-gray: #6C757D;
+    --admin-white: #FFFFFF;
+    --admin-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+}
+
+/* Hero Layout */
+.admin-login-hero {
+    min-height: 100vh;
+    background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+}
+
+.hero-content {
+    display: grid;
+    grid-template-columns: 1fr 400px;
+    gap: 4rem;
+    max-width: 1200px;
+    width: 100%;
+    align-items: center;
+}
+
+/* Left Side - Brand & Features */
+.hero-left {
+    padding: 2rem;
+}
+
+.brand-section {
+    margin-bottom: 3rem;
+}
+
+.hero-logo {
+    width: 80px;
+    height: 80px;
+    margin-bottom: 1rem;
+}
+
+.hero-title {
+    font-size: 3rem;
+    font-weight: 700;
+    color: var(--admin-dark);
+    margin-bottom: 0.5rem;
+    font-family: 'Poppins', sans-serif;
+}
+
+.hero-subtitle {
+    font-size: 1.2rem;
+    color: var(--admin-gray);
+    margin: 0;
+}
+
+.features-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.feature-item {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    padding: 1rem;
+    background: var(--admin-white);
+    border-radius: 12px;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+    border-left: 4px solid var(--admin-primary);
+}
+
+.feature-item i {
+    font-size: 1.5rem;
+    color: var(--admin-primary);
+    width: 24px;
+}
+
+.feature-item span {
+    font-weight: 500;
+    color: var(--admin-dark);
+}
+
+/* Right Side - Login Form */
+.hero-right {
+    display: flex;
+    justify-content: center;
+}
+
+.login-card {
+    background: var(--admin-white);
+    padding: 3rem 2.5rem;
+    border-radius: 16px;
+    box-shadow: var(--admin-shadow);
+    width: 100%;
+    max-width: 400px;
+}
+
+.login-header {
+    text-align: center;
+    margin-bottom: 2rem;
+}
+
+.login-header h2 {
+    font-size: 1.8rem;
+    font-weight: 600;
+    color: var(--admin-dark);
+    margin-bottom: 0.5rem;
+}
+
+.login-header p {
+    color: var(--admin-gray);
+    margin: 0;
+}
+
+/* Form Styles */
+.login-form {
+    margin-bottom: 2rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    font-weight: 500;
+    color: var(--admin-dark);
+    margin-bottom: 0.5rem;
+    display: block;
+}
+
+.input-group {
+    position: relative;
+    display: flex;
+    align-items: center;
+}
+
+.input-icon {
+    position: absolute;
+    left: 1rem;
+    color: var(--admin-gray);
+    z-index: 2;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 0.75rem 1rem 0.75rem 3rem;
+    border: 1.5px solid #e9ecef;
+    border-radius: 8px;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    background: var(--admin-white);
+}
+
+.input-group input:focus {
+    outline: none;
+    border-color: var(--admin-primary);
+    box-shadow: 0 0 0 0.2rem rgba(255, 51, 102, 0.15);
+}
+
+.toggle-password {
+    position: absolute;
+    right: 1rem;
+    background: none;
+    border: none;
+    color: var(--admin-gray);
+    cursor: pointer;
+    padding: 0.25rem;
+    z-index: 2;
+}
+
+.toggle-password:hover {
+    color: var(--admin-primary);
+}
+
+/* Login Button */
+.btn-login {
+    width: 100%;
+    padding: 0.75rem;
+    background: var(--admin-primary);
+    color: var(--admin-white);
+    border: none;
+    border-radius: 8px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+}
+
+.btn-login:hover {
+    background: #e02e5c;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 15px rgba(255, 51, 102, 0.3);
+}
+
+.btn-login:active {
+    transform: translateY(0);
+}
+
+/* Footer */
+.login-footer {
+    text-align: center;
+    padding-top: 1.5rem;
+    border-top: 1px solid #e9ecef;
+}
+
+.login-footer p {
+    font-size: 0.9rem;
+    color: var(--admin-gray);
+    margin: 0;
+}
+
+/* Responsive Design */
+@media (max-width: 1024px) {
+    .hero-content {
+        grid-template-columns: 1fr;
+        gap: 2rem;
+        text-align: center;
+    }
+
+    .features-section {
+        justify-content: center;
+        max-width: 600px;
+        margin: 0 auto;
+    }
+}
+
+@media (max-width: 768px) {
+    .admin-login-hero {
+        padding: 1rem;
+    }
+
+    .hero-left {
+        padding: 1rem;
+    }
+
+    .hero-title {
+        font-size: 2.5rem;
+    }
+
+    .features-section {
+        grid-template-columns: 1fr;
+        gap: 1rem;
+    }
+
+    .login-card {
+        padding: 2rem 1.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    .hero-title {
+        font-size: 2rem;
+    }
+
+    .login-card {
+        padding: 1.5rem;
+    }
+
+    .feature-item {
+        padding: 0.75rem;
+    }
+}
