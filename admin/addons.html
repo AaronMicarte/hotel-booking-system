@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Addon Management - HellHotel</title>
+
+    <!-- External CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/admin.css">
+    <link rel="stylesheet" href="../assets/css/admin-dashboard.css">
+</head>
+
+<body class="admin-page">
+    <div class="admin-wrapper">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <img src="../assets/images/hellhotel-logo2.png" alt="Logo" class="sidebar-logo">
+                <h5>HellHotel</h5>
+            </div>
+
+            <ul class="sidebar-menu">
+                <li>
+                    <a href="dashboard.html">
+                        <i class="fas fa-tachometer-alt"></i>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="reservations.html">
+                        <i class="fas fa-calendar-check"></i>
+                        <span>Reservations</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="rooms.html">
+                        <i class="fas fa-bed"></i>
+                        <span>Rooms</span>
+                    </a>
+                </li>
+                <li class="active">
+                    <a href="addons.html">
+                        <i class="fas fa-plus-circle"></i>
+                        <span>Addons</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="guests.html">
+                        <i class="fas fa-users"></i>
+                        <span>Guests</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="billing.html">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                        <span>Billing</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="master-data.html">
+                        <i class="fas fa-database"></i>
+                        <span>Master Data</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Top Navigation -->
+            <nav class="top-nav">
+                <div class="nav-left">
+                    <button class="sidebar-toggle">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h4>Addon Management</h4>
+                </div>
+
+                <div class="nav-right">
+                    <button id="refreshBtn" class="btn btn-outline-primary btn-sm me-2">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown">
+                            <i class="fas fa-user"></i>
+                            <span id="userName">Admin</span>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><span class="dropdown-item-text">Role: <span id="userRole">admin</span></span></li>
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+                            <li><a class="dropdown-item" href="#" id="logoutBtn"><i class="fas fa-sign-out-alt"></i>
+                                    Logout</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Addons Content -->
+            <div class="dashboard-content">
+                <!-- Tab Navigation -->
+                <ul class="nav nav-tabs mb-4" id="addonTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="addons-tab" data-bs-toggle="tab"
+                            data-bs-target="#addons-content" type="button" role="tab" aria-controls="addons-content"
+                            aria-selected="true">
+                            <i class="fas fa-list me-2"></i>Addons
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="categories-tab" data-bs-toggle="tab"
+                            data-bs-target="#categories-content" type="button" role="tab"
+                            aria-controls="categories-content" aria-selected="false">
+                            <i class="fas fa-tags me-2"></i>Categories
+                        </button>
+                    </li>
+                </ul>
+
+                <!-- Tab Content -->
+                <div class="tab-content" id="addonTabsContent">
+                    <!-- Addons Tab -->
+                    <div class="tab-pane fade show active" id="addons-content" role="tabpanel"
+                        aria-labelledby="addons-tab">
+                        <!-- Action Bar -->
+                        <div class="row mb-4">
+                            <div class="col-md-8">
+                                <div class="input-group">
+                                    <select id="categoryFilter" class="form-select" style="max-width: 200px;">
+                                        <option value="">All Categories</option>
+                                        <option value="toiletries">Toiletries</option>
+                                        <option value="food">Food</option>
+                                    </select>
+                                    <input type="text" id="searchAddon" class="form-control"
+                                        placeholder="Search addons...">
+                                    <button id="searchBtn" class="btn btn-primary">
+                                        <i class="fas fa-search"></i> Search
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <button id="addAddonBtn" class="btn btn-primary">
+                                    <i class="fas fa-plus"></i> Add Addon
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Addons Table -->
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5><i class="fas fa-plus-circle"></i> Addons</h5>
+                                <div>
+                                    <span id="totalAddons" class="badge bg-primary">0</span> Item(s)
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th width="5%">#</th>
+                                                <th width="25%">Name</th>
+                                                <th width="15%">Category</th>
+                                                <th width="15%">Price</th>
+                                                <th width="15%">Status</th>
+                                                <th width="25%">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="addonsTableBody">
+                                            <tr>
+                                                <td colspan="6" class="text-center">
+                                                    <div class="admin-loading">Loading addons data...</div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <!-- Pagination -->
+                                <div class="d-flex justify-content-between align-items-center mt-4">
+                                    <div class="pagination-info">
+                                        Showing <span id="paginationFrom">0</span> to <span id="paginationTo">0</span>
+                                        of <span id="paginationTotal">0</span> addons
+                                    </div>
+                                    <nav aria-label="Addons pagination">
+                                        <ul id="addonsPagination" class="pagination">
+                                            <!-- Pagination will be generated by JS -->
+                                        </ul>
+                                    </nav>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Categories Tab -->
+                    <div class="tab-pane fade" id="categories-content" role="tabpanel" aria-labelledby="categories-tab">
+                        <!-- Action Bar -->
+                        <div class="row mb-4">
+                            <div class="col-md-8">
+                                <div class="input-group">
+                                    <input type="text" id="searchCategory" class="form-control"
+                                        placeholder="Search categories...">
+                                    <button id="searchCategoryBtn" class="btn btn-primary">
+                                        <i class="fas fa-search"></i> Search
+                                    </button>
+                                </div>
+                            </div>
+                            <div class="col-md-4 text-end">
+                                <button id="addCategoryBtn" class="btn btn-primary">
+                                    <i class="fas fa-plus"></i> Add Category
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Categories Table -->
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5><i class="fas fa-tags"></i> Categories</h5>
+                                <div>
+                                    <span id="totalCategories" class="badge bg-primary">0</span> Category(ies)
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th width="10%">#</th>
+                                                <th width="40%">Category Name</th>
+                                                <th width="25%">Items Count</th>
+                                                <th width="25%">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="categoriesTableBody">
+                                            <tr>
+                                                <td colspan="4" class="text-center">
+                                                    <div class="admin-loading">Loading categories data...</div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Addon Modal -->
+    <div class="modal fade" id="addonModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="addonModalLabel">Add New Addon</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="addonForm">
+                        <input type="hidden" id="addonId">
+                        <div class="mb-3">
+                            <label for="addonName" class="form-label">Addon Name</label>
+                            <input type="text" class="form-control" id="addonName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="addonCategory" class="form-label">Category</label>
+                            <select class="form-select" id="addonCategory" required>
+                                <option value="">-- Select Category --</option>
+                                <option value="toiletries">Toiletries</option>
+                                <option value="food">Food</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="addonPrice" class="form-label">Price (PHP)</label>
+                            <input type="number" class="form-control" id="addonPrice" min="0" step="0.01" required>
+                        </div>
+                        <div class="mb-3 form-check">
+                            <input type="checkbox" class="form-check-input" id="addonAvailable" checked>
+                            <label class="form-check-label" for="addonAvailable">Available</label>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="saveAddonBtn" class="btn btn-primary">Save Addon</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Category Modal -->
+    <div class="modal fade" id="categoryModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="categoryModalLabel">Add New Category</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="categoryForm">
+                        <input type="hidden" id="categoryId">
+                        <div class="mb-3">
+                            <label for="categoryName" class="form-label">Category Name</label>
+                            <select class="form-select" id="categoryName" required>
+                                <option value="">-- Select Category Type --</option>
+                                <option value="toiletries">Toiletries</option>
+                                <option value="food">Food</option>
+                            </select>
+                            <small class="text-muted">Note: Categories are defined as an ENUM in the database</small>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="saveCategoryBtn" class="btn btn-primary">Save Category</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="../assets/js/admin/auth.js"></script>
+    <script type="module" src="../assets/js/admin/addons.js"></script>
+</body>
+
+</html>

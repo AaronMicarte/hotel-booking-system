@@ -2,132 +2,77 @@
  * Components Module - Handle Header and Footer Injection
  */
 
-window.Components = {
-    /**
-     * Load header component
-     * @param {string} containerId - ID of container to inject header
-     * @param {string} basePath - Base path for assets (default: '')
-     */
-    loadHeader: function (containerId, basePath = '') {
-        const container = document.getElementById(containerId);
-        if (!container) {
-            console.error('Header container not found:', containerId);
-            return;
-        }
+export function loadHeader(containerId, basePath = '') {
+    const headerHTML = `
+        <!-- Navigation -->
+        <nav class="navbar navbar-expand-lg navbar-light bg-white fixed-top shadow-sm">
+            <div class="container">
+                <a class="navbar-brand d-flex align-items-center" href="${basePath}index.html">
+                    <img src="${basePath}assets/images/hellhotel-logo2.png" alt="HellHotel Logo" height="50" class="me-2">
+                    <span class="brand-text">HellHotel</span>
+                </a>
 
-        const headerHTML = `
-            <!-- Navigation -->
-            <nav class="navbar navbar-expand-lg navbar-light bg-white fixed-top shadow-sm">
-                <div class="container">
-                    <a class="navbar-brand d-flex align-items-center" href="${basePath}index.html">
-                        <img src="${basePath}assets/images/hellhotel-logo2.png" alt="HellHotel Logo" height="50" class="me-2">
-                        <span class="brand-text">HellHotel</span>
-                    </a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
 
-                    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                        <span class="navbar-toggler-icon"></span>
-                    </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav ms-auto">
+                        <li class="nav-item"><a class="nav-link" href="${basePath}index.html#home">Home</a></li>
+                        <li class="nav-item"><a class="nav-link" href="${basePath}index.html#about">About</a></li>
+                        <li class="nav-item"><a class="nav-link" href="${basePath}index.html#rooms">Rooms</a></li>
+                        <li class="nav-item"><a class="nav-link" href="${basePath}index.html#contact">Contact</a></li>
+                    </ul>
+                </div>
+            </div>
+        </nav>
+    `;
+    document.getElementById(containerId).innerHTML = headerHTML;
+}
 
-                    <div class="collapse navbar-collapse" id="navbarNav">
-                        <ul class="navbar-nav ms-auto">
-                            <li class="nav-item"><a class="nav-link" href="${basePath}index.html#home">Home</a></li>
-                            <li class="nav-item"><a class="nav-link" href="${basePath}index.html#about">About</a></li>
-                            <li class="nav-item"><a class="nav-link" href="${basePath}index.html#rooms">Rooms</a></li>
-                            <li class="nav-item"><a class="nav-link" href="${basePath}index.html#contact">Contact</a></li>
+export function loadFooter(containerId, basePath = '') {
+    const footerHTML = `
+        <!-- Enhanced Footer -->
+        <footer class="bg-dark text-white py-5">
+            <div class="container">
+                <div class="row">
+                    <div class="col-lg-4 mb-4">
+                        <h5>HellHotel</h5>
+                        <p>Luxury accommodation in the heart of Cagayan de Oro City.</p>
+                    </div>
+                    <div class="col-lg-2 mb-4">
+                        <h6>Quick Links</h6>
+                        <ul class="list-unstyled">
+                            <li><a href="${basePath}index.html#home" class="text-white-50">Home</a></li>
+                            <li><a href="${basePath}index.html#about" class="text-white-50">About</a></li>
+                            <li><a href="${basePath}index.html#rooms" class="text-white-50">Rooms</a></li>
                         </ul>
                     </div>
-                </div>
-            </nav>
-        `;
-
-        container.innerHTML = headerHTML;
-    },
-
-    /**
-     * Load footer component
-     * @param {string} containerId - ID of container to inject footer
-     * @param {string} basePath - Base path for assets (default: '')
-     */
-    loadFooter: function (containerId, basePath = '') {
-        const container = document.getElementById(containerId);
-        if (!container) {
-            console.error('Footer container not found:', containerId);
-            return;
-        }
-
-        const footerHTML = `
-            <!-- Enhanced Footer -->
-            <footer class="bg-dark text-white py-5">
-                <div class="container">
-                    <div class="row">
-                        <div class="col-lg-4 mb-4">
-                            <h5>HellHotel</h5>
-                            <p>Luxury accommodation in the heart of Cagayan de Oro City.</p>
-                            <div class="social-links">
-                                <a href="https://facebook.com/hellhotel" class="text-white me-3" target="_blank" aria-label="Facebook">
-                                    <i class="fab fa-facebook"></i>
-                                </a>
-                                <a href="https://instagram.com/hellhotel" class="text-white me-3" target="_blank" aria-label="Instagram">
-                                    <i class="fab fa-instagram"></i>
-                                </a>
-                                <a href="https://twitter.com/hellhotel" class="text-white" target="_blank" aria-label="Twitter">
-                                    <i class="fab fa-twitter"></i>
-                                </a>
-                            </div>
-                        </div>
-                        <div class="col-lg-2 mb-4">
-                            <h6>Quick Links</h6>
-                            <ul class="list-unstyled">
-                                <li><a href="${basePath}index.html#home" class="text-white-50">Home</a></li>
-                                <li><a href="${basePath}index.html#about" class="text-white-50">About</a></li>
-                                <li><a href="${basePath}index.html#rooms" class="text-white-50">Rooms</a></li>
-                                <li><a href="${basePath}index.html#booking" class="text-white-50">Booking</a></li>
-                            </ul>
-                        </div>
-                        <div class="col-lg-2 mb-4">
-                            <h6>Legal</h6>
-                            <ul class="list-unstyled">
-                                <li><a href="${basePath}pages/terms-of-service.html" class="text-white-50">Terms of Service</a></li>
-                                <li><a href="${basePath}pages/privacy-policy.html" class="text-white-50">Privacy Policy</a></li>
-                            </ul>
-                        </div>
-                        <div class="col-lg-4 mb-4">
-                            <h6>Contact Info</h6>
-                            <p class="mb-1"><i class="fas fa-map-marker-alt me-2"></i>Corrales Street, CDO</p>
-                            <p class="mb-1"><i class="fas fa-phone me-2"></i>+63 992 507 7173</p>
-                            <p><i class="fas fa-envelope me-2"></i>hellhotel@gmail.com</p>
-                        </div>
+                    <div class="col-lg-2 mb-4">
+                        <h6>Legal</h6>
+                        <ul class="list-unstyled">
+                            <li><a href="${basePath}pages/terms-of-service.html" class="text-white-50">Terms</a></li>
+                            <li><a href="${basePath}pages/privacy-policy.html" class="text-white-50">Privacy</a></li>
+                        </ul>
                     </div>
-                    <hr class="my-4">
-                    <div class="row">
-                        <div class="col-md-6">
-                            <p class="mb-0">&copy; 2025 HellHotel. All rights reserved.</p>
-                        </div>
-                        <div class="col-md-6 text-md-end">
-                            <small class="text-white-50">Designed with ❤️ for CDO</small>
-                        </div>
+                    <div class="col-lg-4 mb-4">
+                        <h6>Contact Info</h6>
+                        <p class="mb-1"><i class="fas fa-map-marker-alt me-2"></i>Corrales Street, CDO</p>
+                        <p class="mb-1"><i class="fas fa-phone me-2"></i>+63 992 507 7173</p>
+                        <p><i class="fas fa-envelope me-2"></i>hellhotel@gmail.com</p>
                     </div>
                 </div>
-            </footer>
-
-            <script>
-                // Check if back-to-top button exists before adding event listener
-                const backToTopBtn = document.getElementById('back-to-top');
-                if (backToTopBtn) {
-                    backToTopBtn.addEventListener('click', (e) => {
-                        e.preventDefault();
-                        window.scrollTo({
-                            top: 0,
-                            behavior: 'smooth'
-                        });
-                    });
-                }
-            </script>
-        `;
-
-        container.innerHTML = footerHTML;
-    }
-};
+                <hr class="my-4">
+                <div class="row">
+                    <div class="col-md-6">
+                        <p class="mb-0">&copy; 2025 HellHotel. All rights reserved.</p>
+                    </div>
+                </div>
+            </div>
+        </footer>
+    `;
+    document.getElementById(containerId).innerHTML = footerHTML;
+}
 
 // Auto-initialize components when DOM is ready
 document.addEventListener('DOMContentLoaded', function () {

@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reservations - HellHotel</title>
+
+    <!-- External CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
+    <link rel="stylesheet"
+        href="https://cdn.jsdelivr.net/npm/bootstrap-datepicker@1.9.0/dist/css/bootstrap-datepicker.min.css">
+
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="../assets/css/style.css">
+    <link rel="stylesheet" href="../assets/css/admin.css">
+    <link rel="stylesheet" href="../assets/css/admin-dashboard.css">
+</head>
+
+<body class="admin-page">
+    <div class="admin-wrapper">
+        <!-- Sidebar -->
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <img src="../assets/images/hellhotel-logo2.png" alt="Logo" class="sidebar-logo">
+                <h5>HellHotel</h5>
+            </div>
+
+            <ul class="sidebar-menu">
+                <li>
+                    <a href="dashboard.html">
+                        <i class="fas fa-tachometer-alt"></i>
+                        <span>Dashboard</span>
+                    </a>
+                </li>
+                <li class="active">
+                    <a href="reservations.html">
+                        <i class="fas fa-calendar-check"></i>
+                        <span>Reservations</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="rooms.html">
+                        <i class="fas fa-bed"></i>
+                        <span>Rooms</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="addons.html">
+                        <i class="fas fa-plus-circle"></i>
+                        <span>Addons</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="guests.html">
+                        <i class="fas fa-users"></i>
+                        <span>Guests</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="billing.html">
+                        <i class="fas fa-file-invoice-dollar"></i>
+                        <span>Billing</span>
+                    </a>
+                </li>
+            </ul>
+        </nav>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Top Navigation -->
+            <nav class="top-nav">
+                <div class="nav-left">
+                    <button class="sidebar-toggle">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                    <h4>Reservations Management</h4>
+                </div>
+
+                <div class="nav-right">
+                    <button id="refreshBtn" class="btn btn-outline-primary btn-sm me-2">
+                        <i class="fas fa-sync-alt"></i> Refresh
+                    </button>
+
+                    <div class="dropdown">
+                        <button class="btn btn-outline-secondary dropdown-toggle" type="button"
+                            data-bs-toggle="dropdown">
+                            <i class="fas fa-user"></i>
+                            <span id="userName">Admin</span>
+                        </button>
+                        <ul class="dropdown-menu">
+                            <li><span class="dropdown-item-text">Role: <span id="userRole">admin</span></span></li>
+                            <li>
+                                <hr class="dropdown-divider">
+                            </li>
+                            <li><a class="dropdown-item" href="#" id="logoutBtn"><i class="fas fa-sign-out-alt"></i>
+                                    Logout</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </nav>
+
+            <!-- Reservations Content -->
+            <div class="dashboard-content">
+                <!-- Action Bar -->
+                <div class="row mb-4">
+                    <div class="col-md-8">
+                        <div class="input-group">
+                            <input type="text" id="searchReservation" class="form-control"
+                                placeholder="Search by ID, guest name or status...">
+                            <button id="searchBtn" class="btn btn-primary">
+                                <i class="fas fa-search"></i> Search
+                            </button>
+                        </div>
+                    </div>
+                    <div class="col-md-4 text-end">
+                        <button id="addReservationBtn" class="btn btn-primary">
+                            <i class="fas fa-plus"></i> New Reservation
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filters -->
+                <div class="row mb-4">
+                    <div class="col-md-12">
+                        <div class="card">
+                            <div class="card-header">
+                                <h5><i class="fas fa-filter"></i> Filters</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-3">
+                                        <label for="statusFilter" class="form-label">Status</label>
+                                        <select id="statusFilter" class="form-select">
+                                            <option value="">All Statuses</option>
+                                            <option value="pending">Pending</option>
+                                            <option value="confirmed">Confirmed</option>
+                                            <option value="checked-in">Checked In</option>
+                                            <option value="checked-out">Checked Out</option>
+                                            <option value="cancelled">Cancelled</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="dateFrom" class="form-label">From Date</label>
+                                        <input type="text" id="dateFrom" class="form-control datepicker"
+                                            placeholder="From Date">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="dateTo" class="form-label">To Date</label>
+                                        <input type="text" id="dateTo" class="form-control datepicker"
+                                            placeholder="To Date">
+                                    </div>
+                                    <div class="col-md-3 d-flex align-items-end">
+                                        <button id="applyFilters" class="btn btn-primary w-100">
+                                            <i class="fas fa-check"></i> Apply Filters
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Reservations Table -->
+                <div class="row">
+                    <div class="col-12">
+                        <div class="card">
+                            <div class="card-header d-flex justify-content-between align-items-center">
+                                <h5><i class="fas fa-calendar-check"></i> Reservations</h5>
+                                <div>
+                                    <span id="totalReservations" class="badge bg-primary">0</span> Reservation(s)
+                                </div>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>ID</th>
+                                                <th>Guest Name</th>
+                                                <th>Room</th>
+                                                <th>Check-in</th>
+                                                <th>Check-out</th>
+                                                <th>Status</th>
+                                                <th>Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="reservationsTableBody">
+                                            <tr>
+                                                <td colspan="7" class="text-center">
+                                                    <div class="admin-loading">Loading reservations data...</div>
+                                                </td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                <!-- Pagination -->
+                                <div class="d-flex justify-content-between align-items-center mt-4">
+                                    <div class="pagination-info">
+                                        Showing <span id="paginationFrom">0</span> to <span id="paginationTo">0</span>
+                                        of <span id="paginationTotal">0</span> reservations
+                                    </div>
+                                    <nav aria-label="Reservations pagination">
+                                        <ul id="reservationsPagination" class="pagination">
+                                            <li class="page-item disabled">
+                                                <a class="page-link" href="#" tabindex="-1"
+                                                    aria-disabled="true">Previous</a>
+                                            </li>
+                                            <li class="page-item active"><a class="page-link" href="#">1</a></li>
+                                            <li class="page-item disabled">
+                                                <a class="page-link" href="#">Next</a>
+                                            </li>
+                                        </ul>
+                                    </nav>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reservation Modal -->
+    <div class="modal fade" id="reservationModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="reservationModalLabel">Add New Reservation</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="reservationForm">
+                        <input type="hidden" id="reservationId">
+
+                        <!-- Guest Information -->
+                        <div class="mb-4">
+                            <h6 class="border-bottom pb-2"><i class="fas fa-user"></i> Guest Information</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="guestSelect" class="form-label">Select Existing Guest</label>
+                                    <select id="guestSelect" class="form-select">
+                                        <option value="">-- Select Guest --</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6 d-flex align-items-end">
+                                    <button type="button" id="newGuestBtn" class="btn btn-outline-primary w-100">
+                                        <i class="fas fa-plus"></i> New Guest
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Stay Information -->
+                        <div class="mb-4">
+                            <h6 class="border-bottom pb-2"><i class="fas fa-bed"></i> Stay Information</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="checkInDate" class="form-label">Check-in Date</label>
+                                    <input type="text" id="checkInDate" class="form-control datepicker" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="checkOutDate" class="form-label">Check-out Date</label>
+                                    <input type="text" id="checkOutDate" class="form-control datepicker" required>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Room Selection -->
+                        <div class="mb-4">
+                            <h6 class="border-bottom pb-2"><i class="fas fa-door-open"></i> Room Selection</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="roomTypeSelect" class="form-label">Room Type</label>
+                                    <select id="roomTypeSelect" class="form-select" required>
+                                        <option value="">-- Select Room Type --</option>
+                                        <option value="regular">Regular</option>
+                                        <option value="deluxe">Deluxe</option>
+                                        <option value="executive">Executive</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="roomSelect" class="form-label">Available Rooms</label>
+                                    <select id="roomSelect" class="form-select" required>
+                                        <option value="">-- Select Room --</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Reservation Status -->
+                        <div class="mb-4">
+                            <h6 class="border-bottom pb-2"><i class="fas fa-tasks"></i> Reservation Status</h6>
+                            <div class="row g-3">
+                                <div class="col-md-6">
+                                    <label for="statusSelect" class="form-label">Status</label>
+                                    <select id="statusSelect" class="form-select" required>
+                                        <option value="pending">Pending</option>
+                                        <option value="confirmed">Confirmed</option>
+                                        <option value="checked-in">Checked In</option>
+                                        <option value="checked-out">Checked Out</option>
+                                        <option value="cancelled">Cancelled</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="saveReservationBtn" class="btn btn-primary">Save Reservation</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Guest Modal -->
+    <div class="modal fade" id="guestModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="guestModalLabel">Add New Guest</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="guestForm">
+                        <input type="hidden" id="guestId">
+
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label for="firstName" class="form-label">First Name</label>
+                                <input type="text" id="firstName" class="form-control" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="lastName" class="form-label">Last Name</label>
+                                <input type="text" id="lastName" class="form-control" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="email" class="form-label">Email</label>
+                                <input type="email" id="email" class="form-control" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="phone" class="form-label">Phone</label>
+                                <input type="tel" id="phone" class="form-control" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="idType" class="form-label">ID Type</label>
+                                <select id="idType" class="form-select" required>
+                                    <option value="">-- Select ID Type --</option>
+                                    <option value="Passport">Passport</option>
+                                    <option value="Driver's License">Driver's License</option>
+                                    <option value="SSS ID">SSS ID</option>
+                                    <option value="GSIS ID">GSIS ID</option>
+                                    <option value="Voter's ID">Voter's ID</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="idNumber" class="form-label">ID Number</label>
+                                <input type="text" id="idNumber" class="form-control" required>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="saveGuestBtn" class="btn btn-primary">Save Guest</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap-datepicker@1.9.0/dist/js/bootstrap-datepicker.min.js"></script>
+
+    <script src="../assets/js/admin/auth.js"></script>
+    <script type="module" src="../assets/js/admin/reservations.js"></script>
+</body>
+
+</html>

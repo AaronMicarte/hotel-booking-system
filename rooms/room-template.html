@@ -178,66 +178,78 @@
 
     <!-- Fallback room data in case JS files don't load -->
     <script>
-        // Fallback room data if the external file fails to load
+        // Enhanced fallback room data matching database structure
         window.RoomData = window.RoomData || {
             rooms: {
                 'regular': {
-                    id: 'regular',
+                    id: 'REGULAR',
                     title: 'Regular Room',
-                    description: 'A comfortable standard room with all essential amenities.',
-                    price: 3000,
+                    description: 'Comfortable standard room with essential amenities.',
+                    price: 999,
                     capacity: '2 Adults',
-                    size: '25 m²',
-                    checkIn: '2:00 PM',
+                    size: '20 m²',
+                    checkIn: '12:00 PM',
                     checkOut: '12:00 PM',
-                    period: 'night',
-                    image: '../assets/images/family/family-1.webp',
+                    period: '24 hours',
+                    image: '../assets/images/regular/regular-1.jpg',
                     features: [
-                        'Queen-sized bed', 'Air conditioning', 'Flat-screen TV',
+                        'Double bed', 'Air conditioning', 'Flat-screen TV',
                         'Free Wi-Fi', 'Private bathroom', 'Daily housekeeping'
                     ]
                 },
                 'deluxe': {
-                    id: 'deluxe',
+                    id: 'DELUXE',
                     title: 'Deluxe Room',
                     description: 'Spacious deluxe room with upgraded amenities and city views.',
-                    price: 5000,
+                    price: 1999,
                     capacity: '2 Adults, 1 Child',
-                    size: '35 m²',
-                    checkIn: '2:00 PM',
+                    size: '24 m²',
+                    checkIn: '12:00 PM',
                     checkOut: '12:00 PM',
-                    period: 'night',
+                    period: '24 hours',
                     image: '../assets/images/deluxe/deluxe-1.jpg',
                     features: [
-                        'King-sized bed', 'Premium air conditioning', 'Large flat-screen TV',
+                        'Queen-sized bed', 'Premium air conditioning', 'Large flat-screen TV',
                         'High-speed Wi-Fi', 'Luxury bathroom with tub', 'Mini bar',
                         'Coffee maker', 'Daily housekeeping'
                     ]
                 },
-                'suite': {
-                    id: 'suite',
+                'executive': {
+                    id: 'EXECUTIVE',
                     title: 'Executive Suite',
                     description: 'Luxurious suite with separate living area and premium amenities.',
-                    price: 8000,
+                    price: 2999,
                     capacity: '2 Adults, 2 Children',
-                    size: '50 m²',
+                    size: '35 m²',
                     checkIn: '12:00 PM',
-                    checkOut: '2:00 PM',
-                    period: 'night',
-                    image: '../assets/images/executive-1.jpg',
+                    checkOut: '12:00 PM',
+                    period: '24 hours',
+                    image: '../assets/images/executive/executive-1.jpg',
                     features: [
                         'King-sized bed', 'Separate living area', 'Climate control',
-                        '55-inch smart TV', 'High-speed Wi-Fi', 'Luxury bathroom with jacuzzi',
+                        '43-inch smart TV', 'High-speed Wi-Fi', 'Luxury bathroom with jacuzzi',
                         'Mini bar', 'Coffee maker', 'Work desk', 'Daily housekeeping',
                         'Bathrobes and slippers', 'Welcome fruits'
                     ]
                 }
             },
             getRoomByType: function (type) {
-                return this.rooms[type] || this.rooms['regular'];
+                const normalizedType = type.toLowerCase();
+                return this.rooms[normalizedType] || this.rooms['regular'];
             },
             getAllRooms: function () {
                 return Object.values(this.rooms);
+            },
+            getRoomData: function (type) {
+                return this.getRoomByType(type);
+            },
+            getFormattedPrice: function (type) {
+                const room = this.getRoomByType(type);
+                return room ? `₱${room.price.toLocaleString()}` : '₱0';
+            },
+            getDownPayment: function (type) {
+                const room = this.getRoomByType(type);
+                return room ? room.price * 0.5 : 0;
             }
         };
 

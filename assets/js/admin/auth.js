@@ -30,6 +30,7 @@ class AdminAuth {
         this.showLoading();
 
         try {
+            // Fix: Use the correct API endpoint path
             const response = await fetch('../api/admin/login.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -53,10 +54,14 @@ class AdminAuth {
 
                 window.location.href = 'dashboard.html';
             } else {
+                // Reset form UI
+                this.resetLoginButton();
                 throw new Error(result.message || 'Login failed');
             }
         } catch (error) {
             console.error('Login error:', error);
+            // Reset form UI
+            this.resetLoginButton();
 
             Swal.fire({
                 title: 'Login Failed',
@@ -71,6 +76,14 @@ class AdminAuth {
         if (button) {
             button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging in...';
             button.disabled = true;
+        }
+    }
+
+    resetLoginButton() {
+        const button = document.querySelector('.btn-login');
+        if (button) {
+            button.innerHTML = '<i class="fas fa-sign-in-alt"></i> Sign In';
+            button.disabled = false;
         }
     }
 
