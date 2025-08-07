@@ -76,14 +76,12 @@
     bottom: 0;
     width: 4px;
     background: transparent;
-    transition: var(--transition);
 }
 
 .sidebar-menu a:hover,
 .sidebar-menu .active a {
     background: linear-gradient(135deg, var(--accent-color), rgba(255, 230, 235, 0.5));
     color: var(--primary-color);
-    transform: translateX(8px);
 }
 
 .sidebar-menu .active a::before {
@@ -170,7 +168,6 @@
     padding: 1.5rem;
     box-shadow: var(--shadow-medium);
     border: 1px solid rgba(255, 51, 102, 0.1);
-    transition: var(--transition);
     position: relative;
     overflow: hidden;
     height: 100%;
@@ -191,7 +188,6 @@
             transparent 100%);
     z-index: 1;
     opacity: 0;
-    transition: var(--transition);
 }
 
 .stats-card:hover::before {
@@ -199,7 +195,6 @@
 }
 
 .stats-card:hover {
-    transform: translateY(-4px);
     box-shadow: var(--shadow-heavy);
     border-color: rgba(255, 51, 102, 0.2);
 }
@@ -263,7 +258,6 @@
     border: 1px solid rgba(255, 51, 102, 0.1);
     border-radius: var(--border-radius-lg);
     box-shadow: var(--shadow-medium);
-    transition: var(--transition);
     position: relative;
     overflow: hidden;
     margin-bottom: 1rem;
@@ -289,7 +283,6 @@
 }
 
 .card:hover {
-    transform: translateY(-2px);
     box-shadow: var(--shadow-heavy);
     border-color: rgba(255, 51, 102, 0.15);
 }
@@ -376,7 +369,6 @@
 .btn-outline-primary:hover {
     background: var(--primary-color);
     border-color: var(--primary-color);
-    transform: translateY(-1px);
     box-shadow: var(--shadow-primary);
 }
 

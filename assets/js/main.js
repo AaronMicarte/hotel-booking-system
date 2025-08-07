@@ -272,6 +272,36 @@ function validateForm(form) {
     return isValid;
 }
 
+// Prevent Flash of Unstyled Content (FOUC)
+document.addEventListener('DOMContentLoaded', function () {
+    // Create page transition overlay if it doesn't exist
+    if (!document.querySelector('.page-transition-overlay')) {
+        const overlay = document.createElement('div');
+        overlay.className = 'page-transition-overlay';
+        overlay.innerHTML = '<div class="spinner-border text-primary" role="status"><span class="visually-hidden">Loading...</span></div>';
+        document.body.appendChild(overlay);
+
+        // Remove the loading class from body
+        document.body.classList.remove('loading');
+
+        // Add a small delay before fading out the overlay
+        setTimeout(() => {
+            overlay.classList.add('fade-out');
+            setTimeout(() => {
+                overlay.remove();
+            }, 300); // Match transition duration
+        }, 100);
+    }
+});
+
+// Add loading class to body on page load
+document.body.classList.add('loading');
+
+// Add event listener for page transitions
+window.addEventListener('beforeunload', function () {
+    document.body.classList.add('loading');
+});
+
 // Export utilities properly for regular scripts
 window.HotelUtils = {
     showToast: showToast,

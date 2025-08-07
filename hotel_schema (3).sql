@@ -10,22 +10,20 @@ USE hotel_db;
 CREATE TABLE User (
     user_id INT AUTO_INCREMENT PRIMARY KEY,
     user_roles_id INT,
-    username VARCHAR(100) NOT NULL UNIQUE,
+    username VARCHAR(100) NOT NULL,
     password VARCHAR(255) NOT NULL,
     email VARCHAR(150),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted TINYINT(1) DEFAULT 0
+    is_deleted BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE UserRoles (
     user_roles_id INT AUTO_INCREMENT PRIMARY KEY,
-    user_id INT,
     role_type ENUM('admin', 'front desk') NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted TINYINT(1) DEFAULT 0,
-    FOREIGN KEY (user_id) REFERENCES User(user_id)
+    is_deleted BOOLEAN DEFAULT FALSE
 );
 
 -- GUESTS
@@ -34,7 +32,7 @@ CREATE TABLE GuestIDType (
     id_type ENUM('Passport', 'Driver\'s License', 'SSS ID', 'GSIS ID', 'PRC ID', 'Voter\'s ID', 'Postal ID', 'PhilHealth ID', 'TIN ID', 'UMID', 'Barangay ID', 'Student ID') NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted TINYINT(1) DEFAULT 0
+    is_deleted BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE Guest (
@@ -51,7 +49,7 @@ CREATE TABLE Guest (
     id_picture TEXT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted TINYINT(1) DEFAULT 0,
+    is_deleted BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (guest_idtype_id) REFERENCES GuestIDType(guest_idtype_id)
 );
 
@@ -61,7 +59,7 @@ CREATE TABLE ReservationStatus (
     room_status ENUM('pending', 'confirmed', 'checked-in', 'checked-out', 'cancelled') NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted TINYINT(1) DEFAULT 0
+    is_deleted BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE Reservation (
@@ -73,7 +71,7 @@ CREATE TABLE Reservation (
     check_out_date DATE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted TINYINT(1) DEFAULT 0,
+    is_deleted BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (user_id) REFERENCES User(user_id),
     FOREIGN KEY (reservation_status_id) REFERENCES ReservationStatus(reservation_status_id),
     FOREIGN KEY (guest_id) REFERENCES Guest(guest_id)
@@ -85,17 +83,21 @@ CREATE TABLE RoomStatus (
     room_status ENUM('available', 'occupied', 'maintenance', 'reserved') NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted TINYINT(1) DEFAULT 0
+    is_deleted BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE RoomType (
     room_type_id INT AUTO_INCREMENT PRIMARY KEY,
-    type_name ENUM('regular', 'deluxe', 'executive') NOT NULL,
+    type_name VARCHAR(100),
+    description TEXT,
+    key_features TEXT,
+    room_size_sqm DECIMAL(5,2),
     max_capacity INT,
     price_per_stay DECIMAL(10,2),
+    image_url VARCHAR(255),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted TINYINT(1) DEFAULT 0
+    is_deleted BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE Room (
@@ -105,7 +107,7 @@ CREATE TABLE Room (
     room_number VARCHAR(20),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted TINYINT(1) DEFAULT 0,
+    is_deleted BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (room_status_id) REFERENCES RoomStatus(room_status_id),
     FOREIGN KEY (room_type_id) REFERENCES RoomType(room_type_id)
 );
@@ -116,7 +118,7 @@ CREATE TABLE ReservedRoom (
     room_id INT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted TINYINT(1) DEFAULT 0,
+    is_deleted BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (reservation_id) REFERENCES Reservation(reservation_id),
     FOREIGN KEY (room_id) REFERENCES Room(room_id)
 );
@@ -127,8 +129,19 @@ CREATE TABLE BillingStatus (
     billing_status ENUM('unpaid', 'paid', 'partial', 'overdue') NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted TINYINT(1) DEFAULT 0
+    is_deleted BOOLEAN DEFAULT FALSE
 );
+
+CREATE TABLE ReservedRoomCompanion (
+    companion_id INT AUTO_INCREMENT PRIMARY KEY,
+    reserved_room_id INT,
+    full_name VARCHAR(150) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT FALSE,
+    FOREIGN KEY (reserved_room_id) REFERENCES ReservedRoom(reserved_room_id)
+);
+
 
 CREATE TABLE Billing (
     billing_id INT AUTO_INCREMENT PRIMARY KEY,
@@ -138,17 +151,17 @@ CREATE TABLE Billing (
     billing_date DATE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted TINYINT(1) DEFAULT 0,
+    is_deleted BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (reservation_id) REFERENCES Reservation(reservation_id),
     FOREIGN KEY (billing_status_id) REFERENCES BillingStatus(billing_status_id)
 );
 
 CREATE TABLE AddonCategory (
     category_id INT AUTO_INCREMENT PRIMARY KEY,
-    category_name ENUM('toiletries', 'food') NOT NULL,
+    category_name VARCHAR(100),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted TINYINT(1) DEFAULT 0
+    is_deleted BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE Addon (
@@ -159,7 +172,7 @@ CREATE TABLE Addon (
     price DECIMAL(10,2),
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted TINYINT(1) DEFAULT 0,
+    is_deleted BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (category_id) REFERENCES AddonCategory(category_id)
 );
 
@@ -171,7 +184,7 @@ CREATE TABLE BillingAddon (
     quantity INT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted TINYINT(1) DEFAULT 0,
+    is_deleted BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (addon_id) REFERENCES Addon(addon_id),
     FOREIGN KEY (billing_id) REFERENCES Billing(billing_id)
 );
@@ -182,7 +195,7 @@ CREATE TABLE AddonOrderStatus (
     order_status_name ENUM('pending', 'processing', 'delivered', 'cancelled') NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted TINYINT(1) DEFAULT 0
+    is_deleted BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE AddonOrder (
@@ -193,7 +206,7 @@ CREATE TABLE AddonOrder (
     order_date DATE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted TINYINT(1) DEFAULT 0,
+    is_deleted BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (user_id) REFERENCES User(user_id),
     FOREIGN KEY (reservation_id) REFERENCES Reservation(reservation_id),
     FOREIGN KEY (order_status_id) REFERENCES AddonOrderStatus(order_status_id)
@@ -205,7 +218,7 @@ CREATE TABLE AddonOrderItem (
     addon_id INT,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted TINYINT(1) DEFAULT 0,
+    is_deleted BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (addon_order_id) REFERENCES AddonOrder(addon_order_id),
     FOREIGN KEY (addon_id) REFERENCES Addon(addon_id)
 );
@@ -213,18 +226,19 @@ CREATE TABLE AddonOrderItem (
 -- PAYMENTS
 CREATE TABLE PaymentSubMethodCategory (
     payment_category_id INT AUTO_INCREMENT PRIMARY KEY,
-    name ENUM('e-wallet', 'bank') NOT NULL,
+    name ENUM('e-wallet', 'bank', 'credit card') NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted TINYINT(1) DEFAULT 0
+    is_deleted BOOLEAN DEFAULT FALSE
 );
 
 CREATE TABLE PaymentSubMethod (
     sub_method_id INT AUTO_INCREMENT PRIMARY KEY,
     payment_category_id INT,
+    name VARCHAR(100) NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted TINYINT(1) DEFAULT 0,
+    is_deleted BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (payment_category_id) REFERENCES PaymentSubMethodCategory(payment_category_id)
 );
 
@@ -238,21 +252,9 @@ CREATE TABLE Payment (
     payment_date DATE,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted TINYINT(1) DEFAULT 0,
+    is_deleted BOOLEAN DEFAULT FALSE,
     FOREIGN KEY (user_id) REFERENCES User(user_id),
     FOREIGN KEY (billing_id) REFERENCES Billing(billing_id),
     FOREIGN KEY (reservation_id) REFERENCES Reservation(reservation_id),
     FOREIGN KEY (sub_method_id) REFERENCES PaymentSubMethod(sub_method_id)
-);
-
-CREATE TABLE PaymentAddon (
-    payment_addon_id INT AUTO_INCREMENT PRIMARY KEY,
-    payment_id INT,
-    addon_id INT,
-    quantity INT,
-    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    is_deleted TINYINT(1) DEFAULT 0,
-    FOREIGN KEY (payment_id) REFERENCES Payment(payment_id),
-    FOREIGN KEY (addon_id) REFERENCES Addon(addon_id)
 );

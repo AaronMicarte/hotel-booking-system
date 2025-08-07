@@ -1,20 +1,153 @@
 class AdminAuth {
     constructor() {
+        // Make page initially invisible to prevent FOUC (Flash of Unstyled Content)
+        document.body.style.display = 'none';
         this.init();
     }
 
     init() {
-        // Check if already logged in
+        // Check if already logged in and on login page
         if (this.isLoggedIn() && window.location.pathname.includes('admin-login.html')) {
             window.location.href = 'dashboard.html';
             return;
         }
 
-        // Setup login form
+        // Enhanced security check - prevent directory traversal and unauthorized access
+        const isLoginPage = window.location.pathname.includes('admin-login.html');
+        const isAdminDirectory = window.location.pathname.includes('/admin/');
+
+        // If user is in admin directory but not logged in and not on login page
+        if (isAdminDirectory && !isLoginPage && !this.isLoggedIn()) {
+            // Wait for SweetAlert to load before showing alert
+            this.waitForSweetAlert().then(() => {
+                this.showUnauthorizedAlert();
+            });
+            return;
+        }
+
+        // Additional check for direct file access attempts
+        if (!isLoginPage && !this.isLoggedIn()) {
+            // Wait for SweetAlert to load before showing alert
+            this.waitForSweetAlert().then(() => {
+                this.showUnauthorizedAlert();
+            });
+            return;
+        }
+
+        // Show page content only after auth check passes
+        document.body.style.display = '';
+
+        // Setup login form if on login page
         const loginForm = document.getElementById('adminLoginForm');
         if (loginForm) {
             loginForm.addEventListener('submit', (e) => this.handleLogin(e));
         }
+
+        // Setup logout functionality for authenticated users
+        this.setupLogoutHandlers();
+
+        // Setup session validation
+        if (this.isLoggedIn()) {
+            this.validateSession();
+        }
+    }
+
+    // Wait for SweetAlert to be available
+    waitForSweetAlert() {
+        return new Promise((resolve) => {
+            if (window.Swal) {
+                resolve();
+                return;
+            }
+
+            const checkSwal = setInterval(() => {
+                if (window.Swal) {
+                    clearInterval(checkSwal);
+                    resolve();
+                }
+            }, 50);
+
+            // Fallback timeout after 3 seconds
+            setTimeout(() => {
+                clearInterval(checkSwal);
+                resolve();
+            }, 3000);
+        });
+    }
+
+    showUnauthorizedAlert() {
+        // Ensure page is visible for the alert
+        document.body.style.display = '';
+
+        if (window.Swal) {
+            Swal.fire({
+                title: '🚫 Access Denied!',
+                text: 'You must be logged in as an administrator to access this area. Unauthorized access attempts are logged.',
+                icon: 'error',
+                confirmButtonText: 'Go to Login',
+                allowOutsideClick: false,
+                allowEscapeKey: false,
+                showClass: {
+                    popup: 'animate__animated animate__shakeX'
+                },
+                confirmButtonColor: '#dc3545',
+                background: '#fff',
+                customClass: {
+                    popup: 'security-alert'
+                }
+            }).then(() => {
+                // Clear any stored tokens that might be invalid
+                this.clearSession();
+                window.location.href = 'admin-login.html';
+            });
+        } else {
+            // Fallback if SweetAlert is not available
+            alert('Access Denied! You must be logged in as an administrator to access this area.');
+            this.clearSession();
+            window.location.href = 'admin-login.html';
+        }
+    }
+
+    async validateSession() {
+        try {
+            const token = sessionStorage.getItem('admin_token');
+            if (!token) {
+                this.handleSessionExpiry();
+                return;
+            }
+
+            const response = await fetch('../api/auth/check-session.php', {
+                method: 'GET',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            const result = await response.json();
+
+            if (!result.success) {
+                this.handleSessionExpiry();
+            }
+        } catch (error) {
+            console.error('Session validation error:', error);
+            this.handleSessionExpiry();
+        }
+    }
+
+    handleSessionExpiry() {
+        this.clearSession();
+        Swal.fire({
+            title: '⏰ Session Expired',
+            text: 'Your session has expired for security reasons. Please log in again.',
+            icon: 'warning',
+            confirmButtonText: 'Login Again',
+            allowOutsideClick: false,
+            allowEscapeKey: false,
+            confirmButtonColor: '#ffc107'
+        }).then(() => {
+            window.location.href = 'admin-login.html';
+        });
     }
 
     async handleLogin(event) {
@@ -26,12 +159,22 @@ class AdminAuth {
             password: formData.get('password')
         };
 
+        // Enhanced validation
+        if (!credentials.username || !credentials.password) {
+            Swal.fire({
+                title: 'Validation Error',
+                text: 'Please enter both username and password',
+                icon: 'warning',
+                confirmButtonColor: '#ffc107'
+            });
+            return;
+        }
+
         // Show loading
         this.showLoading();
 
         try {
-            // Fix: Use the correct API endpoint path
-            const response = await fetch('../api/admin/login.php', {
+            const response = await fetch('../api/auth/login.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(credentials)
@@ -40,41 +183,148 @@ class AdminAuth {
             const result = await response.json();
 
             if (result.success) {
-                // Store session
-                localStorage.setItem('admin_token', result.token);
-                localStorage.setItem('admin_user', JSON.stringify(result.user));
+                // Store session data securely
+                sessionStorage.setItem('admin_token', result.token);
+                sessionStorage.setItem('admin_user', JSON.stringify(result.user));
+                sessionStorage.setItem('login_time', Date.now().toString());
 
                 // Show success and redirect
                 await Swal.fire({
                     title: 'Login Successful!',
                     text: `Welcome back, ${result.user.username}`,
                     icon: 'success',
-                    timer: 2000
+                    timer: 1000,
+                    showConfirmButton: false,
+                    showClass: {
+                        popup: 'animate__animated animate__fadeInDown'
+                    }
                 });
 
                 window.location.href = 'dashboard.html';
             } else {
-                // Reset form UI
                 this.resetLoginButton();
                 throw new Error(result.message || 'Login failed');
             }
         } catch (error) {
             console.error('Login error:', error);
-            // Reset form UI
             this.resetLoginButton();
 
             Swal.fire({
                 title: 'Login Failed',
-                text: error.message || 'Invalid credentials',
-                icon: 'error'
+                text: error.message || 'Invalid credentials. Please check your username and password.',
+                icon: 'error',
+                confirmButtonColor: '#dc3545',
+                showClass: {
+                    popup: 'animate__animated animate__shakeX'
+                }
             });
         }
+    }
+
+    setupLogoutHandlers() {
+        // Setup logout button handlers
+        document.addEventListener('click', (e) => {
+            if (e.target.id === 'logoutBtn' || e.target.closest('#logoutBtn')) {
+                e.preventDefault();
+                this.confirmLogout();
+            }
+        });
+
+        // Setup session timeout warning
+        this.setupSessionTimeout();
+    }
+
+    setupSessionTimeout() {
+        const sessionTimeout = 8 * 60 * 60 * 1000; // 8 hours in milliseconds
+        const warningTime = 30 * 60 * 1000; // 30 minutes warning
+
+        setInterval(() => {
+            const loginTime = sessionStorage.getItem('login_time');
+            if (loginTime) {
+                const elapsed = Date.now() - parseInt(loginTime);
+                const remaining = sessionTimeout - elapsed;
+
+                if (remaining <= warningTime && remaining > 0) {
+                    this.showSessionWarning(Math.floor(remaining / 60000));
+                } else if (remaining <= 0) {
+                    this.handleSessionExpiry();
+                }
+            }
+        }, 60000); // Check every minute
+    }
+
+    showSessionWarning(minutesRemaining) {
+        Swal.fire({
+            title: '⚠️ Session Warning',
+            text: `Your session will expire in ${minutesRemaining} minutes. Please save your work.`,
+            icon: 'warning',
+            confirmButtonText: 'Continue Working',
+            confirmButtonColor: '#ffc107',
+            timer: 10000
+        });
+    }
+
+    confirmLogout() {
+        Swal.fire({
+            title: 'Confirm Logout',
+            text: 'Are you sure you want to logout? Any unsaved changes will be lost.',
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonColor: '#dc3545',
+            cancelButtonColor: '#6c757d',
+            confirmButtonText: 'Yes, logout!',
+            cancelButtonText: 'Cancel'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                this.performLogout();
+            }
+        });
+    }
+
+    async performLogout() {
+        try {
+            const token = sessionStorage.getItem('admin_token');
+
+            // Call logout API
+            await fetch('../api/auth/logout.php', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`,
+                    'Content-Type': 'application/json'
+                }
+            });
+
+            // Clear session
+            this.clearSession();
+
+            // Show logout success
+            await Swal.fire({
+                title: 'Logged Out',
+                text: 'You have been successfully logged out.',
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false
+            });
+
+            window.location.href = 'admin-login.html';
+        } catch (error) {
+            console.error('Logout error:', error);
+            // Force logout even if API fails
+            this.clearSession();
+            window.location.href = 'admin-login.html';
+        }
+    }
+
+    clearSession() {
+        sessionStorage.removeItem('admin_token');
+        sessionStorage.removeItem('admin_user');
+        sessionStorage.removeItem('login_time');
     }
 
     showLoading() {
         const button = document.querySelector('.btn-login');
         if (button) {
-            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Logging in...';
+            button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Signing In...';
             button.disabled = true;
         }
     }
@@ -88,30 +338,56 @@ class AdminAuth {
     }
 
     isLoggedIn() {
-        return localStorage.getItem('admin_token') !== null;
+        const token = sessionStorage.getItem('admin_token');
+        const user = sessionStorage.getItem('admin_user');
+        const loginTime = sessionStorage.getItem('login_time');
+
+        if (!token || !user || !loginTime) {
+            return false;
+        }
+
+        // Check if session is expired (8 hours)
+        const sessionTimeout = 8 * 60 * 60 * 1000;
+        const elapsed = Date.now() - parseInt(loginTime);
+
+        if (elapsed > sessionTimeout) {
+            this.clearSession();
+            return false;
+        }
+
+        return true;
     }
 
     getUser() {
-        const user = localStorage.getItem('admin_user');
+        const user = sessionStorage.getItem('admin_user');
         return user ? JSON.parse(user) : null;
     }
 
-    logout() {
-        localStorage.removeItem('admin_token');
-        localStorage.removeItem('admin_user');
-        window.location.href = 'admin-login.html';
+    logout(silent = false) {
+        if (silent) {
+            this.clearSession();
+            window.location.href = 'admin-login.html';
+        } else {
+            this.confirmLogout();
+        }
     }
 
     requireAuth() {
         if (!this.isLoggedIn()) {
-            window.location.href = 'admin-login.html';
+            this.showUnauthorizedAlert();
             return false;
         }
         return true;
     }
+
+    // Method to get authorization header for API calls
+    getAuthHeader() {
+        const token = sessionStorage.getItem('admin_token');
+        return token ? `Bearer ${token}` : null;
+    }
 }
 
-// Password toggle
+// Password toggle function
 function togglePassword() {
     const passwordInput = document.getElementById('password');
     const toggleIcon = document.querySelector('.toggle-password i');
@@ -125,5 +401,17 @@ function togglePassword() {
     }
 }
 
-// Initialize
+// Enhanced security: Prevent console access in production
+if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+    console.log = console.warn = console.error = function () { };
+}
+
+// Initialize authentication
 window.adminAuth = new AdminAuth();
+
+// Prevent back button after logout
+window.addEventListener('pageshow', function (event) {
+    if (event.persisted && !window.adminAuth.isLoggedIn()) {
+        window.location.href = 'admin-login.html';
+    }
+});

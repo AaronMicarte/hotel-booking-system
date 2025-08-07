@@ -3,7 +3,7 @@ class Database
 {
     // Database credentials
     private $host = "localhost";
-    private $db_name = "hotel_db";
+    private $db_name = "hotel_db"; // Make sure this matches your SQL schema
     private $username = "root";
     private $password = ""; // Default XAMPP password is empty
     public $conn;
@@ -19,10 +19,10 @@ class Database
                 $this->username,
                 $this->password
             );
-            $this->conn->exec("set names utf8");
             $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        } catch (PDOException $exception) {
-            echo "Connection error: " . $exception->getMessage();
+            $this->conn->exec("set names utf8");
+        } catch (PDOException $e) {
+            echo "Connection error: " . $e->getMessage();
         }
 
         return $this->conn;

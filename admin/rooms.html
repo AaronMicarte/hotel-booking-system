@@ -52,6 +52,12 @@
                     </a>
                 </li>
                 <li>
+                    <a href="add-users.html">
+                        <i class="fas fa-user-plus"></i>
+                        <span>Add Users</span>
+                    </a>
+                </li>
+                <li>
                     <a href="guests.html">
                         <i class="fas fa-users"></i>
                         <span>Guests</span>
@@ -108,108 +114,171 @@
 
             <!-- Rooms Content -->
             <div class="dashboard-content">
-                <!-- Action Bar -->
-                <div class="row mb-4">
-                    <div class="col-md-8">
-                        <div class="input-group">
-                            <input type="text" id="searchRoom" class="form-control"
-                                placeholder="Search by room number, type or status...">
-                            <button id="searchBtn" class="btn btn-primary">
-                                <i class="fas fa-search"></i> Search
-                            </button>
-                        </div>
-                    </div>
-                    <div class="col-md-4 text-end">
-                        <button id="addRoomBtn" class="btn btn-primary">
-                            <i class="fas fa-plus"></i> Add Room
+                <!-- Tab Navigation -->
+                <ul class="nav nav-tabs mb-4" id="roomTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="rooms-tab" data-bs-toggle="tab"
+                            data-bs-target="#rooms-content" type="button" role="tab" aria-controls="rooms-content"
+                            aria-selected="true">
+                            <i class="fas fa-bed me-2"></i>Rooms
                         </button>
-                    </div>
-                </div>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="roomtypes-tab" data-bs-toggle="tab"
+                            data-bs-target="#roomtypes-content" type="button" role="tab"
+                            aria-controls="roomtypes-content" aria-selected="false">
+                            <i class="fas fa-tags me-2"></i>Room Types
+                        </button>
+                    </li>
+                </ul>
 
-                <!-- Filters -->
-                <div class="row mb-4">
-                    <div class="col-md-12">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5><i class="fas fa-filter"></i> Filters</h5>
+                <!-- Tab Content -->
+                <div class="tab-content" id="roomTabsContent">
+                    <!-- Rooms Tab -->
+                    <div class="tab-pane fade show active" id="rooms-content" role="tabpanel"
+                        aria-labelledby="rooms-tab">
+                        <!-- Action Bar -->
+                        <div class="row mb-4">
+                            <div class="col-md-8">
+                                <div class="input-group">
+                                    <input type="text" id="searchRoom" class="form-control"
+                                        placeholder="Search by room number, type or status...">
+                                    <button id="searchBtn" class="btn btn-primary">
+                                        <i class="fas fa-search"></i> Search
+                                    </button>
+                                </div>
                             </div>
-                            <div class="card-body">
-                                <div class="row g-3">
-                                    <div class="col-md-4">
-                                        <label for="typeFilter" class="form-label">Room Type</label>
-                                        <select id="typeFilter" class="form-select">
-                                            <option value="">All Types</option>
-                                            <option value="regular">Regular</option>
-                                            <option value="deluxe">Deluxe</option>
-                                            <option value="executive">Executive</option>
-                                        </select>
+                            <div class="col-md-4 text-end">
+                                <button id="addRoomBtn" class="btn btn-primary">
+                                    <i class="fas fa-plus"></i> Add Room
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- Filters -->
+                        <div class="row mb-4">
+                            <div class="col-md-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5><i class="fas fa-filter"></i> Filters</h5>
                                     </div>
-                                    <div class="col-md-4">
-                                        <label for="statusFilter" class="form-label">Status</label>
-                                        <select id="statusFilter" class="form-select">
-                                            <option value="">All Statuses</option>
-                                            <option value="available">Available</option>
-                                            <option value="occupied">Occupied</option>
-                                            <option value="maintenance">Maintenance</option>
-                                            <option value="reserved">Reserved</option>
-                                        </select>
+                                    <div class="card-body">
+                                        <div class="row g-3">
+                                            <div class="col-md-4">
+                                                <label for="typeFilter" class="form-label">Room Type</label>
+                                                <select id="typeFilter" class="form-select">
+                                                    <option value="">All Types</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4">
+                                                <label for="statusFilter" class="form-label">Status</label>
+                                                <select id="statusFilter" class="form-select">
+                                                    <option value="">All Statuses</option>
+                                                    <option value="available">Available</option>
+                                                    <option value="occupied">Occupied</option>
+                                                    <option value="maintenance">Maintenance</option>
+                                                    <option value="reserved">Reserved</option>
+                                                </select>
+                                            </div>
+                                            <div class="col-md-4 d-flex align-items-end">
+                                                <button id="applyFilters" class="btn btn-primary w-100">
+                                                    <i class="fas fa-check"></i> Apply Filters
+                                                </button>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div class="col-md-4 d-flex align-items-end">
-                                        <button id="applyFilters" class="btn btn-primary w-100">
-                                            <i class="fas fa-check"></i> Apply Filters
-                                        </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Rooms Table -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <h5><i class="fas fa-bed"></i> Rooms</h5>
+                                        <div>
+                                            <span id="totalRooms" class="badge bg-primary">0</span> Room(s)
+                                        </div>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="table-responsive">
+                                            <table class="table table-striped">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Room #</th>
+                                                        <th>Type</th>
+                                                        <th>Features</th>
+                                                        <th>Status</th>
+                                                        <th>Capacity</th>
+                                                        <th>Price/24h</th>
+                                                        <th>Last Updated</th>
+                                                        <th class="text-center">Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="roomsTableBody">
+                                                    <tr>
+                                                        <td colspan="7" class="text-center">
+                                                            <div class="admin-loading">Loading rooms data...</div>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
 
-                <!-- Rooms Table -->
-                <div class="row">
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <h5><i class="fas fa-bed"></i> Rooms</h5>
-                                <div>
-                                    <span id="totalRooms" class="badge bg-primary">0</span> Room(s)
-                                </div>
+                    <!-- Room Types Tab -->
+                    <div class="tab-pane fade" id="roomtypes-content" role="tabpanel" aria-labelledby="roomtypes-tab">
+                        <!-- Room Types Action Bar -->
+                        <div class="row mb-4">
+                            <div class="col-md-8">
+                                <h4>Manage Room Types</h4>
+                                <p class="text-muted">Create and manage room types with different features and pricing
+                                </p>
                             </div>
-                            <div class="card-body">
-                                <div class="table-responsive">
-                                    <table class="table table-striped">
-                                        <thead>
-                                            <tr>
-                                                <th>Room #</th>
-                                                <th>Type</th>
-                                                <th>Status</th>
-                                                <th>Capacity</th>
-                                                <th>Price/24h</th>
-                                                <th>Last Updated</th>
-                                                <th class="text-center">Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="roomsTableBody">
-                                            <tr>
-                                                <td colspan="6" class="text-center">
-                                                    <div class="admin-loading">Loading rooms data...</div>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
+                            <div class="col-md-4 text-end">
+                                <button id="addRoomTypeBtn" class="btn btn-primary">
+                                    <i class="fas fa-plus"></i> Add Room Type
+                                </button>
+                            </div>
+                        </div>
 
-                                <!-- Pagination -->
-                                <div class="d-flex justify-content-between align-items-center mt-4">
-                                    <div class="pagination-info">
-                                        Showing <span id="paginationFrom">0</span> to <span id="paginationTo">0</span>
-                                        of <span id="paginationTotal">0</span> rooms
+                        <!-- Room Types Table -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header">
+                                        <h5><i class="fas fa-tags"></i> Room Types</h5>
                                     </div>
-                                    <nav aria-label="Rooms pagination">
-                                        <ul id="roomsPagination" class="pagination">
-                                            <!-- Pagination will be generated by JS -->
-                                        </ul>
-                                    </nav>
+                                    <div class="card-body">
+                                        <div class="table-responsive">
+                                            <table class="table table-striped">
+                                                <thead>
+                                                    <tr>
+                                                        <th>Image</th>
+                                                        <th>Type Name</th>
+                                                        <th>Description</th>
+                                                        <th>Key Features</th>
+                                                        <th>Max Capacity</th>
+                                                        <th>Price/Stay</th>
+                                                        <th>Room Size</th>
+                                                        <th class="text-center">Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="roomTypesTableBody">
+                                                    <tr>
+                                                        <td colspan="7" class="text-center">
+                                                            <div class="admin-loading">Loading room types data...</div>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -238,18 +307,6 @@
                             <label for="roomType" class="form-label">Room Type</label>
                             <select class="form-select" id="roomType" required>
                                 <option value="">-- Select Room Type --</option>
-                                <option value="regular">Regular</option>
-                                <option value="deluxe">Deluxe</option>
-                                <option value="executive">Executive</option>
-                            </select>
-                        </div>
-                        <div class="mb-3">
-                            <label for="roomStatus" class="form-label">Status</label>
-                            <select class="form-select" id="roomStatus" required>
-                                <option value="available">Available</option>
-                                <option value="maintenance">Maintenance</option>
-                                <option value="reserved">Reserved</option>
-                                <option value="occupied">Occupied</option>
                             </select>
                         </div>
                     </form>
@@ -262,12 +319,67 @@
         </div>
     </div>
 
+    <!-- Room Type Modal -->
+    <div class="modal fade" id="roomTypeModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="roomTypeModalLabel">Add New Room Type</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <form id="roomTypeForm">
+                        <input type="hidden" id="roomTypeId">
+                        <div class="mb-3">
+                            <label for="typeName" class="form-label">Type Name</label>
+                            <input type="text" class="form-control" id="typeName" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="typeDescription" class="form-label">Description</label>
+                            <textarea class="form-control" id="typeDescription" rows="3"></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="keyFeatures" class="form-label">Key Features</label>
+                            <textarea class="form-control" id="keyFeatures" rows="2"
+                                placeholder="e.g. WiFi, Air conditioning, Mini bar, etc."></textarea>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <label for="maxCapacity" class="form-label">Max Capacity</label>
+                                <input type="number" class="form-control" id="maxCapacity" min="1" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="pricePerStay" class="form-label">Price Per Stay (₱)</label>
+                                <input type="number" class="form-control" id="pricePerStay" min="0" step="0.01"
+                                    required>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="roomSize" class="form-label">Room Size (sqm)</label>
+                            <input type="number" class="form-control" id="roomSize" min="0" step="0.01">
+                        </div>
+                        <div class="mb-3">
+                            <label for="roomImage" class="form-label">Room Image</label>
+                            <input type="file" class="form-control" id="roomImage" accept="image/*">
+                            <div class="form-text">Upload an image for the room type (JPG, PNG, etc.)</div>
+                            <div id="imagePreview" class="mt-2"></div>
+                        </div>
+                    </form>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="saveRoomTypeBtn" class="btn btn-primary">Save Room Type</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="../assets/js/admin/auth.js"></script>
-    <script type="module" src="../assets/js/admin/rooms.js"></script>
+    <script src="../assets/js/admin/rooms.js"></script>
 </body>
 
 </html>

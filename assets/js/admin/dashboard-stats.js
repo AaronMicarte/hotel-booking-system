@@ -1,312 +1,138 @@
 /**
- * Dashboard Statistics Manager
- * Handles fetching and displaying dashboard statistics
+ * Dashboard Statistics
+ * Fetches and displays statistics on the admin dashboard
  */
+(function () {
+    // ### LOAD DASHBOARD STATS ###
+    async function loadDashboardStats() {
+        try {
+            // Fetch dashboard data from API
+            const response = await axios.get('/Hotel-Reservation-Billing-System/api/admin/dashboard/dashboard.php');
+            const data = response.data;
 
-// Make the refresh function available globally
-window.refreshDashboardStats = loadDashboardStats;
+            if (data.status === 'success') {
+                // ### ROOM STATS ###
+                // Update room statistics
+                document.getElementById('totalRooms').textContent = data.stats.totalRooms || 0;
+                document.getElementById('availableRooms').textContent = data.stats.availableRooms || 0;
 
-document.addEventListener('DOMContentLoaded', function () {
-    // Load dashboard statistics when page loads
-    loadDashboardStats();
-});
+                // ### GUEST STATS ###
+                // Update guest count
+                document.getElementById('totalGuests').textContent = data.stats.totalGuests || 0;
 
-/**
- * Fetch dashboard statistics from the API
- */
-async function loadDashboardStats() {
-    try {
-        showLoadingState();
+                // ### RESERVATION STATS ###
+                // Update active reservations
+                document.getElementById('activeReservations').textContent = data.stats.activeReservations || 0;
 
-        // Get date range values if date filters exist
-        const startDate = document.getElementById('startDate')?.value || '';
-        const endDate = document.getElementById('endDate')?.value || '';
+                // ### REVENUE STATS ###
+                // Update total revenue with proper formatting
+                const revenue = parseFloat(data.stats.totalRevenue || 0).toLocaleString('en-PH', {
+                    style: 'currency',
+                    currency: 'PHP'
+                });
+                document.getElementById('totalRevenue').textContent = revenue;
 
-        // Add date parameters if provided
-        let url = '../api/dashboard/stats.php';
-        if (startDate && endDate) {
-            url += `?start_date=${startDate}&end_date=${endDate}`;
+                // ### RECENT RESERVATIONS ###
+                // Load recent reservations into table
+                loadRecentReservations(data.reservations || []);
+
+                // ### ROOM STATUS CHART ###
+                renderRoomStatusChart(data.stats.roomStatus || []);
+
+                console.log('Dashboard stats loaded successfully');
+            } else {
+                console.error('Error loading dashboard stats:', data.message);
+            }
+        } catch (error) {
+            console.error('Failed to load dashboard stats:', error);
+        }
+    }
+
+    // ### RECENT RESERVATIONS TABLE ###
+    function loadRecentReservations(reservations) {
+        const tbody = document.getElementById('recentReservationsBody');
+        if (!tbody) return;
+
+        if (!reservations || reservations.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5" class="text-center">No recent reservations found</td></tr>';
+            return;
         }
 
-        const response = await axios.get(url);
-        const data = response.data;
+        tbody.innerHTML = '';
+        reservations.forEach(res => {
+            tbody.innerHTML += `
+                <tr>
+                    <td>${res.reservation_id}</td>
+                    <td>${res.guest_name}</td>
+                    <td>${res.check_in_date}</td>
+                    <td>${res.check_out_date}</td>
+                    <td><span class="badge bg-${getStatusColor(res.status)}">${res.status}</span></td>
+                </tr>
+            `;
+        });
+    }
 
-        console.log('Dashboard data loaded:', data);
+    // Helper to get status color
+    function getStatusColor(status) {
+        status = (status || '').toLowerCase();
+        if (status === 'confirmed') return 'success';
+        if (status === 'pending') return 'warning';
+        if (status === 'checked_in') return 'primary';
+        if (status === 'checked_out') return 'info';
+        if (status === 'cancelled') return 'danger';
+        return 'secondary';
+    }
 
-        // Update statistics on the page
-        updateStatCards(data);
-        updateRevenueDisplay(data.total_revenue);
-        updateRoomStatusChart(data.room_status_distribution);
-        updateRecentReservations(data.recent_reservations);
-
-        // Update date-based charts if they exist
-        if (data.revenue_by_date && window.updateRevenueChart) {
-            window.updateRevenueChart(data.revenue_by_date);
+    // ### ROOM STATUS CHART ###
+    function renderRoomStatusChart(statusData) {
+        const chartDiv = document.getElementById('roomStatusChart');
+        if (!chartDiv) return;
+        if (!statusData || statusData.length === 0) {
+            chartDiv.innerHTML = '<div class="text-muted text-center">No data</div>';
+            return;
         }
-
-        if (data.booking_count_by_date && window.updateBookingChart) {
-            window.updateBookingChart(data.booking_count_by_date);
-        }
-
-        hideLoadingState();
-        return data;
-    } catch (error) {
-        console.error('Error loading dashboard stats:', error);
-        handleApiError(error);
-        hideLoadingState();
-        throw error;
-    }
-}
-
-/**
- * Show loading state on dashboard elements
- */
-function showLoadingState() {
-    // Update stat cards to show loading
-    document.querySelectorAll('.stats-info h3').forEach(el => {
-        el.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    });
-
-    // Update recent reservations to show loading
-    const tableBody = document.getElementById('recentReservationsBody');
-    if (tableBody) {
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="5" class="text-center">
-                    <div class="admin-loading">Loading reservation data...</div>
-                </td>
-            </tr>
-        `;
-    }
-
-    // Revenue loading
-    const revenueElement = document.getElementById('totalRevenue');
-    if (revenueElement) {
-        revenueElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
-    }
-
-    // Room status chart loading
-    const chartContainer = document.getElementById('roomStatusChart');
-    if (chartContainer) {
-        chartContainer.innerHTML = '<div class="admin-loading">Loading chart data...</div>';
-    }
-}
-
-/**
- * Hide loading state on dashboard elements
- */
-function hideLoadingState() {
-    // Nothing specific needed here since we replace content directly
-}
-
-/**
- * Update statistic cards with data
- */
-function updateStatCards(data) {
-    // Update total rooms
-    const totalRoomsElement = document.getElementById('totalRooms');
-    if (totalRoomsElement) {
-        totalRoomsElement.textContent = data.total_rooms;
-    }
-
-    // Update available rooms
-    const availableRoomsElement = document.getElementById('availableRooms');
-    if (availableRoomsElement) {
-        availableRoomsElement.textContent = data.available_rooms;
-    }
-
-    // Update total guests
-    const totalGuestsElement = document.getElementById('totalGuests');
-    if (totalGuestsElement) {
-        totalGuestsElement.textContent = data.total_guests;
-    }
-
-    // Update active reservations
-    const activeReservationsElement = document.getElementById('activeReservations');
-    if (activeReservationsElement) {
-        activeReservationsElement.textContent = data.active_reservations;
-    }
-}
-
-/**
- * Update revenue display
- */
-function updateRevenueDisplay(revenue) {
-    const formatter = new Intl.NumberFormat('en-PH', {
-        style: 'currency',
-        currency: 'PHP',
-        minimumFractionDigits: 2
-    });
-
-    const revenueElement = document.getElementById('totalRevenue');
-    if (revenueElement) {
-        revenueElement.textContent = formatter.format(revenue);
-    }
-}
-
-/**
- * Update room status chart
- */
-function updateRoomStatusChart(distribution) {
-    const chartContainer = document.getElementById('roomStatusChart');
-    if (!chartContainer) return;
-
-    chartContainer.innerHTML = '';
-
-    const statusLabels = {
-        'available': 'Available',
-        'occupied': 'Occupied',
-        'maintenance': 'Maintenance'
-    };
-
-    const statusColors = {
-        'available': '#28a745',
-        'occupied': '#ffc107',
-        'maintenance': '#dc3545'
-    };
-
-    const total = Object.values(distribution).reduce((sum, count) => sum + count, 0);
-
-    if (total === 0) {
-        chartContainer.innerHTML = '<div class="text-center text-muted">No room data available</div>';
-        return;
-    }
-
-    let chartHtml = '<div class="room-status-chart">';
-
-    // Create chart bars
-    chartHtml += '<div class="chart-bars">';
-    for (const [status, count] of Object.entries(distribution)) {
-        const percentage = total > 0 ? (count / total * 100).toFixed(1) : 0;
-        chartHtml += `
-            <div class="chart-bar-container">
-                <div class="chart-label">${statusLabels[status] || status}: ${count}</div>
-                <div class="chart-bar" style="width: ${percentage}%; background-color: ${statusColors[status] || '#6c757d'}"></div>
-                <div class="chart-percentage">${percentage}%</div>
+        // Bootstrap color mapping
+        const colorMap = {
+            'available': 'success',
+            'occupied': 'danger',
+            'maintenance': 'warning',
+            'reserved': 'info'
+        };
+        // Calculate total for percentage
+        const total = statusData.reduce((sum, s) => sum + parseInt(s.count), 0);
+        chartDiv.innerHTML = `
+            <div class="d-flex flex-column gap-2">
+                ${statusData.map(s => `
+                    <div>
+                        <span class="fw-bold text-capitalize">${s.status}</span>
+                        <div class="progress" style="height: 20px;">
+                            <div class="progress-bar bg-${colorMap[s.status] || 'secondary'}" 
+                                 role="progressbar" 
+                                 style="width: ${(total ? (s.count / total * 100) : 0).toFixed(1)}%;" 
+                                 aria-valuenow="${s.count}" 
+                                 aria-valuemin="0" 
+                                 aria-valuemax="${total}">
+                                ${s.count} (${total ? ((s.count / total * 100).toFixed(1)) : 0}%)
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
             </div>
         `;
     }
-    chartHtml += '</div>';
 
-    // Add simple legend
-    chartHtml += '<div class="chart-legend">';
-    for (const [status, label] of Object.entries(statusLabels)) {
-        if (distribution[status] !== undefined) {
-            chartHtml += `
-                <div class="legend-item">
-                    <span class="legend-color" style="background-color: ${statusColors[status]}"></span>
-                    <span>${label}</span>
-                </div>
-            `;
+    // ### INITIALIZE DASHBOARD ###
+    function initDashboard() {
+        // Load stats when page loads
+        loadDashboardStats();
+
+        // Set up refresh button
+        const refreshBtn = document.getElementById('refreshBtn');
+        if (refreshBtn) {
+            refreshBtn.addEventListener('click', loadDashboardStats);
         }
     }
-    chartHtml += '</div>';
 
-    chartHtml += '</div>';
-    chartContainer.innerHTML = chartHtml;
-}
-
-/**
- * Update recent reservations table
- */
-function updateRecentReservations(reservations) {
-    const tableBody = document.getElementById('recentReservationsBody');
-    if (!tableBody) return;
-
-    if (!reservations || reservations.length === 0) {
-        tableBody.innerHTML = `
-            <tr>
-                <td colspan="5" class="text-center">No recent reservations found</td>
-            </tr>
-        `;
-        return;
-    }
-
-    let html = '';
-
-    reservations.forEach(reservation => {
-        const statusClass = getStatusClass(reservation.status);
-
-        html += `
-            <tr>
-                <td>${reservation.id}</td>
-                <td>${reservation.guest_name}</td>
-                <td>${formatDate(reservation.check_in_date)}</td>
-                <td>${formatDate(reservation.check_out_date)}</td>
-                <td><span class="badge ${statusClass}">${reservation.status}</span></td>
-            </tr>
-        `;
-    });
-
-    tableBody.innerHTML = html;
-}
-
-/**
- * Get status badge class based on reservation status
- */
-function getStatusClass(status) {
-    const statusLower = status.toLowerCase();
-
-    switch (statusLower) {
-        case 'confirmed':
-            return 'bg-success';
-        case 'pending':
-            return 'bg-warning text-dark';
-        case 'checked-in':
-        case 'checked_in':
-            return 'bg-info';
-        case 'checked-out':
-        case 'checked_out':
-            return 'bg-secondary';
-        case 'cancelled':
-        case 'canceled':
-            return 'bg-danger';
-        default:
-            return 'bg-secondary';
-    }
-}
-
-/**
- * Format date for display
- */
-function formatDate(dateString) {
-    if (!dateString) return 'N/A';
-
-    try {
-        const options = { year: 'numeric', month: 'short', day: 'numeric' };
-        return new Date(dateString).toLocaleDateString('en-US', options);
-    } catch (e) {
-        return dateString; // Return as is if formatting fails
-    }
-}
-
-/**
- * Handle API errors
- */
-function handleApiError(error) {
-    let errorMessage = 'An error occurred while loading dashboard data';
-
-    if (error.response) {
-        // Server responded with a status code outside the 2xx range
-        const responseData = error.response.data;
-        errorMessage = responseData.message || `Server error: ${error.response.status}`;
-
-        // Check for authentication issues
-        if (error.response.status === 401) {
-            errorMessage = 'Your session has expired. Please log in again.';
-            setTimeout(() => {
-                window.location.href = 'admin-login.html';
-            }, 2000);
-        }
-    } else if (error.request) {
-        // Request was made but no response was received
-        errorMessage = 'No response from server. Please check your connection';
-    }
-
-    // Show error message
-    Swal.fire({
-        icon: 'error',
-        title: 'Dashboard Error',
-        text: errorMessage
-    });
-}
+    // Run on page load
+    document.addEventListener('DOMContentLoaded', initDashboard);
+})();

@@ -52,6 +52,12 @@
                     </a>
                 </li>
                 <li>
+                    <a href="add-users.html">
+                        <i class="fas fa-user-plus"></i>
+                        <span>Add Users</span>
+                    </a>
+                </li>
+                <li>
                     <a href="guests.html">
                         <i class="fas fa-users"></i>
                         <span>Guests</span>
@@ -137,8 +143,6 @@
                                 <div class="input-group">
                                     <select id="categoryFilter" class="form-select" style="max-width: 200px;">
                                         <option value="">All Categories</option>
-                                        <option value="toiletries">Toiletries</option>
-                                        <option value="food">Food</option>
                                     </select>
                                     <input type="text" id="searchAddon" class="form-control"
                                         placeholder="Search addons...">
@@ -236,7 +240,6 @@
                                             <tr>
                                                 <th width="10%">#</th>
                                                 <th width="40%">Category Name</th>
-                                                <th width="25%">Items Count</th>
                                                 <th width="25%">Actions</th>
                                             </tr>
                                         </thead>
@@ -276,8 +279,6 @@
                             <label for="addonCategory" class="form-label">Category</label>
                             <select class="form-select" id="addonCategory" required>
                                 <option value="">-- Select Category --</option>
-                                <option value="toiletries">Toiletries</option>
-                                <option value="food">Food</option>
                             </select>
                         </div>
                         <div class="mb-3">
@@ -311,12 +312,8 @@
                         <input type="hidden" id="categoryId">
                         <div class="mb-3">
                             <label for="categoryName" class="form-label">Category Name</label>
-                            <select class="form-select" id="categoryName" required>
-                                <option value="">-- Select Category Type --</option>
-                                <option value="toiletries">Toiletries</option>
-                                <option value="food">Food</option>
-                            </select>
-                            <small class="text-muted">Note: Categories are defined as an ENUM in the database</small>
+                            <input type="text" class="form-control" id="categoryName" required>
+                            <small class="text-muted">Enter a custom category name</small>
                         </div>
                     </form>
                 </div>
@@ -333,7 +330,7 @@
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="../assets/js/admin/auth.js"></script>
-    <script type="module" src="../assets/js/admin/addons.js"></script>
+    <script src="../assets/js/admin/addons.js"></script>
 </body>
 
 </html>

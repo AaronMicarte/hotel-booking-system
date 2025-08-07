@@ -23,7 +23,6 @@ body.admin-page {
     border-radius: var(--border-radius-lg);
     box-shadow: var(--shadow-medium);
     border: 1px solid rgba(255, 51, 102, 0.1);
-    transition: var(--transition);
     position: relative;
     overflow: hidden;
     height: 100%;
@@ -42,7 +41,6 @@ body.admin-page {
             rgba(255, 107, 139, 0.02) 100%);
     z-index: 1;
     opacity: 0;
-    transition: var(--transition);
 }
 
 .admin-card:hover::before {
@@ -75,7 +73,6 @@ body.admin-page {
 }
 
 .admin-btn-primary:hover {
-    transform: translateY(-2px);
     box-shadow: 0 8px 25px rgba(255, 51, 102, 0.4);
 }
 
@@ -162,6 +159,37 @@ body.admin-page {
 
 .admin-table tr:nth-of-type(odd) td {
     background: rgba(255, 230, 235, 0.2);
+}
+
+/* Sidebar dropdown styles */
+.sidebar-menu .has-dropdown {
+    position: relative;
+    padding-right: 2rem;
+}
+
+.sidebar-menu .has-dropdown .fa-chevron-down {
+    position: absolute;
+    right: 1rem;
+    top: 50%;
+    transform: translateY(-50%);
+    transition: transform 0.3s;
+}
+
+.sidebar-menu .has-dropdown[aria-expanded="true"] .fa-chevron-down {
+    transform: translateY(-50%) rotate(180deg);
+}
+
+.sidebar-menu .collapse {
+    background: rgba(0, 0, 0, 0.1);
+}
+
+.sidebar-menu .collapse a {
+    padding-left: 3rem;
+    font-size: 0.9rem;
+}
+
+.sidebar-menu .collapse li.active {
+    background: rgba(0, 0, 0, 0.2);
 }
 
 /* Responsive Design for all Admin Pages */
