@@ -1,6 +1,6 @@
 <?php
 header('Content-Type: application/json');
-require_once '../../../config/database.php';
+require_once '../../config/database.php';
 
 // Check if request method is GET
 if ($_SERVER['REQUEST_METHOD'] !== 'GET') {

@@ -1,13 +1,13 @@
-/**
- * Dashboard Statistics
- * Fetches and displays statistics on the admin dashboard
- */
+// /*
+//   Dashboard Statistics
+//   Fetches and displays statistics on the admin dashboard
+//  */
 (function () {
     // ### LOAD DASHBOARD STATS ###
     async function loadDashboardStats() {
         try {
             // Fetch dashboard data from API
-            const response = await axios.get('/Hotel-Reservation-Billing-System/api/admin/dashboard/dashboard.php');
+            const response = await axios.get('../../api/admin/dashboard/dashboard.php');
             const data = response.data;
 
             if (data.status === 'success') {
@@ -41,7 +41,7 @@
 
                 console.log('Dashboard stats loaded successfully');
             } else {
-                console.error('Error loading dashboard stats:', data.message);
+                console.error('Error loading dashboard stats:', data);
             }
         } catch (error) {
             console.error('Failed to load dashboard stats:', error);

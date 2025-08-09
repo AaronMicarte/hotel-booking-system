@@ -1,3 +1,6 @@
+// To include this file in your HTML, use:
+// <script src="assets/js/admin/auth.js"></script>
+
 class AdminAuth {
     constructor() {
         // Make page initially invisible to prevent FOUC (Flash of Unstyled Content)
@@ -7,7 +10,7 @@ class AdminAuth {
 
     init() {
         // Check if already logged in and on login page
-        if (this.isLoggedIn() && window.location.pathname.includes('admin-login.html')) {
+        if (this.isLoggedIn() && (window.location.pathname.includes('admin-login.html') || window.location.href.includes('admin-login.html'))) {
             window.location.href = 'dashboard.html';
             return;
         }
@@ -116,8 +119,8 @@ class AdminAuth {
                 return;
             }
 
-            const response = await fetch('../api/auth/check-session.php', {
-                method: 'GET',
+            const response = await fetch('../../api/auth/check-session.php', {
+                method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,
                     'Content-Type': 'application/json'
@@ -174,7 +177,7 @@ class AdminAuth {
         this.showLoading();
 
         try {
-            const response = await fetch('../api/auth/login.php', {
+            const response = await fetch('../../api/auth/login.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(credentials)
@@ -286,7 +289,7 @@ class AdminAuth {
             const token = sessionStorage.getItem('admin_token');
 
             // Call logout API
-            await fetch('../api/auth/logout.php', {
+            await fetch('../../api/auth/logout.php', {
                 method: 'POST',
                 headers: {
                     'Authorization': `Bearer ${token}`,

@@ -245,7 +245,7 @@ class BookingFormHandler {
 
     validateField(field) {
         const value = field.value.trim();
-        const isRequired = field.hasAttribute('required');
+        const isRequired = field.hasAttribute('required') && !field.hasAttribute('disabled');
         let isValid = true;
 
         field.classList.remove('is-invalid');

@@ -99,6 +99,12 @@ function requireAdminAuth()
     return checkAdminAuth();
 }
 
+// Add helper function for API endpoints
+function validateAdminToken()
+{
+    return checkAdminAuth();
+}
+
 function logSecurityEvent($event, $details = '')
 {
     $logEntry = date('Y-m-d H:i:s') . " - SECURITY: {$event}";

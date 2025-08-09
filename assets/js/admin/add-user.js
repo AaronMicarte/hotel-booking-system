@@ -9,7 +9,7 @@
     function loadUserRoles() {
         const roleSelect = document.getElementById('user-role');
         if (roleSelect) {
-            axios.get('/Hotel-Reservation-Billing-System/api/admin/add-user/add-user.php')
+            axios.get('../../api/admin/add-user/add-user.php')
                 .then(response => {
                     const data = response.data;
                     if (data.status === 'success') {
@@ -43,7 +43,7 @@
             // Add debugging to see what's happening
             console.log('Loading edit user roles, select element found:', roleSelect);
 
-            const response = await axios.get('/Hotel-Reservation-Billing-System/api/admin/add-user/add-user.php');
+            const response = await axios.get('../../api/admin/add-user/add-user.php');
             const data = response.data;
             console.log('Role data received:', data);
 
@@ -80,7 +80,7 @@
         if (!tbody) return;
         tbody.innerHTML = `<tr><td colspan="7" class="text-center text-muted">Loading users...</td></tr>`;
         try {
-            const res = await axios.get('/Hotel-Reservation-Billing-System/api/admin/add-user/users.php');
+            const res = await axios.get('../../api/admin/add-user/users.php');
             // Show ALL users, including inactive (is_deleted = 1)
             const users = res.data.users || [];
             if (users.length === 0) {
@@ -127,7 +127,7 @@
     // --- SweetAlert confirmation for status change ---
     async function confirmStatusChange(userId) {
         try {
-            const res = await axios.get(`/Hotel-Reservation-Billing-System/api/admin/add-user/users.php?id=${userId}`);
+            const res = await axios.get(`../../api/admin/add-user/users.php?id=${userId}`);
             const user = res.data.user;
             if (!user) throw new Error('User not found');
             const willActivate = !!user.is_deleted;
@@ -152,7 +152,7 @@
     // --- Save status change (activate/inactivate) ---
     async function saveStatus(userId, is_deleted) {
         try {
-            await axios.put('/Hotel-Reservation-Billing-System/api/admin/add-user/users.php', {
+            await axios.put('../../api/admin/add-user/users.php', {
                 user_id: userId,
                 is_deleted: is_deleted,
                 update_type: 'status_only'
@@ -181,7 +181,7 @@
     // --- Modal logic for editing user ---
     async function openEditUserModal(userId) {
         try {
-            const res = await axios.get(`/Hotel-Reservation-Billing-System/api/admin/add-user/users.php?id=${userId}`);
+            const res = await axios.get(`../../api/admin/add-user/users.php?id=${userId}`);
             const user = res.data.user;
             if (!user) throw new Error('User not found');
             // Fill modal fields
@@ -213,7 +213,11 @@
 
         // Validation
         if (!username) {
-            Swal.fire('Error', 'Username is required', 'error');
+            if (window.Swal) {
+                Swal.fire('Error', 'Username is required', 'error');
+            } else {
+                alert('Username is required');
+            }
             return;
         }
         if (password && password !== confirmPassword) {
@@ -238,7 +242,7 @@
         if (password) userData.password = password;
 
         try {
-            await axios.put('/Hotel-Reservation-Billing-System/api/admin/add-user/users.php', userData);
+            await axios.put('../../api/admin/add-user/users.php', userData);
             bootstrap.Modal.getInstance(document.getElementById('editUserModal')).hide();
             loadUsersTable();
             Swal.fire('Success', 'User updated successfully', 'success');
@@ -301,10 +305,10 @@
             if (editingId) {
                 // Edit user (PUT)
                 userData.user_id = editingId;
-                request = axios.put('/Hotel-Reservation-Billing-System/api/admin/add-user/users.php', userData);
+                request = axios.put('../../api/admin/add-user/users.php', userData);
             } else {
                 // Add user (POST)
-                request = axios.post('/Hotel-Reservation-Billing-System/api/admin/add-user/add-user.php', userData);
+                request = axios.post('../../api/admin/add-user/add-user.php', userData);
             }
             request.then(response => {
                 const data = response.data;

@@ -160,7 +160,7 @@ function validateCurrentStep() {
         return false;
     }
 
-    const requiredFields = currentStepEl.querySelectorAll('[required]');
+    const requiredFields = currentStepEl.querySelectorAll('[required]:not([disabled])');
     let isValid = true;
     let firstError = null;
 

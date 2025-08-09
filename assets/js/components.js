@@ -8,7 +8,7 @@ export function loadHeader(containerId, basePath = '') {
         <nav class="navbar navbar-expand-lg navbar-light bg-white fixed-top shadow-sm">
             <div class="container">
                 <a class="navbar-brand d-flex align-items-center" href="${basePath}index.html">
-                    <img src="${basePath}assets/images/hellhotel-logo2.png" alt="HellHotel Logo" height="50" class="me-2">
+                    <img src="${basePath}assets/images/hellhotel-logo.png" alt="HellHotel Logo" height="50" class="me-2" onerror="this.src='${basePath}assets/images/hellhotel-logo2.png'">
                     <span class="brand-text">HellHotel</span>
                 </a>
 

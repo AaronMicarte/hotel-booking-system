@@ -1,5 +1,5 @@
 <?php
-require_once '../../../config/database.php';
+require_once '../../config/database.php';
 header('Content-Type: application/json');
 session_start(); // <-- Add this to access session
 

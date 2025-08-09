@@ -4,7 +4,7 @@ header('Content-Type: application/json');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE');
 header('Access-Control-Allow-Headers: Access-Control-Allow-Headers,Content-Type,Access-Control-Allow-Methods');
 
-include_once '../../../config/Database.php';
+include_once '../../config/database.php';
 
 
 $method = $_SERVER['REQUEST_METHOD'];

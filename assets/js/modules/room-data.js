@@ -48,7 +48,7 @@ class RoomDataManager {
                 period: '24 hours',
                 checkIn: 'From 12:00 PM',
                 checkOut: 'Until 12:00 PM',
-                image: '../assets/images/regular/regular-1.jpg',
+                image: 'assets/images/regular/regular-1.jpg',
                 features: [
                     { icon: 'fas fa-bed', text: 'Double bed' },
                     { icon: 'fas fa-tv', text: '28" LED TV' },

@@ -1,7 +1,7 @@
 <?php
 // Include required files
-require_once '../../config/cors.php';
-require_once '../../config/database.php';
+require_once '../config/cors.php';
+require_once '../config/database.php';
 
 // Set content type to JSON
 header("Content-Type: application/json");

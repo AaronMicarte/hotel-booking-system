@@ -9,7 +9,7 @@ const ROOM_DATA = {
         price: 999,
         capacity: 2,
         size: '20m²',
-        image: '../assets/images/family/family-1.webp',
+        image: 'assets/images/family/family-1.webp',
         features: [
             { icon: 'fas fa-bed', text: 'Double bed' },
             { icon: 'fas fa-wifi', text: 'Free WiFi' },
@@ -22,7 +22,7 @@ const ROOM_DATA = {
         price: 1999,
         capacity: 3,
         size: '24m²',
-        image: '../assets/images/deluxe/deluxe-1.jpg',
+        image: 'assets/images/deluxe/deluxe-1.jpg',
         features: [
             { icon: 'fas fa-bed', text: 'Queen bed' },
             { icon: 'fas fa-wifi', text: 'High-speed WiFi' },
@@ -54,7 +54,7 @@ document.addEventListener('DOMContentLoaded', function () {
     console.log('Simple booking system initializing...');
 
     // Only run on room template page
-    if (window.location.pathname.includes('room-template.html')) {
+    if (window.location.pathname.includes('room-template.html') || window.location.href.includes('room-template.html')) {
         console.log('Room template page detected');
         // Don't auto-initialize here, let the main template handle it
     }

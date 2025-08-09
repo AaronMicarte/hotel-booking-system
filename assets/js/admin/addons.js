@@ -19,8 +19,9 @@ document.addEventListener('DOMContentLoaded', async () => {
         return;
     }
 
-    // Require authentication
-    if (!window.adminAuth.requireAuth()) {
+    // Check authentication first
+    if (!window.adminAuth || !window.adminAuth.requireAuth()) {
+        console.error('Authentication failed');
         return; // Auth check will redirect if needed
     }
 

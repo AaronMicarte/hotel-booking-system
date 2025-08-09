@@ -67,7 +67,7 @@ export const RoomPageManager = {
             roomImage.alt = roomData.title;
             roomImage.onerror = function () {
                 console.warn('Image failed to load, using fallback');
-                this.src = '../assets/images/placeholder-room.jpg';
+                this.src = 'assets/images/placeholder-room.jpg';
             };
         }
 

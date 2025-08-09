@@ -124,7 +124,7 @@ function initializeBookingForm() {
                     confirmButtonColor: '#FF3366'
                 }).then(() => {
                     // Redirect to confirmation page (HTML version)
-                    window.location.href = '../booking-confirmation.html?id=' + response.bookingId;
+                    window.location.href = 'pages/booking-confirmation.html?id=' + response.bookingId;
                 });
             } else {
                 throw new Error(response.message || 'Booking failed');
