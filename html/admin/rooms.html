@@ -319,6 +319,24 @@
         </div>
     </div>
 
+    <!-- Blank Modal for Update Room/Room Type (used by JS) -->
+    <div class="modal fade" id="blank-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="blank-modal-title"></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="blank-main-div">
+                    <!-- Dynamic content injected by JS -->
+                </div>
+                <div class="modal-footer" id="blank-modal-footer">
+                    <!-- Dynamic footer injected by JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Room Type Modal -->
     <div class="modal fade" id="roomTypeModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
@@ -379,7 +397,8 @@
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="../../assets/js/admin/auth.js"></script>
-    <script src="../../assets/js/admin/rooms.js"></script>
+    <!-- Use type="module" for your admin/rooms.js -->
+    <script type="module" src="../../assets/js/admin/rooms.js"></script>
 </body>
 
 </html>
