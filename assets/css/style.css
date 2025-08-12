@@ -3,13 +3,13 @@
 
 /* CSS Variables for Consistent Design */
 :root {
-    --primary-color: #FF3366;
-    --secondary-color: #FF6B8B;
-    --accent-color: #FFE6EB;
-    --dark-color: #2C3E50;
-    --light-color: #F8F9FA;
-    --text-color: #2D3436;
-    --text-muted: #6C757D;
+    --primary-color: #d20707;
+    --secondary-color: #050505;
+    --accent-color: #fff;
+    --dark-color: #050505;
+    --light-color: #fff;
+    --text-color: #050505;
+    --text-muted: #888;
 
     /* New depth colors */
     --surface-color: #FFFFFF;
@@ -814,6 +814,93 @@ h4 {
     margin-top: 3rem;
     padding-top: 2rem;
     border-top: 1px solid var(--accent-color);
+}
+
+/* Remove default list-style from specific lists */
+.feature-list,
+.amenity-list,
+#about-us ul,
+.sidebar-menu {
+    list-style: none;
+    padding-left: 0;
+    margin-left: 0;
+}
+
+/* About Us Section */
+.about-title {
+    font-size: 2.2rem;
+    font-family: var(--font-primary);
+    font-weight: 700;
+    letter-spacing: 2px;
+    color: #fff;
+}
+
+.about-title-red {
+    color: var(--primary-color);
+}
+
+.about-desc {
+    font-size: 1.1rem;
+    color: #fff;
+    font-family: var(--font-secondary);
+    opacity: 0.92;
+}
+
+.about-box {
+    background: var(--primary-color);
+    color: #fff;
+    border-radius: 14px;
+    padding: 24px 18px;
+    min-width: 120px;
+    flex: 1 1 100px;
+    box-shadow: 0 2px 12px rgba(210, 7, 7, 0.08);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.about-box-title {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 6px;
+    letter-spacing: 1px;
+}
+
+.about-box-desc {
+    font-size: 0.95rem;
+    opacity: 0.95;
+}
+
+.about-img {
+    border-radius: 18px;
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.10);
+    background: transparent;
+    margin-top: 20px;
+    margin-bottom: 20px;
+}
+
+/* Landing Page Button */
+.landing-btn {
+    border-color: var(--primary-color) !important;
+    background: var(--primary-color) !important;
+    color: #fff !important;
+    font-weight: normal !important;
+    box-shadow: none !important;
+}
+
+.landing-btn:hover,
+.landing-btn:focus {
+    background: var(--secondary-color) !important;
+    color: #fff !important;
+    border-color: var(--primary-color) !important;
+}
+
+/* Landing page text spacing */
+#landing-page p {
+    margin-bottom: 0 !important;
+    padding-bottom: 0 !important;
+    line-height: 1 !important;
 }
 
 /* Responsive Design */

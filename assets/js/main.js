@@ -1,6 +1,8 @@
 /**
  * Main JavaScript - Simple and Clean
- */
+*/
+
+
 
 document.addEventListener('DOMContentLoaded', function () {
     initializeApp();

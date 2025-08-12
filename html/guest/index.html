@@ -11,10 +11,12 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <!-- Custom CSS -->
-    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="stylesheet" href="../../assets/css/style.css">
 
     <!-- SweetAlert for notifications -->
-    <script src="assets/js/sweetalert2.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.js"></script>
+    <!-- Axios for API calls -->
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 </head>
 
 <body>
@@ -88,114 +90,16 @@
                 <p>Experience comfort and elegance in our carefully designed accommodations</p>
             </div>
 
-            <div class="row g-4">
-                <!-- Deluxe Room -->
-                <div class="col-lg-4 col-md-6">
-                    <div class="room-card" data-room-type="deluxe">
-                        <div class="room-image">
-                            <img src="assets/images/deluxe/deluxe-1.jpg" alt="Deluxe Room">
-                            <div class="room-price">₱1,999<small>/24hrs</small></div>
-                            <div class="room-status-badge available">
-                                <i class="fas fa-check-circle"></i> Available
-                            </div>
-                        </div>
-                        <div class="room-info">
-                            <h5>Deluxe Room</h5>
-                            <div class="room-details">
-                                <span class="room-capacity"><i class="fas fa-users"></i> Max 2 guests</span>
-                                <span class="room-size"><i class="fas fa-expand"></i> 25 sqm</span>
-                            </div>
-                            <div class="room-features">
-                                <span><i class="fas fa-wifi"></i> Free WiFi</span>
-                                <span><i class="fas fa-snowflake"></i> AC</span>
-                                <span><i class="fas fa-bed"></i> Queen Bed</span>
-                            </div>
-                            <div class="room-actions">
-                                <button class="btn btn-primary w-100 view-details-btn" data-room-type="deluxe">
-                                    <i class="fas fa-eye me-2"></i>View Details
-                                </button>
-                                <div class="room-status-info mt-2">
-                                    <small class="text-success">
-                                        <i class="fas fa-check-circle"></i> Available for booking
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Executive Suite -->
-                <div class="col-lg-4 col-md-6">
-                    <div class="room-card" data-room-type="executive">
-                        <div class="room-image">
-                            <img src="assets/images/executive/executive-1.jpg" alt="Executive Suite">
-                            <div class="room-price">₱2,999<small>/24hrs</small></div>
-                            <div class="room-status-badge available">
-                                <i class="fas fa-check-circle"></i> Available
-                            </div>
-                        </div>
-                        <div class="room-info">
-                            <h5>Executive Suite</h5>
-                            <div class="room-details">
-                                <span class="room-capacity"><i class="fas fa-users"></i> Max 2 guests</span>
-                                <span class="room-size"><i class="fas fa-expand"></i> 35 sqm</span>
-                            </div>
-                            <div class="room-features">
-                                <span><i class="fas fa-wifi"></i> Free WiFi</span>
-                                <span><i class="fas fa-snowflake"></i> AC</span>
-                                <span><i class="fas fa-bed"></i> King Bed</span>
-                            </div>
-                            <div class="room-actions">
-                                <button class="btn btn-primary w-100 view-details-btn" data-room-type="executive">
-                                    <i class="fas fa-eye me-2"></i>View Details
-                                </button>
-                                <div class="room-status-info mt-2">
-                                    <small class="text-success">
-                                        <i class="fas fa-check-circle"></i> Available for booking
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Regular Room -->
-                <div class="col-lg-4 col-md-6">
-                    <div class="room-card" data-room-type="regular">
-                        <div class="room-image">
-                            <img src="assets/images/family/family-1.webp" alt="Regular Room">
-                            <div class="room-price">₱999<small>/24hrs</small></div>
-                            <div class="room-status-badge available">
-                                <i class="fas fa-check-circle"></i> Available
-                            </div>
-                        </div>
-                        <div class="room-info">
-                            <h5>Regular Room</h5>
-                            <div class="room-details">
-                                <span class="room-capacity"><i class="fas fa-users"></i> Max 2 guests</span>
-                                <span class="room-size"><i class="fas fa-expand"></i> 20 sqm</span>
-                            </div>
-                            <div class="room-features">
-                                <span><i class="fas fa-wifi"></i> Free WiFi</span>
-                                <span><i class="fas fa-snowflake"></i> AC</span>
-                                <span><i class="fas fa-bed"></i> Double Bed</span>
-                            </div>
-                            <div class="room-actions">
-                                <button class="btn btn-primary w-100 view-details-btn" data-room-type="regular">
-                                    <i class="fas fa-eye me-2"></i>View Details
-                                </button>
-                                <div class="room-status-info mt-2">
-                                    <small class="text-success">
-                                        <i class="fas fa-check-circle"></i> Available for booking
-                                    </small>
-                                </div>
-                            </div>
-                        </div>
+            <div class="row g-4" id="roomsContainer">
+                <!-- Rooms will be loaded dynamically from API -->
+                <div class="col-12 text-center">
+                    <div class="spinner-border text-primary" role="status">
+                        <span class="visually-hidden">Loading rooms...</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Updated CTA Button -->
+            <!-- CTA Button -->
             <div class="row mt-5">
                 <div class="col-12 text-center">
                     <a href="pages/room-selection.html" class="btn btn-primary btn-lg">
@@ -208,7 +112,6 @@
 
     <!-- FAQ Section -->
     <section id="faq" class="section-padding">
-        <!-- ...existing FAQ content... -->
         <div class="container">
             <div class="section-header text-center">
                 <h2>Frequently Asked Questions</h2>
@@ -218,7 +121,7 @@
             <div class="row justify-content-center">
                 <div class="col-lg-10">
                     <div class="accordion" id="faqAccordion">
-                        <!-- Booking Policy -->
+                        <!-- FAQ items loaded from API or static content -->
                         <div class="accordion-item">
                             <h2 class="accordion-header" id="faq1">
                                 <button class="accordion-button" type="button" data-bs-toggle="collapse"
@@ -235,8 +138,6 @@
                             </div>
                         </div>
 
-                        <!-- ...existing FAQ items... -->
-                        <!-- Note: Including all 10 FAQ items as in original -->
                         <div class="accordion-item">
                             <h2 class="accordion-header" id="faq2">
                                 <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse"
@@ -247,13 +148,10 @@
                             <div id="collapse2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
                                 <div class="accordion-body">
                                     <strong>We have a no cancellation policy.</strong> Once your booking is confirmed
-                                    with the 50% advance payment, cancellations are not permitted. Please ensure your
-                                    travel plans are confirmed before making a reservation.
+                                    with the 50% advance payment, cancellations are not permitted.
                                 </div>
                             </div>
                         </div>
-
-                        <!-- Additional FAQ items continue here as in original... -->
                     </div>
                 </div>
             </div>
@@ -262,7 +160,6 @@
 
     <!-- Contact Section -->
     <section id="contact" class="section-padding bg-light">
-        <!-- ...existing contact content... -->
         <div class="container">
             <div class="section-header text-center">
                 <h2>Contact Us</h2>
@@ -310,9 +207,11 @@
     <div id="footer-container"></div>
 
     <!-- Scripts -->
-    <script src="assets/js/bootstrap.bundle.min.js"></script>
-    <script src="assets/js/sweetalert2.min.js"></script>
-    <script type="module" src="assets/js/index.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../../assets/js/main.js"></script>
+    <script src="../../assets/js/components.js"></script>
+    <!-- <script src="../../assets/js/api-client.js"></script> -->
+    <script type="module" src="../../assets/js/index.js"></script>
 </body>
 
 </html>
