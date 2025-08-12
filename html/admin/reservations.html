@@ -141,21 +141,17 @@
                                         <label for="statusFilter" class="form-label">Status</label>
                                         <select id="statusFilter" class="form-select">
                                             <option value="">All Statuses</option>
-                                            <option value="pending">Pending</option>
-                                            <option value="confirmed">Confirmed</option>
-                                            <option value="checked-in">Checked In</option>
-                                            <option value="checked-out">Checked Out</option>
-                                            <option value="cancelled">Cancelled</option>
+                                            <!-- Options will be loaded dynamically -->
                                         </select>
                                     </div>
                                     <div class="col-md-3">
                                         <label for="dateFrom" class="form-label">From Date</label>
-                                        <input type="text" id="dateFrom" class="form-control datepicker"
+                                        <input type="date" id="dateFrom" class="form-control datepicker"
                                             placeholder="From Date">
                                     </div>
                                     <div class="col-md-3">
                                         <label for="dateTo" class="form-label">To Date</label>
-                                        <input type="text" id="dateTo" class="form-control datepicker"
+                                        <input type="date" id="dateTo" class="form-control datepicker"
                                             placeholder="To Date">
                                     </div>
                                     <div class="col-md-3 d-flex align-items-end">
@@ -266,11 +262,20 @@
                             <div class="row g-3">
                                 <div class="col-md-6">
                                     <label for="checkInDate" class="form-label">Check-in Date</label>
-                                    <input type="text" id="checkInDate" class="form-control datepicker" required>
+                                    <input type="date" id="checkInDate" class="form-control" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="checkInTime" class="form-label">Check-in Time</label>
+                                    <input type="time" id="checkInTime" class="form-control" value="14:00" required>
                                 </div>
                                 <div class="col-md-6">
                                     <label for="checkOutDate" class="form-label">Check-out Date</label>
-                                    <input type="text" id="checkOutDate" class="form-control datepicker" required>
+                                    <input type="date" id="checkOutDate" class="form-control" required readonly>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="checkOutTime" class="form-label">Check-out Time</label>
+                                    <input type="time" id="checkOutTime" class="form-control" value="14:00" required
+                                        readonly>
                                 </div>
                             </div>
                         </div>
@@ -283,9 +288,6 @@
                                     <label for="roomTypeSelect" class="form-label">Room Type</label>
                                     <select id="roomTypeSelect" class="form-select" required>
                                         <option value="">-- Select Room Type --</option>
-                                        <option value="regular">Regular</option>
-                                        <option value="deluxe">Deluxe</option>
-                                        <option value="executive">Executive</option>
                                     </select>
                                 </div>
                                 <div class="col-md-6">
@@ -304,11 +306,7 @@
                                 <div class="col-md-6">
                                     <label for="statusSelect" class="form-label">Status</label>
                                     <select id="statusSelect" class="form-select" required>
-                                        <option value="pending">Pending</option>
-                                        <option value="confirmed">Confirmed</option>
-                                        <option value="checked-in">Checked In</option>
-                                        <option value="checked-out">Checked Out</option>
-                                        <option value="cancelled">Cancelled</option>
+                                        <!-- Status options will be loaded dynamically -->
                                     </select>
                                 </div>
                             </div>
@@ -334,7 +332,6 @@
                 <div class="modal-body">
                     <form id="guestForm">
                         <input type="hidden" id="guestId">
-
                         <div class="row g-3">
                             <div class="col-md-6">
                                 <label for="firstName" class="form-label">First Name</label>
@@ -343,6 +340,18 @@
                             <div class="col-md-6">
                                 <label for="lastName" class="form-label">Last Name</label>
                                 <input type="text" id="lastName" class="form-control" required>
+                            </div>
+                            <div class="col-md-6">
+                                <label for="middleName" class="form-label">Middle Name</label>
+                                <input type="text" id="middleName" class="form-control">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="suffix" class="form-label">Suffix</label>
+                                <input type="text" id="suffix" class="form-control">
+                            </div>
+                            <div class="col-md-3">
+                                <label for="dateOfBirth" class="form-label">Date of Birth</label>
+                                <input type="date" id="dateOfBirth" class="form-control" required>
                             </div>
                             <div class="col-md-6">
                                 <label for="email" class="form-label">Email</label>
@@ -361,6 +370,13 @@
                                     <option value="SSS ID">SSS ID</option>
                                     <option value="GSIS ID">GSIS ID</option>
                                     <option value="Voter's ID">Voter's ID</option>
+                                    <option value="PRC ID">PRC ID</option>
+                                    <option value="Postal ID">Postal ID</option>
+                                    <option value="PhilHealth ID">PhilHealth ID</option>
+                                    <option value="TIN ID">TIN ID</option>
+                                    <option value="UMID">UMID</option>
+                                    <option value="Barangay ID">Barangay ID</option>
+                                    <option value="Student ID">Student ID</option>
                                 </select>
                             </div>
                             <div class="col-md-6">
@@ -383,7 +399,7 @@
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="../../assets/js/admin/auth.js"></script>
-    <script type="module" src="../../assets/js/admin/reservations.js"></script>
+    <script src="../../assets/js/admin/reservations.js"></script>
 </body>
 
 </html>

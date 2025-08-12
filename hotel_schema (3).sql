@@ -56,7 +56,7 @@ CREATE TABLE Guest (
 -- RESERVATION & STATUS
 CREATE TABLE ReservationStatus (
     reservation_status_id INT AUTO_INCREMENT PRIMARY KEY,
-    room_status ENUM('pending', 'confirmed', 'checked-in', 'checked-out', 'cancelled') NOT NULL,
+    reservation_status ENUM('pending', 'confirmed', 'checked-in', 'checked-out', 'cancelled') NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     is_deleted BOOLEAN DEFAULT FALSE

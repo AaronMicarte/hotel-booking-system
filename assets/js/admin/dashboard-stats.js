@@ -77,8 +77,8 @@
         status = (status || '').toLowerCase();
         if (status === 'confirmed') return 'success';
         if (status === 'pending') return 'warning';
-        if (status === 'checked_in') return 'primary';
-        if (status === 'checked_out') return 'info';
+        if (status === 'checked-in') return 'primary';
+        if (status === 'checked-out') return 'info';
         if (status === 'cancelled') return 'danger';
         return 'secondary';
     }

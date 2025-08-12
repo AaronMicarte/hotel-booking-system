@@ -13,41 +13,27 @@ class Room
         $params = [];
         $where = ["r.is_deleted = FALSE"];
 
-        // Debug output for filter parameters
-        error_log('Filter parameters: ' . json_encode($_GET));
-
-        // Search functionality
         if (isset($_GET['search']) && !empty($_GET['search'])) {
             $search = "%{$_GET['search']}%";
             $where[] = "(r.room_number LIKE :search OR rt.type_name LIKE :search OR rs.room_status LIKE :search)";
             $params[':search'] = $search;
         }
 
-        // Filter by type (support both type_name and room_type_id)
         if (isset($_GET['type_id']) && !empty($_GET['type_id'])) {
             $where[] = "r.room_type_id = :type_id";
             $params[':type_id'] = $_GET['type_id'];
-            error_log('Filtering by type_id: ' . $_GET['type_id']);
         } else if (isset($_GET['type']) && !empty($_GET['type'])) {
             $where[] = "LOWER(rt.type_name) = LOWER(:type)";
             $params[':type'] = $_GET['type'];
-            error_log('Filtering by type: ' . $_GET['type']);
         }
 
-        // Filter by status
         if (isset($_GET['status']) && !empty($_GET['status'])) {
             $where[] = "LOWER(rs.room_status) = LOWER(:status)";
             $params[':status'] = $_GET['status'];
-            error_log('Filtering by status: ' . $_GET['status']);
         }
 
         $whereClause = implode(" AND ", $where);
 
-        // Log the final WHERE clause
-        error_log('WHERE clause: ' . $whereClause);
-        error_log('Params: ' . json_encode($params));
-
-        // Updated query to include all RoomType fields
         $query = "SELECT 
                     r.*, 
                     rt.type_name, 
@@ -69,6 +55,7 @@ class Room
         $rooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode($rooms);
     }
+
     function getRoom($json)
     {
         include_once '../../config/database.php';
@@ -76,7 +63,6 @@ class Room
         $db = $database->getConnection();
         $json = json_decode($json, true);
 
-        // Also update the single room query to include all RoomType fields
         $query = "SELECT 
                     r.*, 
                     rt.type_name, 
@@ -106,7 +92,6 @@ class Room
         $db = $database->getConnection();
         $json = json_decode($json, true);
 
-        // Always set initial status to 1 (available)
         $json['room_status_id'] = 1;
 
         $sql = "INSERT INTO Room (room_status_id, room_type_id, room_number) 
@@ -118,11 +103,7 @@ class Room
         $stmt->bindParam(':room_number', $json['room_number']);
         $stmt->execute();
 
-        $returnValue = 0;
-        if ($stmt->rowCount() > 0) {
-            $returnValue = 1;
-        }
-
+        $returnValue = $stmt->rowCount() > 0 ? 1 : 0;
         echo json_encode($returnValue);
     }
 
@@ -133,20 +114,17 @@ class Room
         $db = $database->getConnection();
         $json = json_decode($json, true);
 
-        // Handle status-only updates
         if (isset($json['update_type']) && $json['update_type'] === 'status_only') {
             $sql = "UPDATE Room SET room_status_id = :status_id WHERE room_id = :room_id";
             $stmt = $db->prepare($sql);
             $stmt->bindParam(':status_id', $json['room_status_id']);
             $stmt->bindParam(':room_id', $json['room_id']);
             $stmt->execute();
-
             $returnValue = $stmt->rowCount() > 0 ? 1 : 0;
             echo json_encode($returnValue);
             return;
         }
 
-        // Handle regular/full updates (including status)
         $sql = "UPDATE Room 
                 SET room_type_id = :type_id,
                     room_number = :room_number,
@@ -179,14 +157,90 @@ class Room
         $returnValue = $stmt->rowCount() > 0 ? 1 : 0;
         echo json_encode($returnValue);
     }
+
+    // MOVED THE getAvailableRooms METHOD HERE
+    function getAvailableRooms()
+    {
+        include_once '../../config/database.php';
+        $database = new Database();
+        $db = $database->getConnection();
+
+        $room_type_id = $_GET['room_type_id'] ?? null;
+        $check_in_date = $_GET['check_in_date'] ?? null;
+        $check_out_date = $_GET['check_out_date'] ?? null;
+        $reservation_id = $_GET['reservation_id'] ?? null;
+
+        if (!$room_type_id) {
+            echo json_encode([]);
+            return;
+        }
+
+        if (!$check_out_date && $check_in_date) {
+            $dt = new DateTime($check_in_date);
+            $dt->modify('+1 day');
+            $check_out_date = $dt->format('Y-m-d');
+        }
+
+        $params = [':room_type_id' => $room_type_id];
+        $dateFilter = '';
+
+        // Only filter by date if both check-in and check-out are provided
+        if ($check_in_date && $check_out_date) {
+            $dateFilter = "AND r.room_id NOT IN (
+                SELECT rr.room_id
+                FROM ReservedRoom rr
+                JOIN Reservation res ON rr.reservation_id = res.reservation_id
+                WHERE rr.is_deleted = 0
+                  AND res.is_deleted = 0
+                  AND res.reservation_status_id != (SELECT reservation_status_id FROM ReservationStatus WHERE reservation_status = 'cancelled' LIMIT 1)
+                  AND (
+                    (res.check_in_date < :check_out_date AND res.check_out_date > :check_in_date)
+                  )";
+            $params[':check_in_date'] = $check_in_date;
+            $params[':check_out_date'] = $check_out_date;
+            // If editing, allow the current reservation's room to be available
+            if ($reservation_id) {
+                $dateFilter .= " AND res.reservation_id != :reservation_id";
+                $params[':reservation_id'] = $reservation_id;
+            }
+            $dateFilter .= ")";
+        }
+
+        $sql = "SELECT r.room_id, r.room_number, rt.type_name
+                FROM Room r
+                JOIN RoomType rt ON r.room_type_id = rt.room_type_id
+                WHERE r.is_deleted = 0
+                AND r.room_type_id = :room_type_id
+                $dateFilter
+                ORDER BY r.room_number ASC";
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        $rooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode($rooms);
+    }
 }
 
-// Request handling
+class RoomStatus
+{
+    function getAllRoomStatus()
+    {
+        include_once '../../config/database.php';
+        $database = new Database();
+        $db = $database->getConnection();
+
+        $stmt = $db->prepare("SELECT * FROM RoomStatus WHERE is_deleted = 0 ORDER BY room_status_id ASC");
+        $stmt->execute();
+        $statuses = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode($statuses);
+    }
+}
+
+// Handle request routing
 if ($_SERVER['REQUEST_METHOD'] === 'GET') {
     $operation = isset($_GET['operation']) ? $_GET['operation'] : '';
     $json = isset($_GET['json']) ? $_GET['json'] : '';
 
-    // Support direct GET by room_id (for frontend compatibility)
     if (!$operation) {
         if (isset($_GET['room_id'])) {
             $operation = 'getRoom';
@@ -201,6 +255,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 }
 
 $room = new Room();
+$roomStatus = new RoomStatus();
+
 switch ($operation) {
     case "getAllRooms":
         $room->getAllRooms();
@@ -216,5 +272,14 @@ switch ($operation) {
         break;
     case "deleteRoom":
         $room->deleteRoom($json);
+        break;
+    case "getAllRoomStatus":
+        $roomStatus->getAllRoomStatus();
+        break;
+    case "getAvailableRooms":
+        $room->getAvailableRooms();
+        break;
+    default:
+        echo json_encode(['error' => 'Invalid operation']);
         break;
 }

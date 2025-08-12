@@ -40,7 +40,7 @@ try {
         SELECT COUNT(*) as total 
         FROM Reservation r
         JOIN ReservationStatus rs ON r.reservation_status_id = rs.reservation_status_id
-        WHERE rs.room_status IN ('confirmed', 'checked-in') 
+        WHERE rs.reservation_status IN ('confirmed', 'checked-in') 
         AND r.is_deleted = 0
     ");
     $reservationsStmt->execute();
@@ -68,7 +68,7 @@ try {
     // Get recent reservations
     $recentStmt = $conn->prepare("
         SELECT r.reservation_id, CONCAT(g.first_name, ' ', g.last_name) as guest_name, 
-               r.check_in_date, r.check_out_date, rs.room_status as status
+               r.check_in_date, r.check_out_date, rs.reservation_status as status
         FROM Reservation r
         JOIN Guest g ON r.guest_id = g.guest_id
         JOIN ReservationStatus rs ON r.reservation_status_id = rs.reservation_status_id
