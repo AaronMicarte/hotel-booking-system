@@ -127,7 +127,7 @@
                     </div>
                     <div class="col-md-4 text-end">
                         <button id="addGuestBtn" class="btn btn-primary">
-                            <i class="fas fa-plus"></i> Add Guest
+                            <i class="fas fa-plus"></i>
                         </button>
                     </div>
                 </div>
@@ -147,12 +147,11 @@
                                     <table class="table table-striped">
                                         <thead>
                                             <tr>
-                                                <th>ID</th>
+                                                <!-- <th>ID</th> -->
                                                 <th>Name</th>
                                                 <th>Email</th>
                                                 <th>Phone</th>
                                                 <th>ID Type</th>
-                                                <th>Reservations</th>
                                                 <th>Actions</th>
                                             </tr>
                                         </thead>
@@ -233,6 +232,12 @@
                                 <label for="dateOfBirth" class="form-label">Date of Birth</label>
                                 <input type="date" class="form-control" id="dateOfBirth">
                             </div>
+                            <div class="col-md-6">
+                                <label for="idPicInput" class="form-label">ID Picture</label>
+                                <input type="file" class="form-control" id="idPicInput" accept="image/*">
+                                <img id="idPicPreview" src="" alt="ID Preview"
+                                    style="display:none;max-width:100%;max-height:120px;margin-top:8px;border-radius:6px;border:1px solid #ccc;">
+                            </div>
                         </div>
                     </form>
                 </div>
@@ -260,7 +265,6 @@
                         <table class="table table-striped">
                             <thead>
                                 <tr>
-                                    <th>ID</th>
                                     <th>Check-in</th>
                                     <th>Check-out</th>
                                     <th>Room</th>
@@ -294,7 +298,7 @@
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="../../assets/js/admin/auth.js"></script>
-    <script type="module" src="../assets/js/admin/guests.js"></script>
+    <script type="module" src="../../assets/js/admin/guests.js"></script>
 </body>
 
 </html>
