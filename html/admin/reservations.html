@@ -226,7 +226,7 @@
         </div>
     </div>
 
-    <!-- Reservation Modal -->
+    <!-- Reservation Modal (for Add) -->
     <div class="modal fade" id="reservationModal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
@@ -238,20 +238,55 @@
                     <form id="reservationForm">
                         <input type="hidden" id="reservationId">
 
-                        <!-- Guest Information -->
+                        <!-- Guest Information (all fields) -->
                         <div class="mb-4">
                             <h6 class="border-bottom pb-2"><i class="fas fa-user"></i> Guest Information</h6>
                             <div class="row g-3">
+                                <div class="col-md-12">
+                                    <label for="guestSearchInput" class="form-label">Search Existing Guest</label>
+                                    <input type="text" id="guestSearchInput" class="form-control"
+                                        placeholder="Type name or email...">
+                                    <div id="guestSearchDropdown" class="list-group position-absolute w-100"
+                                        style="z-index: 10; display: none;"></div>
+                                </div>
                                 <div class="col-md-6">
-                                    <label for="guestSelect" class="form-label">Select Existing Guest</label>
-                                    <select id="guestSelect" class="form-select">
-                                        <option value="">-- Select Guest --</option>
+                                    <label for="firstName" class="form-label">First Name</label>
+                                    <input type="text" id="firstName" class="form-control" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="lastName" class="form-label">Last Name</label>
+                                    <input type="text" id="lastName" class="form-control" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="middleName" class="form-label">Middle Name</label>
+                                    <input type="text" id="middleName" class="form-control">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="suffix" class="form-label">Suffix</label>
+                                    <input type="text" id="suffix" class="form-control">
+                                </div>
+                                <div class="col-md-3">
+                                    <label for="dateOfBirth" class="form-label">Date of Birth</label>
+                                    <input type="date" id="dateOfBirth" class="form-control" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="email" class="form-label">Email</label>
+                                    <input type="email" id="email" class="form-control" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="phone" class="form-label">Phone</label>
+                                    <input type="tel" id="phone" class="form-control" required>
+                                </div>
+                                <div class="col-md-6">
+                                    <label for="idType" class="form-label">ID Type</label>
+                                    <select id="idType" class="form-select" required>
+                                        <option value="">-- Select ID Type --</option>
+                                        <!-- Options will be loaded dynamically -->
                                     </select>
                                 </div>
-                                <div class="col-md-6 d-flex align-items-end">
-                                    <button type="button" id="newGuestBtn" class="btn btn-outline-primary w-100">
-                                        <i class="fas fa-plus"></i> New Guest
-                                    </button>
+                                <div class="col-md-6">
+                                    <label for="idNumber" class="form-label">ID Number</label>
+                                    <input type="text" id="idNumber" class="form-control" required>
                                 </div>
                             </div>
                         </div>
@@ -321,75 +356,16 @@
         </div>
     </div>
 
-    <!-- Guest Modal -->
-    <div class="modal fade" id="guestModal" tabindex="-1" aria-hidden="true">
+    <!-- Generic Modal for Update/Delete (SIR MAC style) -->
+    <div class="modal fade" id="blank-modal" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title" id="guestModalLabel">Add New Guest</h5>
+                    <h5 class="modal-title" id="blank-modal-title"></h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
-                    <form id="guestForm">
-                        <input type="hidden" id="guestId">
-                        <div class="row g-3">
-                            <div class="col-md-6">
-                                <label for="firstName" class="form-label">First Name</label>
-                                <input type="text" id="firstName" class="form-control" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="lastName" class="form-label">Last Name</label>
-                                <input type="text" id="lastName" class="form-control" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="middleName" class="form-label">Middle Name</label>
-                                <input type="text" id="middleName" class="form-control">
-                            </div>
-                            <div class="col-md-3">
-                                <label for="suffix" class="form-label">Suffix</label>
-                                <input type="text" id="suffix" class="form-control">
-                            </div>
-                            <div class="col-md-3">
-                                <label for="dateOfBirth" class="form-label">Date of Birth</label>
-                                <input type="date" id="dateOfBirth" class="form-control" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="email" class="form-label">Email</label>
-                                <input type="email" id="email" class="form-control" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="phone" class="form-label">Phone</label>
-                                <input type="tel" id="phone" class="form-control" required>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="idType" class="form-label">ID Type</label>
-                                <select id="idType" class="form-select" required>
-                                    <option value="">-- Select ID Type --</option>
-                                    <option value="Passport">Passport</option>
-                                    <option value="Driver's License">Driver's License</option>
-                                    <option value="SSS ID">SSS ID</option>
-                                    <option value="GSIS ID">GSIS ID</option>
-                                    <option value="Voter's ID">Voter's ID</option>
-                                    <option value="PRC ID">PRC ID</option>
-                                    <option value="Postal ID">Postal ID</option>
-                                    <option value="PhilHealth ID">PhilHealth ID</option>
-                                    <option value="TIN ID">TIN ID</option>
-                                    <option value="UMID">UMID</option>
-                                    <option value="Barangay ID">Barangay ID</option>
-                                    <option value="Student ID">Student ID</option>
-                                </select>
-                            </div>
-                            <div class="col-md-6">
-                                <label for="idNumber" class="form-label">ID Number</label>
-                                <input type="text" id="idNumber" class="form-control" required>
-                            </div>
-                        </div>
-                    </form>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" id="saveGuestBtn" class="btn btn-primary">Save Guest</button>
-                </div>
+                <div class="modal-body" id="blank-main-div"></div>
+                <div class="modal-footer" id="blank-modal-footer"></div>
             </div>
         </div>
     </div>
@@ -399,7 +375,9 @@
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
     <script src="../../assets/js/admin/auth.js"></script>
-    <script src="../../assets/js/admin/reservations.js"></script>
+    <script type="module" src="../../assets/js/modules/admin/reservation-module.js"></script>
+    <script type="module" src="../../assets/js/admin/reservations.js"></script>
+
 </body>
 
 </html>

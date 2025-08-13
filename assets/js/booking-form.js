@@ -425,6 +425,7 @@ function validateBookingForm(form) {
     }
 
     const checkinDate = formData.get('checkin_date');
+    const timeSlot = formData.get('time_slot');
     if (!validateCheckinDate(checkinDate)) {
         showToast('Invalid Date', 'Check-in date cannot be in the past.', 'error');
         return false;

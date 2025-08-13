@@ -101,14 +101,17 @@ class Reservation
         $db = $database->getConnection();
         $json = is_array($json) ? $json : json_decode($json, true);
 
-        $sql = "INSERT INTO Reservation (user_id, reservation_status_id, guest_id, check_in_date, check_out_date)
-                VALUES (:user_id, :reservation_status_id, :guest_id, :check_in_date, :check_out_date)";
+        // Add check_in_time and check_out_time support
+        $sql = "INSERT INTO Reservation (user_id, reservation_status_id, guest_id, check_in_date, check_in_time, check_out_date, check_out_time)
+                VALUES (:user_id, :reservation_status_id, :guest_id, :check_in_date, :check_in_time, :check_out_date, :check_out_time)";
         $stmt = $db->prepare($sql);
         $stmt->bindParam(':user_id', $json['user_id']);
         $stmt->bindParam(':reservation_status_id', $json['reservation_status_id']);
         $stmt->bindParam(':guest_id', $json['guest_id']);
         $stmt->bindParam(':check_in_date', $json['check_in_date']);
+        $stmt->bindParam(':check_in_time', $json['check_in_time']);
         $stmt->bindParam(':check_out_date', $json['check_out_date']);
+        $stmt->bindParam(':check_out_time', $json['check_out_time']);
         $stmt->execute();
 
         $returnValue = 0;
@@ -144,7 +147,27 @@ class Reservation
         $db = $database->getConnection();
         $json = is_array($json) ? $json : json_decode($json, true);
 
-        // First, get the current room_id if any
+        // --- Update Guest if guest_id and guest fields are present ---
+        if (!empty($json['guest_id']) && (
+            !empty($json['first_name']) || !empty($json['last_name']) || !empty($json['email'])
+        )) {
+            $guestUpdateFields = [];
+            $guestParams = [];
+            foreach (['first_name', 'last_name', 'middle_name', 'suffix', 'date_of_birth', 'email', 'phone_number', 'id_type', 'id_number'] as $field) {
+                if (isset($json[$field])) {
+                    $guestUpdateFields[] = "$field = :$field";
+                    $guestParams[":$field"] = $json[$field];
+                }
+            }
+            if (!empty($guestUpdateFields)) {
+                $sql = "UPDATE Guest SET " . implode(", ", $guestUpdateFields) . " WHERE guest_id = :guest_id";
+                $guestParams[":guest_id"] = $json['guest_id'];
+                $stmt = $db->prepare($sql);
+                $stmt->execute($guestParams);
+            }
+        }
+
+        // --- Get the current room_id if any ---
         $sql = "SELECT rr.room_id 
                 FROM ReservedRoom rr 
                 WHERE rr.reservation_id = :reservation_id AND rr.is_deleted = 0
@@ -154,72 +177,69 @@ class Reservation
         $stmt->execute();
         $oldRoomId = $stmt->fetch(PDO::FETCH_COLUMN);
 
-        // Update reservation
+        // --- Update reservation (do NOT insert a new one) ---
         $sql = "UPDATE Reservation 
                 SET guest_id = :guest_id, 
                     check_in_date = :check_in_date, 
+                    check_in_time = :check_in_time,
                     check_out_date = :check_out_date, 
+                    check_out_time = :check_out_time,
                     reservation_status_id = :reservation_status_id
                 WHERE reservation_id = :reservation_id";
         $stmt = $db->prepare($sql);
         $stmt->bindParam(":guest_id", $json['guest_id']);
         $stmt->bindParam(":check_in_date", $json['check_in_date']);
+        $stmt->bindParam(":check_in_time", $json['check_in_time']);
         $stmt->bindParam(":check_out_date", $json['check_out_date']);
+        $stmt->bindParam(":check_out_time", $json['check_out_time']);
         $stmt->bindParam(":reservation_status_id", $json['reservation_status_id']);
         $stmt->bindParam(":reservation_id", $json['reservation_id']);
         $stmt->execute();
 
         $returnValue = 0;
-        if ($stmt->rowCount() > 0 || $oldRoomId != $json['room_id']) {
-            $returnValue = 1;
-
-            // If room has changed, update ReservedRoom
-            if ($oldRoomId != $json['room_id']) {
-                // Update old room status to available
-                if ($oldRoomId) {
-                    $this->updateRoomStatus($oldRoomId, 1); // 1 = available
-
-                    // Mark old reservation as deleted
-                    $sql = "UPDATE ReservedRoom SET is_deleted = 1 
-                            WHERE reservation_id = :reservation_id AND room_id = :room_id";
-                    $stmt = $db->prepare($sql);
-                    $stmt->bindParam(":reservation_id", $json['reservation_id']);
-                    $stmt->bindParam(":room_id", $oldRoomId);
-                    $stmt->execute();
-                }
-
-                // Insert new ReservedRoom record
-                $sql = "INSERT INTO ReservedRoom (reservation_id, room_id)
-                        VALUES (:reservation_id, :room_id)";
+        // --- Update ReservedRoom logic ---
+        if ($oldRoomId != $json['room_id']) {
+            // Mark old ReservedRoom as deleted and set old room to available
+            if ($oldRoomId) {
+                $this->updateRoomStatus($oldRoomId, 1); // 1 = available
+                $sql = "UPDATE ReservedRoom SET is_deleted = 1 
+                        WHERE reservation_id = :reservation_id AND room_id = :room_id";
                 $stmt = $db->prepare($sql);
                 $stmt->bindParam(":reservation_id", $json['reservation_id']);
-                $stmt->bindParam(":room_id", $json['room_id']);
+                $stmt->bindParam(":room_id", $oldRoomId);
                 $stmt->execute();
-
-                // Update new room status based on reservation status
-                $roomStatusId = 4; // Default to reserved (4)
-
-                // If checked-in, mark as occupied
-                if ($json['reservation_status_id'] == 3) {
-                    $roomStatusId = 2; // 2 = occupied
-                } else if ($json['reservation_status_id'] == 4 || $json['reservation_status_id'] == 5) {
-                    $roomStatusId = 1; // 1 = available for checked-out or cancelled
-                }
-
-                $this->updateRoomStatus($json['room_id'], $roomStatusId);
-            } else {
-                // Room hasn't changed, but status might have - update room status accordingly
-                $roomStatusId = 4; // Default to reserved (4)
-
-                // If checked-in, mark as occupied
-                if ($json['reservation_status_id'] == 3) {
-                    $roomStatusId = 2; // 2 = occupied
-                } else if ($json['reservation_status_id'] == 4 || $json['reservation_status_id'] == 5) {
-                    $roomStatusId = 1; // 1 = available for checked-out or cancelled
-                }
-
-                $this->updateRoomStatus($json['room_id'], $roomStatusId);
             }
+            // Insert new ReservedRoom record if not exists
+            $sqlCheck = "SELECT COUNT(*) FROM ReservedRoom WHERE reservation_id = :reservation_id AND room_id = :room_id AND is_deleted = 0";
+            $stmtCheck = $db->prepare($sqlCheck);
+            $stmtCheck->bindParam(':reservation_id', $json['reservation_id']);
+            $stmtCheck->bindParam(':room_id', $json['room_id']);
+            $stmtCheck->execute();
+            $exists = $stmtCheck->fetchColumn();
+            if (!$exists) {
+                $sql2 = "INSERT INTO ReservedRoom (reservation_id, room_id) VALUES (:reservation_id, :room_id)";
+                $stmt2 = $db->prepare($sql2);
+                $stmt2->bindParam(':reservation_id', $json['reservation_id']);
+                $stmt2->bindParam(':room_id', $json['room_id']);
+                $stmt2->execute();
+            }
+        }
+        // Always update new/current room status based on reservation status
+        // pending (1) => available (1)
+        // confirmed (2) => reserved (4)
+        // checked-in (3) => occupied (2)
+        // checked-out (4) or cancelled (5) => available (1)
+        $roomStatusId = 1; // Default to available (pending, checked-out, cancelled)
+        if ($json['reservation_status_id'] == 2) {
+            $roomStatusId = 4; // confirmed => reserved
+        } else if ($json['reservation_status_id'] == 3) {
+            $roomStatusId = 2; // checked-in => occupied
+        }
+        $this->updateRoomStatus($json['room_id'], $roomStatusId);
+
+        // If any update happened, return 1
+        if ($stmt->rowCount() > 0 || $oldRoomId != $json['room_id']) {
+            $returnValue = 1;
         }
         echo json_encode($returnValue);
     }

@@ -1,9 +1,10 @@
+import { updateReservationModal, deleteReservationModal } from '../modules/admin/reservation-module.js';
+
 // ==========================
 // === GLOBALS & CONSTANTS ===
 // ==========================
 const BASE_URL = "/Hotel-Reservation-Billing-System/api/admin";
 let cachedRoomTypes = [];
-let cachedGuests = [];
 let cachedStatuses = [];
 let cachedRooms = [];
 
@@ -11,86 +12,221 @@ let cachedRooms = [];
 // === INITIALIZATION =======
 // ==========================
 document.addEventListener("DOMContentLoaded", () => {
+    // --- Guest search logic ---
+    let allGuests = [];
+    const guestSearchInput = document.getElementById("guestSearchInput");
+    const guestSearchDropdown = document.getElementById("guestSearchDropdown");
+
+    // Helper: Enable/disable guest info fields
+    function setGuestFieldsDisabled(disabled) {
+        [
+            "firstName", "lastName", "middleName", "suffix", "dateOfBirth",
+            "email", "phone", "idType", "idNumber"
+        ].forEach(id => {
+            const el = document.getElementById(id);
+            if (el) el.disabled = !!disabled;
+        });
+    }
+
+    // Fetch all guests when modal opens
+    const addReservationBtn = document.getElementById("addReservationBtn");
+    if (addReservationBtn) {
+        addReservationBtn.addEventListener("click", async () => {
+            try {
+                const res = await axios.get(`${BASE_URL}/guests/guests.php`, { params: { operation: "getAllGuests" } });
+                allGuests = Array.isArray(res.data) ? res.data : [];
+            } catch {
+                allGuests = [];
+            }
+            if (guestSearchInput) guestSearchInput.value = "";
+            if (guestSearchDropdown) guestSearchDropdown.style.display = "none";
+            setGuestFieldsDisabled(false); // Always enable fields on modal open
+            document.getElementById("guestSelectId")?.remove(); // Remove hidden guest id if any
+        });
+    }
+
+    if (guestSearchInput) {
+        guestSearchInput.addEventListener("input", function () {
+            const q = (this.value || "").toLowerCase();
+            if (!q || !allGuests.length) {
+                if (guestSearchDropdown) guestSearchDropdown.style.display = "none";
+                setGuestFieldsDisabled(false);
+                document.getElementById("guestSelectId")?.remove();
+                return;
+            }
+            const matches = allGuests.filter(g =>
+                (`${g.first_name} ${g.last_name} ${g.email}`.toLowerCase().includes(q))
+            ).slice(0, 8);
+            if (!matches.length) {
+                if (guestSearchDropdown) guestSearchDropdown.style.display = "none";
+                setGuestFieldsDisabled(false);
+                document.getElementById("guestSelectId")?.remove();
+                return;
+            }
+            if (guestSearchDropdown) {
+                guestSearchDropdown.innerHTML = matches.map(g =>
+                    `<a href="#" class="list-group-item list-group-item-action" data-guest-id="${g.guest_id}">
+                        <b>${g.first_name} ${g.last_name}</b> <small>(${g.email})</small>
+                    </a>`
+                ).join("");
+                guestSearchDropdown.style.display = "block";
+            }
+        });
+
+        // Hide dropdown on blur
+        guestSearchInput.addEventListener("blur", function () {
+            setTimeout(() => {
+                if (guestSearchDropdown) guestSearchDropdown.style.display = "none";
+            }, 200);
+        });
+    }
+
+    if (guestSearchDropdown) {
+        guestSearchDropdown.addEventListener("mousedown", function (e) {
+            const a = e.target.closest("a[data-guest-id]");
+            if (!a) return;
+            e.preventDefault();
+            const guestId = a.getAttribute("data-guest-id");
+            const guest = allGuests.find(g => g.guest_id == guestId);
+            if (guest) {
+                const setFieldValue = (id, value) => {
+                    const field = document.getElementById(id);
+                    if (field) field.value = value || "";
+                };
+
+                setFieldValue("firstName", guest.first_name);
+                setFieldValue("lastName", guest.last_name);
+                setFieldValue("middleName", guest.middle_name);
+                setFieldValue("suffix", guest.suffix);
+                setFieldValue("dateOfBirth", guest.date_of_birth);
+                setFieldValue("email", guest.email);
+                setFieldValue("phone", guest.phone_number);
+                setFieldValue("idType", guest.id_type);
+                setFieldValue("idNumber", guest.id_number);
+
+                // Store selected guest_id in a hidden field
+                let hidden = document.getElementById("guestSelectId");
+                if (!hidden) {
+                    hidden = document.createElement("input");
+                    hidden.type = "hidden";
+                    hidden.id = "guestSelectId";
+                    hidden.name = "guestSelectId";
+                    document.getElementById("reservationForm").appendChild(hidden);
+                }
+                hidden.value = guestId;
+
+                setGuestFieldsDisabled(true); // Disable guest fields if existing guest is selected
+            }
+            guestSearchDropdown.style.display = "none";
+        });
+    }
+
+    // Allow user to clear guest selection and re-enable fields
+    ["firstName", "lastName", "email"].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.addEventListener("input", function () {
+                // If user edits any guest field, remove guestSelectId and enable fields
+                document.getElementById("guestSelectId")?.remove();
+                setGuestFieldsDisabled(false);
+            });
+        }
+    });
+
     // --- Load initial data ---
     loadRoomTypes();
     loadGuests();
+    loadIDTypes();
     loadStatuses().then(() => {
         updateStatusFilter(); // Call this after statuses are loaded
     });
     displayReservations();
 
-    // --- Event Listeners ---
-    document.getElementById("refreshBtn").addEventListener("click", displayReservations);
-    document.getElementById("addReservationBtn").addEventListener("click", () => {
-        clearReservationForm();
-        new bootstrap.Modal(document.getElementById("reservationModal")).show();
-        updateAvailableRooms();
-        updateCheckoutDate();
-    });
-    document.getElementById("saveReservationBtn").addEventListener("click", saveReservation);
+    // --- Event Listeners with null checks ---
+    const refreshBtn = document.getElementById("refreshBtn");
+    if (refreshBtn) {
+        refreshBtn.addEventListener("click", displayReservations);
+    }
 
-    document.getElementById("roomTypeSelect").addEventListener("change", updateAvailableRooms);
+    if (addReservationBtn) {
+        addReservationBtn.addEventListener("click", () => {
+            clearReservationForm();
+            new bootstrap.Modal(document.getElementById("reservationModal")).show();
+            updateAvailableRooms();
+            updateCheckoutDate();
+        });
+    }
 
-    document.getElementById("checkInDate").addEventListener("change", () => {
-        updateAvailableRooms();
-        updateCheckoutDate();
-    });
-    document.getElementById("checkInTime").addEventListener("change", () => {
-        updateAvailableRooms();
-        updateCheckoutDate();
-    });
+    const saveReservationBtn = document.getElementById("saveReservationBtn");
+    if (saveReservationBtn) {
+        saveReservationBtn.addEventListener("click", saveReservation);
+    }
 
-    document.getElementById("newGuestBtn").addEventListener("click", () => {
-        clearGuestForm();
-        new bootstrap.Modal(document.getElementById("guestModal")).show();
-    });
-    document.getElementById("saveGuestBtn").addEventListener("click", async () => {
-        await saveGuest();
-        clearGuestForm();
-    });
+    const roomTypeSelect = document.getElementById("roomTypeSelect");
+    if (roomTypeSelect) {
+        roomTypeSelect.addEventListener("change", updateAvailableRooms);
+    }
+
+    const checkInDate = document.getElementById("checkInDate");
+    const checkInTime = document.getElementById("checkInTime");
+
+    if (checkInDate) {
+        checkInDate.addEventListener("change", () => {
+            updateAvailableRooms();
+            updateCheckoutDate();
+        });
+    }
+
+    if (checkInTime) {
+        checkInTime.addEventListener("change", () => {
+            updateAvailableRooms();
+            updateCheckoutDate();
+        });
+    }
+
+    const newGuestBtn = document.getElementById("newGuestBtn");
+    if (newGuestBtn) {
+        newGuestBtn.addEventListener("click", () => {
+            clearGuestForm();
+            new bootstrap.Modal(document.getElementById("guestModal")).show();
+        });
+    }
+
+    const saveGuestBtn = document.getElementById("saveGuestBtn");
+    if (saveGuestBtn) {
+        saveGuestBtn.addEventListener("click", async () => {
+            await saveGuest();
+            clearGuestForm();
+        });
+    }
 
     // --- Date restrictions ---
-    const checkInDate = document.getElementById("checkInDate");
     const today = new Date();
     if (checkInDate) checkInDate.min = today.toISOString().split("T")[0];
+
     const dateOfBirth = document.getElementById("dateOfBirth");
     if (dateOfBirth) dateOfBirth.max = today.toISOString().split("T")[0];
 
-    // --- Filters ---
-    document.getElementById("statusFilter")?.addEventListener("change", () => {
-        document.getElementById("applyFilters").click();
-    });
+    // --- Filters with proper null checks ---
+    const statusFilter = document.getElementById("statusFilter");
+    const applyFilters = document.getElementById("applyFilters");
 
-    // --- Guest search ---
-    const guestSearchInput = document.getElementById("guestSearchInput");
-    if (guestSearchInput) {
-        guestSearchInput.addEventListener("input", function () {
-            filterGuestDropdown(this.value);
+    if (statusFilter && applyFilters) {
+        statusFilter.addEventListener("change", () => {
+            applyFilters.click();
+        });
+    } else if (statusFilter) {
+        // If applyFilters doesn't exist, handle the filter change directly
+        statusFilter.addEventListener("change", () => {
+            // Add your filter logic here, or call displayReservations with filters
+            console.log("Status filter changed:", statusFilter.value);
+            // You might want to call displayReservations() or apply filters directly
         });
     }
 });
 
 // ==========================
 // === RESERVATIONS TABLE ===
-// ==========================
-async function displayReservations() {
-    try {
-        const response = await axios.get(`${BASE_URL}/reservations/reservations.php`, {
-            params: { operation: "getAllReservations" }
-        });
-        if (response.status === 200) {
-            displayReservationsTable(response.data);
-        } else {
-            showError("Failed to load reservations.");
-        }
-    } catch (error) {
-        console.error("Error fetching reservations:", error);
-        showError("Failed to load reservations. Please try again.");
-    }
-}
-
-// ==========================
-// === RESERVATIONS TABLE (WITH DEBUG) ===
 // ==========================
 async function displayReservations() {
     console.log("🔍 displayReservations() called"); // DEBUG
@@ -147,47 +283,78 @@ function displayReservationsTable(reservations) {
         return;
     }
 
-    console.log("✅ Processing", reservations.length, "reservations"); // DEBUG
-    document.getElementById("totalReservations").textContent = reservations.length;
+    // Only show reservations where is_deleted is false/0/"0"/"FALSE"/"false"
+    const filteredReservations = Array.isArray(reservations)
+        ? reservations.filter(r =>
+            !r.is_deleted ||
+            r.is_deleted === 0 ||
+            r.is_deleted === "0" ||
+            r.is_deleted === false ||
+            r.is_deleted === "FALSE" ||
+            r.is_deleted === "false"
+        )
+        : [];
 
-    reservations.forEach((res, index) => {
-        console.log(`📝 Processing reservation ${index + 1}:`, res); // DEBUG
+    if (!filteredReservations.length) {
+        tbody.innerHTML = `<tr><td colspan="7" class="text-center">No reservations found.</td></tr>`;
+        return;
+    }
+
+    console.log("✅ Processing", filteredReservations.length, "reservations"); // DEBUG
+
+    const totalReservationsEl = document.getElementById("totalReservations");
+    if (totalReservationsEl) {
+        totalReservationsEl.textContent = filteredReservations.length;
+    }
+
+    filteredReservations.forEach((res, index) => {
+        // Format check-in and check-out time to 12-hour format with AM/PM
+        function format12Hour(timeStr) {
+            if (!timeStr) return "";
+            const [h, m] = timeStr.split(":");
+            let hour = parseInt(h, 10);
+            const minute = m ? m.padStart(2, "0") : "00";
+            const ampm = hour >= 12 ? "PM" : "AM";
+            hour = hour % 12;
+            if (hour === 0) hour = 12;
+            return `${hour}:${minute} ${ampm}`;
+        }
+
+        const checkInTime12 = res.check_in_time ? format12Hour(res.check_in_time) : "";
+        const checkOutTime12 = res.check_out_time ? format12Hour(res.check_out_time) : "";
 
         const tr = document.createElement("tr");
         tr.innerHTML = `
         <td>${res.reservation_id || 'N/A'}</td>
-        <td>${res.guest_name || res.first_name + ' ' + res.last_name || 'No Name'}</td>
+        <td>${res.guest_name || (res.first_name && res.last_name ? res.first_name + ' ' + res.last_name : 'No Name')}</td>
         <td>${res.type_name ? `${res.type_name} (${res.room_number || ''})` : (res.room_number || 'No Room')}</td>
-        <td>${res.check_in_date || 'N/A'}${res.check_in_time ? " " + res.check_in_time : ""}</td>
-        <td>${res.check_out_date || 'N/A'}${res.check_out_time ? " " + res.check_out_time : ""}</td>
+        <td>${res.check_in_date || 'N/A'}${checkInTime12 ? " " + checkInTime12 : ""}</td>
+        <td>${res.check_out_date || 'N/A'}${checkOutTime12 ? " " + checkOutTime12 : ""}</td>
         <td>${getStatusBadge(res.reservation_status || res.room_status || 'pending')}</td>
         <td>
             <i class="fas fa-edit action-icon text-primary" data-action="edit" data-id="${res.reservation_id}" title="Edit" style="cursor:pointer;"></i>
-            ${res.reservation_status === 'confirmed' ? `<i class="fas fa-sign-in-alt action-icon text-success" data-action="checkin" data-room="${res.room_id}" title="Check In" style="cursor:pointer;"></i>` : ''}
-            ${res.reservation_status === 'checked-in' ? `<i class="fas fa-sign-out-alt action-icon text-warning" data-action="checkout" data-room="${res.room_id}" title="Check Out" style="cursor:pointer;"></i>` : ''}
+            <i class="fas fa-trash action-icon text-danger" data-action="delete" data-id="${res.reservation_id}" title="Delete" style="cursor:pointer;"></i>
         </td>
         `;
         tbody.appendChild(tr);
 
-        // Add event listeners for icon actions
+        // Edit
         const editIcon = tr.querySelector('.fa-edit[data-action="edit"]');
         if (editIcon) {
-            editIcon.addEventListener("click", () => editReservation(res));
-        }
-        const checkinIcon = tr.querySelector('.fa-sign-in-alt[data-action="checkin"]');
-        if (checkinIcon) {
-            checkinIcon.addEventListener("click", async () => {
-                await setRoomOccupied(res.room_id);
-                displayReservations();
+            editIcon.addEventListener("click", () => {
+                // Pass the full reservation object for editing
+                window.currentReservation = res; // for guest_id reference in modal
+                updateReservationModal(res, cachedRoomTypes, cachedStatuses, displayReservations);
             });
         }
-        const checkoutIcon = tr.querySelector('.fa-sign-out-alt[data-action="checkout"]');
-        if (checkoutIcon) {
-            checkoutIcon.addEventListener("click", async () => {
-                await setRoomAvailable(res.room_id);
-                displayReservations();
+        // Delete
+        const deleteIcon = tr.querySelector('.fa-trash[data-action="delete"]');
+        if (deleteIcon) {
+            deleteIcon.addEventListener("click", () => {
+                deleteReservationModal(res.reservation_id, displayReservations);
             });
         }
+        // Remove check-in/check-out icons and logic
     });
 
     console.log("✅ Successfully rendered", reservations.length, "reservations"); // DEBUG
@@ -206,54 +373,62 @@ function getStatusBadge(status) {
 // ==========================
 // === RESERVATION MODAL ====
 // ==========================
-function editReservation(res) {
-    document.getElementById("reservationId").value = res.reservation_id;
-    document.getElementById("guestSelect").value = res.guest_id || "";
-    document.getElementById("checkInDate").value = res.check_in_date || "";
-    document.getElementById("checkInTime").value = res.check_in_time || "14:00";
-    updateCheckoutDate();
-    if (res.room_type_id) {
-        document.getElementById("roomTypeSelect").value = res.room_type_id;
-        updateAvailableRooms().then(() => {
-            if (res.room_id) {
-                document.getElementById("roomSelect").value = res.room_id;
-            }
-        });
-    }
-    document.getElementById("statusSelect").value = res.reservation_status_id || "";
-    document.getElementById("reservationModalLabel").textContent = "Edit Reservation #" + res.reservation_id;
-    new bootstrap.Modal(document.getElementById("reservationModal")).show();
-}
-
 function clearReservationForm() {
-    document.getElementById("reservationForm").reset();
-    document.getElementById("reservationId").value = "";
-    document.getElementById("checkInTime").value = "14:00";
-    document.getElementById("reservationModalLabel").textContent = "Add New Reservation";
+    const form = document.getElementById("reservationForm");
+    if (form) form.reset();
+
+    const setFieldValue = (id, value) => {
+        const field = document.getElementById(id);
+        if (field) field.value = value || "";
+    };
+
+    setFieldValue("reservationId", "");
+    setFieldValue("checkInTime", "14:00");
+
+    const modalLabel = document.getElementById("reservationModalLabel");
+    if (modalLabel) {
+        modalLabel.textContent = "Add New Reservation";
+    }
+
     updateCheckoutDate();
+
     const roomSelect = document.getElementById("roomSelect");
-    roomSelect.innerHTML = `<option value="">-- Select Room --</option>`;
-    document.getElementById("roomTypeSelect").value = "";
+    if (roomSelect) {
+        roomSelect.innerHTML = `<option value="">-- Select Room --</option>`;
+    }
+
+    setFieldValue("roomTypeSelect", "");
     updateAvailableRooms();
+    loadIDTypes();
 }
 
 function updateCheckoutDate() {
-    const checkIn = document.getElementById("checkInDate").value;
-    const checkInTime = document.getElementById("checkInTime").value || "14:00";
-    const checkOut = document.getElementById("checkOutDate");
+    const checkInDate = document.getElementById("checkInDate");
+    const checkInTime = document.getElementById("checkInTime");
+    const checkOutDate = document.getElementById("checkOutDate");
     const checkOutTime = document.getElementById("checkOutTime");
-    if (checkIn && checkInTime) {
-        const dt = new Date(`${checkIn}T${checkInTime}:00+08:00`);
+
+    if (!checkInDate || !checkOutDate) return;
+
+    const checkIn = checkInDate.value;
+    const checkInTimeValue = checkInTime ? (checkInTime.value || "14:00") : "14:00";
+
+    if (checkIn && checkInTimeValue) {
+        const dt = new Date(`${checkIn}T${checkInTimeValue}:00+08:00`);
         dt.setHours(dt.getHours() + 24);
         const manilaDate = dt.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
         const manilaTime = dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Manila' });
-        checkOut.value = manilaDate;
-        checkOutTime.value = manilaTime;
-        checkOut.readOnly = true;
-        checkOutTime.readOnly = true;
+
+        checkOutDate.value = manilaDate;
+        checkOutDate.readOnly = true;
+
+        if (checkOutTime) {
+            checkOutTime.value = manilaTime;
+            checkOutTime.readOnly = true;
+        }
     } else {
-        checkOut.value = "";
-        checkOutTime.value = "";
+        checkOutDate.value = "";
+        if (checkOutTime) checkOutTime.value = "";
     }
 }
 
@@ -261,9 +436,9 @@ function updateCheckoutDate() {
 // === ROOMS & ROOM TYPES ====
 // ==========================
 async function loadRoomTypes() {
-    // Always fetch room types and store as a map for fast lookup
     const select = document.getElementById("roomTypeSelect");
     if (!select) return;
+
     select.innerHTML = `<option value="">-- Select Room Type --</option>`;
     try {
         const response = await axios.get(`${BASE_URL}/rooms/room-type.php`);
@@ -284,36 +459,46 @@ async function loadRoomTypes() {
 }
 
 async function updateAvailableRooms() {
-    const roomTypeId = document.getElementById("roomTypeSelect").value;
-    const select = document.getElementById("roomSelect");
-    select.innerHTML = `<option value="">-- Select Room --</option>`;
-    const checkInDate = document.getElementById("checkInDate").value;
-    const checkOutDate = document.getElementById("checkOutDate").value;
+    const roomTypeSelect = document.getElementById("roomTypeSelect");
+    const roomSelect = document.getElementById("roomSelect");
+    const checkInDate = document.getElementById("checkInDate");
+    const checkOutDate = document.getElementById("checkOutDate");
+
+    if (!roomSelect) return;
+
+    roomSelect.innerHTML = `<option value="">-- Select Room --</option>`;
+
+    const roomTypeId = roomTypeSelect ? roomTypeSelect.value : "";
+    const checkInDateValue = checkInDate ? checkInDate.value : "";
+    const checkOutDateValue = checkOutDate ? checkOutDate.value : "";
 
     // Defensive: Only fetch if all required fields are present
     if (!roomTypeId) {
-        select.innerHTML = `<option value="">Select a room type first</option>`;
+        roomSelect.innerHTML = `<option value="">Select a room type first</option>`;
         return;
     }
-    if (!checkInDate || !checkOutDate) {
-        select.innerHTML = `<option value="">Select check-in and check-out date</option>`;
+    if (!checkInDateValue || !checkOutDateValue) {
+        roomSelect.innerHTML = `<option value="">Select check-in and check-out date</option>`;
         return;
     }
 
     try {
-        select.innerHTML = `<option value="">Loading available rooms...</option>`;
-        const reservationId = document.getElementById("reservationId").value;
+        roomSelect.innerHTML = `<option value="">Loading available rooms...</option>`;
+
+        const reservationId = document.getElementById("reservationId");
         const params = {
             operation: "getAvailableRooms",
             room_type_id: roomTypeId,
-            check_in_date: checkInDate,
-            check_out_date: checkOutDate
+            check_in_date: checkInDateValue,
+            check_out_date: checkOutDateValue
         };
-        if (reservationId) params.reservation_id = reservationId;
+        if (reservationId && reservationId.value) {
+            params.reservation_id = reservationId.value;
+        }
 
         // Always expect an array from API, fallback to []
         const response = await axios.get(`${BASE_URL}/rooms/rooms.php`, { params });
-        select.innerHTML = `<option value="">-- Select Room --</option>`;
+        roomSelect.innerHTML = `<option value="">-- Select Room --</option>`;
         let rooms = [];
         if (Array.isArray(response.data)) {
             rooms = response.data;
@@ -322,7 +507,7 @@ async function updateAvailableRooms() {
         }
         // Only show available rooms for this type
         if (!rooms.length) {
-            select.innerHTML = `<option value="">No available rooms for this type</option>`;
+            roomSelect.innerHTML = `<option value="">No available rooms for this type</option>`;
             return;
         }
         cachedRooms = rooms;
@@ -330,15 +515,15 @@ async function updateAvailableRooms() {
             const option = document.createElement("option");
             option.value = room.room_id;
             option.textContent = `${room.room_number} (${room.type_name || 'Room'})`;
-            select.appendChild(option);
+            roomSelect.appendChild(option);
         });
         // Show summary at the bottom
         const typeName = cachedRoomTypes.find(t => t.room_type_id == roomTypeId)?.type_name || 'room';
-        select.innerHTML += `<option disabled>───────────────</option>`;
-        select.innerHTML += `<option disabled>${rooms.length} ${typeName} room(s) available</option>`;
+        roomSelect.innerHTML += `<option disabled>───────────────</option>`;
+        roomSelect.innerHTML += `<option disabled>${rooms.length} ${typeName} room(s) available</option>`;
     } catch (error) {
         console.error("Failed to load available rooms:", error);
-        select.innerHTML = `<option value="">Error loading rooms: ${error.message}</option>`;
+        roomSelect.innerHTML = `<option value="">Error loading rooms: ${error.message}</option>`;
     }
 }
 
@@ -347,6 +532,11 @@ async function updateAvailableRooms() {
 // ==========================
 async function loadGuests() {
     const select = document.getElementById("guestSelect");
+    if (!select) {
+        console.warn("guestSelect element not found, skipping loadGuests");
+        return;
+    }
+
     select.innerHTML = `<option value="">-- Select Guest --</option>`;
     try {
         const response = await axios.get(`${BASE_URL}/guests/guests.php`, {
@@ -359,14 +549,16 @@ async function loadGuests() {
             option.textContent = `${guest.first_name} ${guest.suffix ? guest.suffix + " " : ""}${guest.last_name}`;
             select.appendChild(option);
         });
-    } catch {
+    } catch (error) {
+        console.error("Failed to load guests:", error);
         showError("Failed to load guests.");
     }
 }
 
 function filterGuestDropdown(query) {
     const select = document.getElementById("guestSelect");
-    if (!select || !cachedGuests.length) return;
+    if (!select || !cachedGuests || !cachedGuests.length) return;
+
     const q = (query || "").toLowerCase();
     select.innerHTML = `<option value="">-- Select Guest --</option>`;
     cachedGuests
@@ -380,8 +572,12 @@ function filterGuestDropdown(query) {
 }
 
 function clearGuestForm() {
-    document.getElementById("guestForm").reset();
-    document.getElementById("guestId").value = "";
+    const form = document.getElementById("guestForm");
+    if (form) form.reset();
+
+    const guestId = document.getElementById("guestId");
+    if (guestId) guestId.value = "";
+
     const dateOfBirth = document.getElementById("dateOfBirth");
     if (dateOfBirth) {
         const today = new Date();
@@ -390,21 +586,27 @@ function clearGuestForm() {
 }
 
 async function saveGuest() {
-    const firstName = document.getElementById("firstName").value;
-    const lastName = document.getElementById("lastName").value;
-    const middleName = document.getElementById("middleName").value;
-    const suffix = document.getElementById("suffix").value;
-    const dateOfBirth = document.getElementById("dateOfBirth").value;
-    const email = document.getElementById("email").value;
-    const phone = document.getElementById("phone").value;
-    const idType = document.getElementById("idType").value;
-    const idNumber = document.getElementById("idNumber").value;
+    const getFieldValue = (id) => {
+        const field = document.getElementById(id);
+        return field ? field.value : "";
+    };
+
+    const firstName = getFieldValue("firstName");
+    const lastName = getFieldValue("lastName");
+    const middleName = getFieldValue("middleName");
+    const suffix = getFieldValue("suffix");
+    const dateOfBirth = getFieldValue("dateOfBirth");
+    const email = getFieldValue("email");
+    const phone = getFieldValue("phone");
+    const idType = getFieldValue("idType");
+    const idNumber = getFieldValue("idNumber");
 
     // Validation
     if (!firstName || !lastName || !dateOfBirth || !email || !phone || !idType || !idNumber) {
         showError("Please fill in all guest fields.");
         return;
     }
+
     // Date of birth cannot be in the future
     const today = new Date();
     const dob = new Date(dateOfBirth);
@@ -421,7 +623,9 @@ async function saveGuest() {
         const idTypes = idTypesRes.data || [];
         const found = idTypes.find(t => t.id_type === idType);
         guest_idtype_id = found ? found.guest_idtype_id : null;
-    } catch { }
+    } catch (error) {
+        console.error("Failed to fetch ID types:", error);
+    }
 
     const jsonData = {
         first_name: firstName,
@@ -440,11 +644,16 @@ async function saveGuest() {
     formData.append("operation", "insertGuest");
     formData.append("json", JSON.stringify(jsonData));
 
-    const response = await axios.post(`${BASE_URL}/guests/guests.php`, formData);
-    if (response.data == 1) {
-        loadGuests();
-        showSuccess("Guest added!");
-    } else {
+    try {
+        const response = await axios.post(`${BASE_URL}/guests/guests.php`, formData);
+        if (response.data == 1) {
+            loadGuests();
+            showSuccess("Guest added!");
+        } else {
+            showError("Failed to add guest.");
+        }
+    } catch (error) {
+        console.error("Failed to save guest:", error);
         showError("Failed to add guest.");
     }
 }
@@ -454,6 +663,11 @@ async function saveGuest() {
 // ==========================
 async function loadStatuses() {
     const select = document.getElementById("statusSelect");
+    if (!select) {
+        console.warn("statusSelect element not found, skipping loadStatuses");
+        return;
+    }
+
     select.innerHTML = "";
     try {
         const response = await axios.get(`${BASE_URL}/reservations/reservation_status.php`);
@@ -474,12 +688,14 @@ async function loadStatuses() {
         }
     } catch (error) {
         console.error("Error loading reservation statuses:", error);
+        showError("Failed to load reservation statuses.");
     }
 }
 
 function updateStatusFilter() {
     const statusFilter = document.getElementById("statusFilter");
     if (!statusFilter || !cachedStatuses || cachedStatuses.length === 0) return;
+
     statusFilter.innerHTML = `<option value="">All Statuses</option>`;
     cachedStatuses.forEach(status => {
         const option = document.createElement("option");
@@ -488,8 +704,6 @@ function updateStatusFilter() {
         statusFilter.appendChild(option);
     });
 }
-
-// REMOVED THE DUPLICATE DOMContentLoaded EVENT LISTENER THAT WAS CAUSING DUPLICATION
 
 // ==========================
 // === RESERVED ROOMS LOGIC =
@@ -516,6 +730,7 @@ async function upsertReservedRoom(reservationId, roomId) {
             await saveReservedRoom(reservationId, roomId);
         }
     } catch (err) {
+        console.error("Error in upsertReservedRoom, fallback to saveReservedRoom:", err);
         await saveReservedRoom(reservationId, roomId);
     }
 }
@@ -528,36 +743,122 @@ async function saveReservedRoom(reservationId, roomId) {
         reservation_id: reservationId,
         room_id: roomId,
     }));
-    await axios.post(`${BASE_URL}/reservations/reserved_rooms.php`, formData);
+    try {
+        await axios.post(`${BASE_URL}/reservations/reserved_rooms.php`, formData);
+    } catch (error) {
+        console.error("Error saving reserved room:", error);
+    }
 }
 
 // ==========================
 // === SAVE RESERVATION =====
 // ==========================
 async function saveReservation() {
-    const reservationId = document.getElementById("reservationId").value;
-    const guestId = document.getElementById("guestSelect").value;
-    const checkInDate = document.getElementById("checkInDate").value;
-    const checkInTime = document.getElementById("checkInTime").value || "14:00";
-    const checkOutDate = document.getElementById("checkOutDate").value;
-    const checkOutTime = document.getElementById("checkOutTime").value || checkInTime;
-    const roomTypeId = document.getElementById("roomTypeSelect").value;
-    const roomId = document.getElementById("roomSelect").value;
-    const statusId = document.getElementById("statusSelect").value;
+    // Disable save button to prevent multiple submissions
+    const saveBtn = document.getElementById("saveReservationBtn");
+    if (saveBtn) saveBtn.disabled = true;
+    // Defensive get value
+    function getVal(id) {
+        const el = document.getElementById(id);
+        return el ? el.value : "";
+    }
+
+    // Use hidden guestSelectId if present
+    let guestId = document.getElementById("guestSelectId")?.value || getVal("guestSelect");
+
+    const reservationId = getVal("reservationId");
+
+    // Guest fields
+    const firstName = getVal("firstName");
+    const lastName = getVal("lastName");
+    const middleName = getVal("middleName");
+    const suffix = getVal("suffix");
+    const dateOfBirth = getVal("dateOfBirth");
+    const email = getVal("email");
+    const phone = getVal("phone");
+    const idType = getVal("idType");
+    const idNumber = getVal("idNumber");
+    const checkInDate = getVal("checkInDate");
+    const checkInTime = getVal("checkInTime") || "14:00";
+    const checkOutDate = getVal("checkOutDate");
+    const checkOutTime = getVal("checkOutTime") || checkInTime;
+    const roomTypeId = getVal("roomTypeSelect");
+    const roomId = getVal("roomSelect");
+    const statusId = getVal("statusSelect");
 
     // Validation
-    if (!guestId || !checkInDate || !checkInTime || !roomTypeId || !roomId || !statusId) {
+    if (!firstName || !lastName || !dateOfBirth || !email || !phone || !idType || !idNumber || !checkInDate || !checkInTime || !roomTypeId || !roomId || !statusId) {
         showError("Please fill in all required fields.");
+        if (saveBtn) saveBtn.disabled = false;
         return;
     }
+
     // Check-in date must be today or future
     const today = new Date();
-    const checkIn = new Date(checkInDate);
     today.setHours(0, 0, 0, 0);
+    const checkIn = new Date(checkInDate);
+    checkIn.setHours(0, 0, 0, 0);
     if (checkIn < today) {
-        showError("Check-in date cannot be in the past.");
+        showError("Check-in date cannot be before today.");
+        if (saveBtn) saveBtn.disabled = false;
         return;
     }
+
+    // Map id_type to guest_idtype_id
+    let guest_idtype_id = null;
+    try {
+        const idTypesRes = await axios.get(`${BASE_URL}/guests/id_types.php`, { params: { operation: "getAllIDTypes" } });
+        const idTypes = idTypesRes.data || [];
+        const found = idTypes.find(t => t.id_type === idType);
+        guest_idtype_id = found ? found.guest_idtype_id : null;
+    } catch (error) {
+        guest_idtype_id = null;
+    }
+
+    // If guestId is not selected, create guest first
+    if (!guestId) {
+        const guestData = {
+            first_name: firstName,
+            last_name: lastName,
+            middle_name: middleName,
+            suffix: suffix,
+            date_of_birth: dateOfBirth,
+            email: email,
+            phone_number: phone,
+            id_type: idType,
+            id_number: idNumber,
+            guest_idtype_id: guest_idtype_id
+        };
+
+        const guestForm = new FormData();
+        guestForm.append("operation", "insertGuest");
+        guestForm.append("json", JSON.stringify(guestData));
+
+        try {
+            const guestRes = await axios.post(`${BASE_URL}/guests/guests.php`, guestForm);
+            if (guestRes.data && typeof guestRes.data === 'object' && guestRes.data.guest_id) {
+                guestId = guestRes.data.guest_id;
+            } else if (guestRes.data && !isNaN(guestRes.data) && Number(guestRes.data) > 0) {
+                // fallback: fetch latest guest by email
+                const guestsList = await axios.get(`${BASE_URL}/guests/guests.php`, { params: { operation: "getAllGuests" } });
+                if (Array.isArray(guestsList.data)) {
+                    const found = guestsList.data.find(g => g.email === email);
+                    guestId = found ? found.guest_id : null;
+                }
+            }
+            if (!guestId) {
+                showError("Failed to save guest. Please check guest info.");
+                if (saveBtn) saveBtn.disabled = false;
+                return;
+            }
+        } catch (err) {
+            console.error("Error saving guest:", err);
+            showError("Failed to save guest. Please check guest info.");
+            if (saveBtn) saveBtn.disabled = false;
+            return;
+        }
+    }
+    // If guestId is selected, do NOT add a new guest, just use the selected guestId
 
     const jsonData = {
         guest_id: guestId,
@@ -605,7 +906,13 @@ async function saveReservation() {
             await upsertReservedRoom(newReservationId, roomId);
 
             displayReservations();
-            bootstrap.Modal.getInstance(document.getElementById("reservationModal")).hide();
+
+            const modal = document.getElementById("reservationModal");
+            if (modal) {
+                const modalInstance = bootstrap.Modal.getInstance(modal);
+                if (modalInstance) modalInstance.hide();
+            }
+
             showSuccess("Reservation saved!");
         } else {
             showError("Failed to save reservation.");
@@ -613,6 +920,8 @@ async function saveReservation() {
     } catch (error) {
         console.error("Error saving reservation:", error);
         showError("An error occurred while saving the reservation.");
+    } finally {
+        if (saveBtn) saveBtn.disabled = false;
     }
 }
 
@@ -620,46 +929,61 @@ async function saveReservation() {
 // === ROOM STATUS HELPERS ===
 // ==========================
 async function setRoomOccupied(roomId) {
-    const formData = new FormData();
-    formData.append("operation", "updateRoom");
-    formData.append("json", JSON.stringify({
-        room_id: roomId,
-        room_status_id: await getRoomStatusIdByName('occupied'),
-        update_type: "status_only"
-    }));
-    const response = await axios({
-        url: `${BASE_URL}/rooms/rooms.php`,
-        method: "POST",
-        data: formData
-    });
-    return response.data == 1;
+    try {
+        const formData = new FormData();
+        formData.append("operation", "updateRoom");
+        formData.append("json", JSON.stringify({
+            room_id: roomId,
+            room_status_id: await getRoomStatusIdByName('occupied'),
+            update_type: "status_only"
+        }));
+        const response = await axios({
+            url: `${BASE_URL}/rooms/rooms.php`,
+            method: "POST",
+            data: formData
+        });
+        return response.data == 1;
+    } catch (error) {
+        console.error("Error setting room occupied:", error);
+        return false;
+    }
 }
 
 async function setRoomAvailable(roomId) {
-    const formData = new FormData();
-    formData.append("operation", "updateRoom");
-    formData.append("json", JSON.stringify({
-        room_id: roomId,
-        room_status_id: await getRoomStatusIdByName('available'),
-        update_type: "status_only"
-    }));
-    const response = await axios({
-        url: `${BASE_URL}/rooms/rooms.php`,
-        method: "POST",
-        data: formData
-    });
-    return response.data == 1;
+    try {
+        const formData = new FormData();
+        formData.append("operation", "updateRoom");
+        formData.append("json", JSON.stringify({
+            room_id: roomId,
+            room_status_id: await getRoomStatusIdByName('available'),
+            update_type: "status_only"
+        }));
+        const response = await axios({
+            url: `${BASE_URL}/rooms/rooms.php`,
+            method: "POST",
+            data: formData
+        });
+        return response.data == 1;
+    } catch (error) {
+        console.error("Error setting room available:", error);
+        return false;
+    }
 }
 
 async function getRoomStatusIdByName(statusName) {
-    const response = await axios.get(`${BASE_URL}/rooms/rooms.php`, {
-        params: { operation: "getAllRoomStatus" }
-    });
-    if (Array.isArray(response.data)) {
-        const found = response.data.find(s => s.room_status === statusName);
-        return found ? found.room_status_id : null;
+    try {
+        const response = await axios.get(`${BASE_URL}/rooms/rooms.php`, {
+            params: { operation: "getAllRoomStatus" }
+        });
+        if (Array.isArray(response.data)) {
+            const found = response.data.find(s => s.room_status === statusName);
+            return found ? found.room_status_id : null;
+        }
+        return null;
+    } catch (error) {
+        console.error("Error getting room status ID:", error);
+        return null;
     }
-    return null;
 }
 
 // ==========================
@@ -678,5 +1002,26 @@ function showSuccess(msg) {
         Swal.fire("Success", msg, "success");
     } else {
         alert(msg);
+    }
+}
+
+// Dynamically load ID Types from API for the Add Reservation modal
+async function loadIDTypes() {
+    const select = document.getElementById("idType");
+    if (!select) return;
+    select.innerHTML = `<option value="">-- Select ID Type --</option>`;
+    try {
+        const response = await axios.get(`${BASE_URL}/guests/id_types.php`, {
+            params: { operation: "getAllIDTypes" }
+        });
+        const idTypes = Array.isArray(response.data) ? response.data : [];
+        idTypes.forEach(type => {
+            const option = document.createElement("option");
+            option.value = type.id_type;
+            option.textContent = type.id_type;
+            select.appendChild(option);
+        });
+    } catch (error) {
+        // fallback: keep only the placeholder
     }
 }

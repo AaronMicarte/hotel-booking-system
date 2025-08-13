@@ -68,7 +68,9 @@ CREATE TABLE Reservation (
     reservation_status_id INT,
     guest_id INT,
     check_in_date DATE,
+    check_in_time TIME,         -- Add this line
     check_out_date DATE,
+    check_out_time TIME,        -- Add this line
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     is_deleted BOOLEAN DEFAULT FALSE,
