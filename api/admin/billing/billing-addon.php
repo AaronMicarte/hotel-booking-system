@@ -10,10 +10,18 @@ class BillingAddon
         $database = new Database();
         $db = $database->getConnection();
 
-        $sql = "SELECT ba.*, a.name AS addon_name, b.billing_id, b.total_amount, b.billing_date
+        $sql = "SELECT ba.*, 
+                       a.name AS addon_name, 
+                       b.billing_id, 
+                       b.total_amount, 
+                       b.billing_date,
+                       res.reservation_id,
+                       CONCAT(g.first_name, ' ', g.last_name) AS guest_name
                 FROM BillingAddon ba
                 LEFT JOIN Addon a ON ba.addon_id = a.addon_id
                 LEFT JOIN Billing b ON ba.billing_id = b.billing_id
+                LEFT JOIN Reservation res ON b.reservation_id = res.reservation_id
+                LEFT JOIN Guest g ON res.guest_id = g.guest_id
                 WHERE ba.is_deleted = 0
                 ORDER BY ba.created_at DESC";
         $stmt = $db->prepare($sql);

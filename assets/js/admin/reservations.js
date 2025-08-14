@@ -899,12 +899,63 @@ async function saveReservation() {
                         newReservationId = found ? found.reservation_id : null;
                     }
                 } catch (error) {
-                    console.error("Error fetching new reservation ID:", error);
+                    console.error("[Billing Debug] Error fetching new reservation ID:", error);
                 }
             }
 
             // Always update ReservedRoom for this reservation
             await upsertReservedRoom(newReservationId, roomId);
+
+            // --- AUTO-CREATE BILLING AFTER RESERVATION INSERT ---
+            if (!reservationId && newReservationId) {
+                try {
+                    console.log("[Billing Debug] Checking for existing billing for reservation_id:", newReservationId);
+                    const billingRes = await axios.get(`${BASE_URL}/billing/billing.php`, {
+                        params: { operation: "getBillingByReservation", reservation_id: newReservationId }
+                    });
+                    console.log("[Billing Debug] Billing API getBillingByReservation response:", billingRes.data);
+
+                    let billingExists = false;
+                    if (billingRes.data && typeof billingRes.data === "object") {
+                        // If object with keys, treat as exists
+                        if (Array.isArray(billingRes.data)) {
+                            billingExists = billingRes.data.length > 0;
+                        } else {
+                            billingExists = Object.keys(billingRes.data).length > 0;
+                        }
+                    }
+
+                    if (!billingExists) {
+                        // No billing exists, create one
+                        // Default billing_status_id: 1 (unpaid), total_amount: 0, billing_date: use checkOutDate or today
+                        const billingData = {
+                            reservation_id: newReservationId,
+                            billing_status_id: 1, // unpaid
+                            total_amount: 0,
+                            billing_date: checkOutDate || (new Date().toISOString().split("T")[0])
+                        };
+                        console.log("[Billing Debug] Inserting billing with data:", billingData);
+
+                        const billingForm = new FormData();
+                        billingForm.append("operation", "insertBilling");
+                        billingForm.append("json", JSON.stringify(billingData));
+                        const billingInsertRes = await axios.post(`${BASE_URL}/billing/billing.php`, billingForm);
+
+                        console.log("[Billing Debug] Billing insert response:", billingInsertRes.data);
+
+                        if (billingInsertRes.data != 1) {
+                            console.error("[Billing Debug] Billing insert failed, API response:", billingInsertRes.data);
+                            showError("Failed to auto-create billing for reservation. Please check the Billing API.");
+                        }
+                    } else {
+                        console.log("[Billing Debug] Billing already exists for reservation_id:", newReservationId);
+                    }
+                } catch (err) {
+                    console.error("[Billing Debug] Failed to auto-create billing for reservation:", err);
+                    showError("Failed to auto-create billing for reservation. See console for details.");
+                }
+            }
+            // --- END AUTO-CREATE BILLING ---
 
             displayReservations();
 

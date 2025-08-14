@@ -252,6 +252,7 @@ CREATE TABLE Payment (
     sub_method_id INT,
     amount_paid DECIMAL(10,2),
     payment_date DATE,
+    notes TEXT, -- Add this line if not present
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     is_deleted BOOLEAN DEFAULT FALSE,
@@ -260,3 +261,17 @@ CREATE TABLE Payment (
     FOREIGN KEY (reservation_id) REFERENCES Reservation(reservation_id),
     FOREIGN KEY (sub_method_id) REFERENCES PaymentSubMethod(sub_method_id)
 );
+
+-- Insert default billing statuses if not present
+INSERT INTO BillingStatus (billing_status_id, billing_status)
+    VALUES (1, 'unpaid')
+    ON DUPLICATE KEY UPDATE billing_status=billing_status;
+INSERT INTO BillingStatus (billing_status_id, billing_status)
+    VALUES (2, 'paid')
+    ON DUPLICATE KEY UPDATE billing_status=billing_status;
+INSERT INTO BillingStatus (billing_status_id, billing_status)
+    VALUES (3, 'partial')
+    ON DUPLICATE KEY UPDATE billing_status=billing_status;
+INSERT INTO BillingStatus (billing_status_id, billing_status)
+    VALUES (4, 'overdue')
+    ON DUPLICATE KEY UPDATE billing_status=billing_status;
