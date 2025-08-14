@@ -296,6 +296,12 @@ export const showPaymentModal = async (billingId = null, reservationId = null) =
             document.getElementById("guestName").value = billing.guest_name;
             document.getElementById("totalAmount").value = billing.total_amount;
             document.getElementById("remainingAmount").value = billing.remaining_amount;
+
+            // Set max for paymentAmount input to remainingAmount
+            const paymentAmountInput = document.getElementById("paymentAmount");
+            if (paymentAmountInput && billing.remaining_amount !== undefined && billing.remaining_amount !== null) {
+                paymentAmountInput.max = billing.remaining_amount;
+            }
         }
         new bootstrap.Modal(document.getElementById("paymentModal")).show();
     } catch (error) {
@@ -328,6 +334,45 @@ export const recordPayment = async () => {
         return;
     }
 
+    // --- Prevent overpayment ---
+    // Fetch latest billing info to get remaining_amount
+    const billing = await getBillingDetails(billingId);
+    if (billing && billing.remaining_amount !== undefined && billing.remaining_amount !== null) {
+        if (parseFloat(paymentAmount) > parseFloat(billing.remaining_amount)) {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'error',
+                title: 'Payment exceeds remaining amount!',
+                showConfirmButton: false,
+                timer: 2200
+            });
+            return false;
+        }
+        if (parseFloat(billing.remaining_amount) <= 0) {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'info',
+                title: 'Bill is already fully paid!',
+                showConfirmButton: false,
+                timer: 2200
+            });
+            return false;
+        }
+        if (billing.billing_status && billing.billing_status.toLowerCase() === "paid") {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'info',
+                title: 'Bill is already fully paid!',
+                showConfirmButton: false,
+                timer: 2200
+            });
+            return false;
+        }
+    }
+
     // Dynamically get sub_method_id from API
     const sub_method_id = await getSubMethodIdByName(paymentMethod);
     console.debug("[BillingModule] Using sub_method_id (dynamic):", sub_method_id, "for paymentMethod:", paymentMethod);
@@ -354,14 +399,13 @@ export const recordPayment = async () => {
         return false;
     }
 
-    // Get user_id (if you have user session, otherwise set to 1 for admin)
+    // Get user_id
     let user_id = 1;
     if (window.currentUser && window.currentUser.user_id) user_id = window.currentUser.user_id;
 
     // Use today's date for payment_date
     const payment_date = new Date().toISOString().slice(0, 10);
 
-    // The Payment API expects a POST with operation=insertPayment and json=...
     const payload = {
         user_id,
         billing_id: billingId,
@@ -375,7 +419,6 @@ export const recordPayment = async () => {
     // DEBUG: Log payload
     console.debug("[BillingModule] Payment payload to send:", payload);
 
-    // Use FormData to match the PHP API's expected POST structure
     const formData = new FormData();
     formData.append("operation", "insertPayment");
     formData.append("json", JSON.stringify(payload));
@@ -402,6 +445,18 @@ export const recordPayment = async () => {
                 alert("Payment API error: " + response.data.error);
             }
             return false;
+        }
+
+        // After payment, update billing status if needed
+        // Fetch latest billing info
+        const billing = await getBillingDetails(billingId);
+        if (billing) {
+            if (parseFloat(billing.remaining_amount) === 0) {
+                // Fully paid
+                await updateBillingStatus(billingId, 2); // 2 = paid
+            } else if (parseFloat(billing.amount_paid) > 0) {
+                await updateBillingStatus(billingId, 3); // 3 = partial
+            }
         }
 
         Swal.fire({
@@ -475,5 +530,27 @@ export const deleteBilling = async (billingId, refreshDisplay) => {
             showConfirmButton: false,
             timer: 1800
         });
+    }
+};
+
+export const getBillingStatuses = async () => {
+    const response = await axios.get(`${window.location.origin}/Hotel-Reservation-Billing-System/api/admin/billing/status.php`, {
+        params: { operation: "getAllBillingStatuses" }
+    });
+    return response.data || [];
+};
+
+export const updateBillingStatus = async (billingId, billing_status_id) => {
+    const formData = new FormData();
+    formData.append("operation", "updateBillingStatus");
+    formData.append("json", JSON.stringify({ billing_id: billingId, billing_status_id }));
+    try {
+        const response = await axios.post(
+            `${window.location.origin}/Hotel-Reservation-Billing-System/api/admin/billing/billing.php`,
+            formData
+        );
+        return response.data === 1 || response.data.success;
+    } catch {
+        return false;
     }
 };

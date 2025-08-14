@@ -312,6 +312,22 @@ class Billing
         $returnValue = $stmt->rowCount() > 0 ? 1 : 0;
         echo json_encode($returnValue);
     }
+
+    function updateBillingStatus($json)
+    {
+        include_once '../../config/database.php';
+        $database = new Database();
+        $db = $database->getConnection();
+        $jsonArr = is_array($json) ? $json : json_decode($json, true);
+
+        $sql = "UPDATE Billing SET billing_status_id = :billing_status_id WHERE billing_id = :billing_id";
+        $stmt = $db->prepare($sql);
+        $stmt->bindParam(":billing_status_id", $jsonArr['billing_status_id']);
+        $stmt->bindParam(":billing_id", $jsonArr['billing_id']);
+        $stmt->execute();
+        $returnValue = $stmt->rowCount() > 0 ? 1 : 0;
+        echo json_encode($returnValue);
+    }
 }
 
 // Request handling
@@ -355,5 +371,8 @@ switch ($operation) {
         break;
     case "deleteBilling":
         $billing->deleteBilling($json);
+        break;
+    case "updateBillingStatus":
+        $billing->updateBillingStatus($json);
         break;
 }

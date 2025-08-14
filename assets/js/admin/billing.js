@@ -2,7 +2,9 @@ import {
     showBillingDetailsModal,
     showPaymentModal,
     recordPayment,
-    deleteBilling
+    deleteBilling,
+    updateBillingStatus,
+    getBillingStatuses
 } from '../modules/admin/billing-module.js';
 
 // API Base URL
@@ -77,6 +79,16 @@ function displayBillings(billings) {
         const totalBill = b.total_bill !== undefined
             ? parseFloat(b.total_bill)
             : (b.total_amount !== undefined ? parseFloat(b.total_amount) : 0);
+
+        // --- FIX: Disable add payment if remaining_amount <= 0 OR status is paid ---
+        let canAddPayment = true;
+        if (
+            (typeof b.remaining_amount !== "undefined" && b.remaining_amount !== null && parseFloat(b.remaining_amount) <= 0) ||
+            (b.billing_status && b.billing_status.toLowerCase() === "paid")
+        ) {
+            canAddPayment = false;
+        }
+
         tbody.innerHTML += `
             <tr>
                 <td>${b.billing_id || ''}</td>
@@ -86,10 +98,13 @@ function displayBillings(billings) {
                 <td>${roomInfo}</td>
                 <td>₱${totalBill.toFixed(2)}</td>
                 <td>₱${b.amount_paid ? parseFloat(b.amount_paid).toFixed(2) : "0.00"}</td>
-                <td><span class="badge bg-${getStatusColor(b.billing_status || '')}">${b.billing_status || "-"}</span></td>
+                <td>
+                    <span class="badge bg-${getStatusColor(b.billing_status || '')}">${b.billing_status || "-"}</span>
+                    <i class="fas fa-edit text-primary btn-edit-status" data-billing-id="${b.billing_id}" title="Edit Status" style="cursor:pointer;margin-left:6px;"></i>
+                </td>
                 <td class="text-center">
                     <i class="fas fa-eye text-info btn-view-billing" data-billing-id="${b.billing_id}" title="View" style="cursor:pointer;margin-right:8px;"></i>
-                    <i class="fas fa-money-bill-wave text-success btn-add-payment" data-billing-id="${b.billing_id}" title="Add Payment" style="cursor:pointer;margin-right:8px;"></i>
+                    <i class="fas fa-money-bill-wave text-success btn-add-payment" data-billing-id="${b.billing_id}" title="Add Payment" style="cursor:pointer;margin-right:8px;${canAddPayment ? '' : 'opacity:0.3;pointer-events:none;'}"></i>
                     <i class="fas fa-trash text-danger btn-delete-billing" data-billing-id="${b.billing_id}" title="Delete" style="cursor:pointer;"></i>
                 </td>
             </tr>
@@ -117,6 +132,12 @@ function displayBillings(billings) {
         btn.addEventListener('click', () => {
             console.debug("[Billing] Delete billing clicked:", btn.dataset.billingId);
             deleteBilling(btn.dataset.billingId, loadBillings);
+        });
+    });
+    tbody.querySelectorAll('.btn-edit-status').forEach(btn => {
+        btn.addEventListener('click', async () => {
+            const billingId = btn.dataset.billingId;
+            await showEditStatusModal(billingId);
         });
     });
 }
@@ -211,6 +232,48 @@ export async function loadBillingsByReservation(reservationId) {
         displayBillings(billings);
     } catch (err) {
         tbody.innerHTML = `<tr><td colspan="9" class="text-center text-danger">Error loading billings</td></tr>`;
+    }
+}
+
+// --- Edit Billing Status Modal ---
+async function showEditStatusModal(billingId) {
+    const statuses = await getBillingStatuses();
+    const { value: statusId } = await Swal.fire({
+        title: 'Update Billing Status',
+        input: 'select',
+        inputOptions: statuses.reduce((acc, s) => {
+            acc[s.billing_status_id] = s.billing_status;
+            return acc;
+        }, {}),
+        inputPlaceholder: 'Select status',
+        showCancelButton: true,
+        confirmButtonText: 'Update',
+        inputValidator: (value) => {
+            if (!value) return 'Please select a status';
+        }
+    });
+    if (statusId) {
+        const result = await updateBillingStatus(billingId, statusId);
+        if (result) {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'success',
+                title: 'Billing status updated!',
+                showConfirmButton: false,
+                timer: 1800
+            });
+            loadBillings();
+        } else {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'error',
+                title: 'Failed to update status',
+                showConfirmButton: false,
+                timer: 1800
+            });
+        }
     }
 }
 
