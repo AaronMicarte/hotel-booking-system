@@ -118,7 +118,7 @@ export const showBillingDetailsModal = async (billingId) => {
 };
 
 // --- Helper: Get Billing Details ---
-const getBillingDetails = async (billingId) => {
+export const getBillingDetails = async (billingId) => {
     console.debug("[BillingModule] getBillingDetails called with billingId:", billingId);
     const response = await axios.get(`${window.location.origin}/Hotel-Reservation-Billing-System/api/admin/billing/billing.php`, {
         params: { billing_id: billingId }
