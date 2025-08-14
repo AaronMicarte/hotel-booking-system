@@ -57,7 +57,8 @@ INSERT IGNORE INTO AddonOrderStatus (order_status_id, order_status_name) VALUES
 INSERT IGNORE INTO PaymentSubMethodCategory (payment_category_id, name) VALUES
 (1, 'e-wallet'),
 (2, 'bank'),
-(3, 'credit card');
+(3, 'credit card'),
+(4, 'cash');
 
 -- Insert sample payment methods
 INSERT IGNORE INTO PaymentSubMethod (sub_method_id, payment_category_id, name) VALUES
@@ -66,7 +67,7 @@ INSERT IGNORE INTO PaymentSubMethod (sub_method_id, payment_category_id, name) V
 (3, 2, 'BPI'),
 (4, 2, 'BDO'),
 (5, 3, 'Visa'),
-(6, 3, 'Mastercard');
+(6, 4, 'Cash');
 
 -- Insert sample admin user (password: admin123)
 INSERT IGNORE INTO User (user_id, user_roles_id, username, password, email) VALUES

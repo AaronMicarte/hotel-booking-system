@@ -98,6 +98,26 @@ class PaymentSubMethodAPI
         $returnValue = $stmt->rowCount() > 0 ? 1 : 0;
         echo json_encode($returnValue);
     }
+
+    function getSubMethodByName($json)
+    {
+        include_once '../../config/database.php';
+        $database = new Database();
+        $db = $database->getConnection();
+        $json = json_decode($json, true);
+
+        $sql = "SELECT sm.*, cat.name AS payment_category
+                FROM PaymentSubMethod sm
+                LEFT JOIN PaymentSubMethodCategory cat ON sm.payment_category_id = cat.payment_category_id
+                WHERE sm.name = :name AND sm.is_deleted = 0
+                LIMIT 1";
+        $stmt = $db->prepare($sql);
+        $stmt->bindParam(":name", $json['name']);
+        $stmt->execute();
+        $rs = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        echo json_encode($rs ? $rs : []);
+    }
 }
 
 // Request handling
@@ -110,6 +130,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
         if (isset($_GET['sub_method_id'])) {
             $operation = 'getSubMethod';
             $json = json_encode(['sub_method_id' => $_GET['sub_method_id']]);
+        } else if (isset($_GET['name'])) {
+            $operation = 'getSubMethodByName';
+            $json = json_encode(['name' => $_GET['name']]);
         } else {
             $operation = 'getAllSubMethods';
         }
@@ -129,6 +152,9 @@ switch ($operation) {
         break;
     case "getSubMethod":
         $subMethod->getSubMethod($json);
+        break;
+    case "getSubMethodByName":
+        $subMethod->getSubMethodByName($json);
         break;
     case "updateSubMethod":
         $subMethod->updateSubMethod($json);

@@ -39,8 +39,22 @@ class PaymentAPI
         $db = $database->getConnection();
         $json = json_decode($json, true);
 
-        $sql = "INSERT INTO Payment (user_id, billing_id, reservation_id, sub_method_id, amount_paid, payment_date)
-                VALUES (:user_id, :billing_id, :reservation_id, :sub_method_id, :amount_paid, :payment_date)";
+        // Debug: Log incoming payload
+        file_put_contents(__DIR__ . '/payment_debug.log', date('c') . " insertPayment payload: " . json_encode($json) . "\n", FILE_APPEND);
+
+        // Validate required fields
+        $required = ['user_id', 'billing_id', 'reservation_id', 'sub_method_id', 'amount_paid', 'payment_date'];
+        foreach ($required as $field) {
+            if (!isset($json[$field]) || $json[$field] === "" || $json[$field] === null) {
+                $error = "Missing required field: $field";
+                file_put_contents(__DIR__ . '/payment_debug.log', date('c') . " ERROR: $error\n", FILE_APPEND);
+                echo json_encode(['success' => false, 'error' => $error]);
+                return;
+            }
+        }
+
+        $sql = "INSERT INTO Payment (user_id, billing_id, reservation_id, sub_method_id, amount_paid, payment_date, notes)
+                VALUES (:user_id, :billing_id, :reservation_id, :sub_method_id, :amount_paid, :payment_date, :notes)";
         $stmt = $db->prepare($sql);
         $stmt->bindParam(":user_id", $json['user_id']);
         $stmt->bindParam(":billing_id", $json['billing_id']);
@@ -48,13 +62,20 @@ class PaymentAPI
         $stmt->bindParam(":sub_method_id", $json['sub_method_id']);
         $stmt->bindParam(":amount_paid", $json['amount_paid']);
         $stmt->bindParam(":payment_date", $json['payment_date']);
-        $stmt->execute();
+        $stmt->bindParam(":notes", $json['notes']);
 
-        $returnValue = 0;
-        if ($stmt->rowCount() > 0) {
-            $returnValue = 1;
+        try {
+            $stmt->execute();
+            $returnValue = 0;
+            if ($stmt->rowCount() > 0) {
+                $returnValue = 1;
+            }
+            echo json_encode($returnValue);
+        } catch (PDOException $e) {
+            // Log and return error
+            file_put_contents(__DIR__ . '/payment_debug.log', date('c') . " PDOException: " . $e->getMessage() . "\n", FILE_APPEND);
+            echo json_encode(['success' => false, 'error' => $e->getMessage()]);
         }
-        echo json_encode($returnValue);
     }
 
     function getPayment($json)
@@ -99,7 +120,8 @@ class PaymentAPI
                     reservation_id = :reservation_id,
                     sub_method_id = :sub_method_id,
                     amount_paid = :amount_paid,
-                    payment_date = :payment_date
+                    payment_date = :payment_date,
+                    notes = :notes
                 WHERE payment_id = :payment_id";
         $stmt = $db->prepare($sql);
         $stmt->bindParam(":user_id", $json['user_id']);
@@ -108,6 +130,7 @@ class PaymentAPI
         $stmt->bindParam(":sub_method_id", $json['sub_method_id']);
         $stmt->bindParam(":amount_paid", $json['amount_paid']);
         $stmt->bindParam(":payment_date", $json['payment_date']);
+        $stmt->bindParam(":notes", $json['notes']);
         $stmt->bindParam(":payment_id", $json['payment_id']);
         $stmt->execute();
 

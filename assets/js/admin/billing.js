@@ -73,20 +73,20 @@ function displayBillings(billings) {
         if (b.billing_status === "paid") paid++;
         else if (b.billing_status === "unpaid") unpaid++;
         else if (b.billing_status === "partial") partial++;
-        const roomInfo = b.type_name && b.room_number ? `${b.type_name} (${b.room_number})` : "-";
+        const roomInfo = (b.type_name && b.room_number) ? `${b.type_name} (${b.room_number})` : "-";
         const totalBill = b.total_bill !== undefined
             ? parseFloat(b.total_bill)
             : (b.total_amount !== undefined ? parseFloat(b.total_amount) : 0);
         tbody.innerHTML += `
             <tr>
-                <td>${b.billing_id}</td>
+                <td>${b.billing_id || ''}</td>
                 <td>${b.guest_name || "-"}</td>
                 <td>${b.reservation_id || "-"}</td>
                 <td>${b.billing_date || "-"}</td>
                 <td>${roomInfo}</td>
                 <td>₱${totalBill.toFixed(2)}</td>
                 <td>₱${b.amount_paid ? parseFloat(b.amount_paid).toFixed(2) : "0.00"}</td>
-                <td><span class="badge bg-${getStatusColor(b.billing_status)}">${b.billing_status || "-"}</span></td>
+                <td><span class="badge bg-${getStatusColor(b.billing_status || '')}">${b.billing_status || "-"}</span></td>
                 <td class="text-center">
                     <i class="fas fa-eye text-info btn-view-billing" data-billing-id="${b.billing_id}" title="View" style="cursor:pointer;margin-right:8px;"></i>
                     <i class="fas fa-money-bill-wave text-success btn-add-payment" data-billing-id="${b.billing_id}" title="Add Payment" style="cursor:pointer;margin-right:8px;"></i>

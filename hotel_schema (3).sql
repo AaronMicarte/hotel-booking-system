@@ -262,6 +262,8 @@ CREATE TABLE Payment (
     FOREIGN KEY (sub_method_id) REFERENCES PaymentSubMethod(sub_method_id)
 );
 
+ALTER TABLE Payment ADD COLUMN notes TEXT NULL AFTER payment_date;
+
 -- Insert default billing statuses if not present
 INSERT INTO BillingStatus (billing_status_id, billing_status)
     VALUES (1, 'unpaid')
@@ -275,3 +277,29 @@ INSERT INTO BillingStatus (billing_status_id, billing_status)
 INSERT INTO BillingStatus (billing_status_id, billing_status)
     VALUES (4, 'overdue')
     ON DUPLICATE KEY UPDATE billing_status=billing_status;
+
+-- Insert default payment categories if not present
+INSERT INTO PaymentSubMethodCategory (payment_category_id, name)
+    VALUES (1, 'e-wallet')
+    ON DUPLICATE KEY UPDATE name=name;
+INSERT INTO PaymentSubMethodCategory (payment_category_id, name)
+    VALUES (2, 'bank')
+    ON DUPLICATE KEY UPDATE name=name;
+INSERT INTO PaymentSubMethodCategory (payment_category_id, name)
+    VALUES (3, 'credit card')
+    ON DUPLICATE KEY UPDATE name=name;
+
+-- Insert default payment sub-methods if not present
+INSERT INTO PaymentSubMethod (sub_method_id, payment_category_id, name)
+    VALUES (1, 1, 'GCash')
+    ON DUPLICATE KEY UPDATE name=name;
+INSERT INTO PaymentSubMethod (sub_method_id, payment_category_id, name)
+    VALUES (2, 1, 'PayMaya')
+    ON DUPLICATE KEY UPDATE name=name;
+INSERT INTO PaymentSubMethod (sub_method_id, payment_category_id, name)
+    VALUES (3, 2, 'BPI')
+    ON DUPLICATE KEY UPDATE name=name;
+INSERT INTO PaymentSubMethod (sub_method_id, payment_category_id, name)
+    VALUES (4, 3, 'Visa')
+    ON DUPLICATE KEY UPDATE name=name;
+-- ...add more as needed...

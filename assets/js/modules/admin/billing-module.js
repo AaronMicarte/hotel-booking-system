@@ -4,13 +4,28 @@
 export const showBillingDetailsModal = async (billingId) => {
     try {
         console.debug("[BillingModule] showBillingDetailsModal called with billingId:", billingId);
-        const modal = new bootstrap.Modal(document.getElementById("billingDetailsModal"), {
+
+        const modalEl = document.getElementById("billingDetailsModal");
+        if (!modalEl) {
+            console.error("[BillingModule] Modal element #billingDetailsModal not found in DOM.");
+            return;
+        }
+        const modal = new bootstrap.Modal(modalEl, {
             keyboard: true,
             backdrop: "static"
         });
+
         // Fetch billing details (now includes room price, addons, etc)
         const billing = await getBillingDetails(billingId);
         console.debug("[BillingModule] Billing details loaded:", billing);
+
+        if (!billing || typeof billing !== "object" || Object.keys(billing).length === 0) {
+            console.error("[BillingModule] No billing details found for billingId:", billingId, billing);
+            document.getElementById("billingDetails").innerHTML = `<div class="alert alert-warning">No billing details found.</div>`;
+            modal.show();
+            return;
+        }
+
         // Addons table rows
         let addonsHtml = "";
         if (billing.addons && billing.addons.length > 0) {
@@ -43,63 +58,62 @@ export const showBillingDetailsModal = async (billingId) => {
         } else {
             addonsHtml = `<div class="text-muted">No addons.</div>`;
         }
+
         // Populate billing details
-        document.getElementById("billingDetails").innerHTML = `
+        let roomPrice = billing.room_price !== undefined ? billing.room_price : 0;
+        let totalBill = billing.total_bill !== undefined ? billing.total_bill : 0;
+        let amountPaid = billing.amount_paid !== undefined ? billing.amount_paid : 0;
+        let remainingAmount = billing.remaining_amount !== undefined ? billing.remaining_amount : 0;
+        let typeName = billing.type_name || '';
+        let roomNumber = billing.room_number || '';
+        let billingStatus = billing.billing_status || '';
+
+        const billingDetailsDiv = document.getElementById("billingDetails");
+        if (!billingDetailsDiv) {
+            console.error("[BillingModule] #billingDetails element not found in DOM.");
+            modal.show();
+            return;
+        }
+
+        billingDetailsDiv.innerHTML = `
             <table class="table table-sm">
-                <tr><td>Billing ID</td><td>${billing.billing_id}</td></tr>
-                <tr><td>Guest</td><td>${billing.guest_name}</td></tr>
-                <tr><td>Reservation</td><td>${billing.reservation_id}</td></tr>
-                <tr><td>Date</td><td>${billing.billing_date}</td></tr>
-                <tr><td>Room</td><td>${billing.type_name} (${billing.room_number})</td></tr>
-                <tr><td>Room Price</td><td>₱${parseFloat(billing.room_price).toFixed(2)}</td></tr>
-                <tr><td>Status</td><td><span class="badge bg-${getStatusColor(billing.billing_status)}">${billing.billing_status}</span></td></tr>
+                <tr><td>Billing ID</td><td>${billing.billing_id || ''}</td></tr>
+                <tr><td>Guest</td><td>${billing.guest_name || ''}</td></tr>
+                <tr><td>Reservation</td><td>${billing.reservation_id || ''}</td></tr>
+                <tr><td>Date</td><td>${billing.billing_date || ''}</td></tr>
+                <tr><td>Room</td><td>${typeName} (${roomNumber})</td></tr>
+                <tr><td>Room Price</td><td>₱${parseFloat(roomPrice).toFixed(2)}</td></tr>
+                <tr><td>Status</td><td><span class="badge bg-${getStatusColor(billingStatus)}">${billingStatus}</span></td></tr>
             </table>
             <div class="mb-2"><strong>Addons:</strong></div>
             ${addonsHtml}
-            <div class="mb-2"><strong>Total Bill:</strong> <span class="fw-bold text-primary">₱${parseFloat(billing.total_bill).toFixed(2)}</span></div>
-            <div class="mb-2"><strong>Amount Paid:</strong> <span class="fw-bold text-success">₱${parseFloat(billing.amount_paid).toFixed(2)}</span></div>
-            <div class="mb-2"><strong>Remaining Amount:</strong> <span class="fw-bold text-danger">₱${parseFloat(billing.remaining_amount).toFixed(2)}</span></div>
+            <div class="mb-2"><strong>Total Bill:</strong> <span class="fw-bold text-primary">₱${parseFloat(totalBill).toFixed(2)}</span></div>
+            <div class="mb-2"><strong>Amount Paid:</strong> <span class="fw-bold text-success">₱${parseFloat(amountPaid).toFixed(2)}</span></div>
+            <div class="mb-2"><strong>Remaining Amount:</strong> <span class="fw-bold text-danger">₱${parseFloat(remainingAmount).toFixed(2)}</span></div>
         `;
+
         // Payment history
         const paymentHistoryBody = document.getElementById("paymentHistoryBody");
-        paymentHistoryBody.innerHTML = "";
-        (billing.payments || []).forEach(p => {
-            paymentHistoryBody.innerHTML += `
-                <tr>
-                    <td>${p.payment_date}</td>
-                    <td>₱${p.amount_paid}</td>
-                    <td>${p.method_name || '-'}</td>
-                    <td>${p.notes || ''}</td>
-                </tr>
-            `;
-        });
+        if (!paymentHistoryBody) {
+            console.error("[BillingModule] #paymentHistoryBody element not found in DOM.");
+        } else {
+            paymentHistoryBody.innerHTML = "";
+            (billing.payments || []).forEach(p => {
+                paymentHistoryBody.innerHTML += `
+                    <tr>
+                        <td>${p.payment_date}</td>
+                        <td>₱${p.amount_paid}</td>
+                        <td>${p.method_name || '-'}</td>
+                        <td>${p.notes || ''}</td>
+                    </tr>
+                `;
+            });
+        }
+
         modal.show();
     } catch (error) {
         console.error("[BillingModule] Failed to load billing details", error);
         alert("Failed to load billing details");
-    }
-};
-
-// --- Show Payment Modal (Add/Edit Payment) ---
-export const showPaymentModal = async (billingId = null, reservationId = null) => {
-    try {
-        console.debug("[BillingModule] showPaymentModal called with billingId:", billingId, "reservationId:", reservationId);
-        // Reset form
-        document.getElementById("paymentForm").reset();
-        document.getElementById("billingId").value = billingId || "";
-        // Load reservations for dropdown
-        await populateReservationSelect(reservationId);
-        // If editing, load billing info
-        if (billingId) {
-            const billing = await getBillingDetails(billingId);
-            console.debug("[BillingModule] Billing for payment modal:", billing);
-            document.getElementById("guestName").value = billing.guest_name;
-            document.getElementById("totalAmount").value = billing.total_amount;
-            document.getElementById("remainingAmount").value = billing.remaining_amount;
-        }
-        new bootstrap.Modal(document.getElementById("paymentModal")).show();
-    } catch (error) {
-        console.error("[BillingModule] Failed to show payment modal", error);
     }
 };
 
@@ -117,7 +131,10 @@ const getBillingDetails = async (billingId) => {
 const populateReservationSelect = async (selectedReservationId = null) => {
     const select = document.getElementById("reservationSelect");
     select.innerHTML = `<option value="">-- Select Reservation --</option>`;
-    const response = await axios.get(`${window.location.origin}/Hotel-Reservation-Billing-System/api/admin/billing/reservations.php`);
+    // FIX: Use the correct reservations API endpoint
+    const response = await axios.get(`${window.location.origin}/Hotel-Reservation-Billing-System/api/admin/reservations/reservations.php`, {
+        params: { operation: "getAllReservations" }
+    });
     console.debug("[BillingModule] Reservations loaded for select:", response.data);
     (response.data || []).forEach(r => {
         const opt = document.createElement("option");
@@ -126,6 +143,8 @@ const populateReservationSelect = async (selectedReservationId = null) => {
         if (selectedReservationId && r.reservation_id == selectedReservationId) opt.selected = true;
         select.appendChild(opt);
     });
+    // Disable the dropdown so user cannot change it
+    select.disabled = true;
     // On change, update guest/amount fields
     select.onchange = async function () {
         if (this.value) {
@@ -163,6 +182,127 @@ const getStatusColor = (status) => {
     return map[status] || "secondary";
 };
 
+// --- Helper: Get sub_method_id dynamically from API ---
+const getSubMethodIdByName = async (methodName) => {
+    try {
+        // Try exact match first
+        let response = await axios.get(
+            `${window.location.origin}/Hotel-Reservation-Billing-System/api/admin/payments/sub-method.php`,
+            {
+                params: {
+                    operation: "getSubMethodByName",
+                    name: methodName
+                }
+            }
+        );
+        // Accept both array/object response
+        if (Array.isArray(response.data) && response.data.length > 0) {
+            return response.data[0].sub_method_id;
+        }
+        if (response.data && typeof response.data === "object" && response.data.sub_method_id) {
+            return response.data.sub_method_id;
+        }
+        // Try fallback: capitalize and replace underscores/hyphens with spaces
+        const fallbackName = methodName.replace(/[_-]/g, " ").replace(/\b\w/g, l => l.toUpperCase());
+        if (fallbackName !== methodName) {
+            response = await axios.get(
+                `${window.location.origin}/Hotel-Reservation-Billing-System/api/admin/payments/sub-method.php`,
+                {
+                    params: {
+                        operation: "getSubMethodByName",
+                        name: fallbackName
+                    }
+                }
+            );
+            if (Array.isArray(response.data) && response.data.length > 0) {
+                return response.data[0].sub_method_id;
+            }
+            if (response.data && typeof response.data === "object" && response.data.sub_method_id) {
+                return response.data.sub_method_id;
+            }
+        }
+        // Try fallback: case-insensitive match from all sub-methods
+        const allMethodsResp = await axios.get(
+            `${window.location.origin}/Hotel-Reservation-Billing-System/api/admin/payments/sub-method.php`,
+            { params: { operation: "getAllSubMethods" } }
+        );
+        const allMethods = Array.isArray(allMethodsResp.data) ? allMethodsResp.data : [];
+        const found = allMethods.find(
+            m => m.name && m.name.toLowerCase() === methodName.toLowerCase()
+        );
+        if (found) {
+            return found.sub_method_id;
+        }
+        // Debug: log what was tried
+        console.warn("[BillingModule] getSubMethodIdByName: No sub_method_id found for", methodName, "or", fallbackName, response.data, allMethods);
+        return null;
+    } catch (err) {
+        console.error("[BillingModule] Failed to fetch sub_method_id for", methodName, err);
+        return null;
+    }
+};
+
+// --- Helper: Dynamically populate payment method dropdown from API ---
+const populatePaymentMethodSelect = async () => {
+    const select = document.getElementById("paymentMethod");
+    if (!select) return;
+    select.innerHTML = `<option value="">-- Select Payment Method --</option>`;
+    try {
+        // Fetch all sub-methods (with their categories)
+        const response = await axios.get(
+            `${window.location.origin}/Hotel-Reservation-Billing-System/api/admin/payments/sub-method.php`,
+            { params: { operation: "getAllSubMethods" } }
+        );
+        const subMethods = Array.isArray(response.data) ? response.data : [];
+        subMethods.forEach(sm => {
+            const opt = document.createElement("option");
+            opt.value = sm.name; // keep using name for compatibility with getSubMethodIdByName
+            opt.textContent = sm.payment_category
+                ? `${sm.name} (${sm.payment_category})`
+                : sm.name;
+            select.appendChild(opt);
+        });
+    } catch (err) {
+        console.error("[BillingModule] Failed to load payment methods:", err);
+        select.innerHTML = `<option value="">Error loading methods</option>`;
+    }
+};
+
+// --- Show Payment Modal (Add/Edit Payment) ---
+export const showPaymentModal = async (billingId = null, reservationId = null) => {
+    try {
+        console.debug("[BillingModule] showPaymentModal called with billingId:", billingId, "reservationId:", reservationId);
+        // Reset form
+        document.getElementById("paymentForm").reset();
+        document.getElementById("billingId").value = billingId || "";
+
+        // Dynamically load payment methods
+        await populatePaymentMethodSelect();
+
+        let resolvedReservationId = reservationId;
+        // If billingId is given but reservationId is not, fetch the billing to get reservation_id
+        if (billingId && !reservationId) {
+            const billing = await getBillingDetails(billingId);
+            resolvedReservationId = billing.reservation_id;
+        }
+
+        // Load reservations for dropdown and select the correct one
+        await populateReservationSelect(resolvedReservationId);
+
+        // If editing, load billing info
+        if (billingId) {
+            const billing = await getBillingDetails(billingId);
+            console.debug("[BillingModule] Billing for payment modal:", billing);
+            document.getElementById("guestName").value = billing.guest_name;
+            document.getElementById("totalAmount").value = billing.total_amount;
+            document.getElementById("remainingAmount").value = billing.remaining_amount;
+        }
+        new bootstrap.Modal(document.getElementById("paymentModal")).show();
+    } catch (error) {
+        console.error("[BillingModule] Failed to show payment modal", error);
+    }
+};
+
 // --- Record Payment Logic ---
 export const recordPayment = async () => {
     const billingId = document.getElementById("billingId").value;
@@ -170,6 +310,12 @@ export const recordPayment = async () => {
     const paymentAmount = document.getElementById("paymentAmount").value;
     const paymentMethod = document.getElementById("paymentMethod").value;
     const paymentNotes = document.getElementById("paymentNotes").value;
+
+    // DEBUG: Log all values
+    console.debug("[BillingModule] recordPayment values:", {
+        billingId, reservationId, paymentAmount, paymentMethod, paymentNotes
+    });
+
     if (!reservationId || !paymentAmount || !paymentMethod) {
         Swal.fire({
             toast: true,
@@ -181,38 +327,107 @@ export const recordPayment = async () => {
         });
         return;
     }
-    const payload = {
-        billing_id: billingId,
-        reservation_id: reservationId,
-        amount_paid: paymentAmount,
-        payment_method: paymentMethod,
-        notes: paymentNotes
-    };
-    try {
-        const response = await axios.post(`${window.location.origin}/Hotel-Reservation-Billing-System/api/admin/billing/payment.php`, payload);
-        if (response.data && (response.data === 1 || response.data.success)) {
-            Swal.fire({
-                toast: true,
-                position: 'top-end',
-                icon: 'success',
-                title: 'Payment recorded!',
-                showConfirmButton: false,
-                timer: 1800
-            });
-            bootstrap.Modal.getInstance(document.getElementById("paymentModal")).hide();
-            return true;
-        } else {
-            throw new Error("Failed to record payment");
-        }
-    } catch {
+
+    // Dynamically get sub_method_id from API
+    const sub_method_id = await getSubMethodIdByName(paymentMethod);
+    console.debug("[BillingModule] Using sub_method_id (dynamic):", sub_method_id, "for paymentMethod:", paymentMethod);
+
+    if (!sub_method_id) {
         Swal.fire({
             toast: true,
             position: 'top-end',
             icon: 'error',
-            title: 'Failed to record payment',
+            title: 'Invalid or missing payment method. Please check payment setup.',
+            showConfirmButton: false,
+            timer: 2500
+        });
+        // Extra debug: log all available sub-methods for troubleshooting
+        try {
+            const allMethods = await axios.get(
+                `${window.location.origin}/Hotel-Reservation-Billing-System/api/admin/payments/sub-method.php`,
+                { params: { operation: "getAllSubMethods" } }
+            );
+            console.warn("[BillingModule] Available payment methods from API:", allMethods.data);
+        } catch (err) {
+            console.error("[BillingModule] Could not fetch all payment methods for debug:", err);
+        }
+        return false;
+    }
+
+    // Get user_id (if you have user session, otherwise set to 1 for admin)
+    let user_id = 1;
+    if (window.currentUser && window.currentUser.user_id) user_id = window.currentUser.user_id;
+
+    // Use today's date for payment_date
+    const payment_date = new Date().toISOString().slice(0, 10);
+
+    // The Payment API expects a POST with operation=insertPayment and json=...
+    const payload = {
+        user_id,
+        billing_id: billingId,
+        reservation_id: reservationId,
+        sub_method_id,
+        amount_paid: paymentAmount,
+        payment_date,
+        notes: paymentNotes
+    };
+
+    // DEBUG: Log payload
+    console.debug("[BillingModule] Payment payload to send:", payload);
+
+    // Use FormData to match the PHP API's expected POST structure
+    const formData = new FormData();
+    formData.append("operation", "insertPayment");
+    formData.append("json", JSON.stringify(payload));
+
+    try {
+        const response = await axios.post(
+            `${window.location.origin}/Hotel-Reservation-Billing-System/api/admin/payments/payments.php`,
+            formData
+        );
+        console.debug("[BillingModule] Payment API response:", response.data);
+
+        // DEBUG: If API error, log full response
+        if (!response.data || !(response.data === 1 || response.data.success)) {
+            Swal.fire({
+                toast: true,
+                position: 'top-end',
+                icon: 'error',
+                title: 'Failed to record payment (API error)',
+                showConfirmButton: false,
+                timer: 1800
+            });
+            console.error("[BillingModule] Payment API error:", response.data);
+            if (response.data && typeof response.data === "object" && response.data.error) {
+                alert("Payment API error: " + response.data.error);
+            }
+            return false;
+        }
+
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'success',
+            title: 'Payment recorded!',
             showConfirmButton: false,
             timer: 1800
         });
+        bootstrap.Modal.getInstance(document.getElementById("paymentModal")).hide();
+        return true;
+    } catch (err) {
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'error',
+            title: 'Failed to record payment (network/server error)',
+            showConfirmButton: false,
+            timer: 1800
+        });
+        console.error("[BillingModule] Payment API exception:", err);
+        if (err.response) {
+            console.error("[BillingModule] Payment API error response:", err.response.data);
+            alert("Payment API error: " + (err.response.data?.error || JSON.stringify(err.response.data)));
+        }
         return false;
     }
 };

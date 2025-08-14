@@ -134,8 +134,23 @@ class Reservation
                     $stmt2->execute();
                 }
             }
-            // Update the room status to reserved
-            $this->updateRoomStatus($json['room_id'], 4); // 4 = reserved
+            // Set room status based on reservation_status_id
+            // 1: pending -> available (1)
+            // 2: confirmed -> reserved (4)
+            // 3: checked-in -> occupied (2)
+            // 4: checked-out -> available (1)
+            // 5: cancelled -> available (1)
+            $roomStatusId = 1; // default to available
+            if (isset($json['reservation_status_id'])) {
+                if ($json['reservation_status_id'] == 2) {
+                    $roomStatusId = 4;
+                } else if ($json['reservation_status_id'] == 3) {
+                    $roomStatusId = 2;
+                }
+            }
+            if (!empty($json['room_id'])) {
+                $this->updateRoomStatus($json['room_id'], $roomStatusId);
+            }
         }
         echo json_encode($returnValue);
     }
