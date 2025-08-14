@@ -4,26 +4,67 @@ document.addEventListener("DOMContentLoaded", () => {
     loadGuestsTable();
     loadIDTypesSelect();
 
+    // Add Guest button logic
+    const addGuestBtn = document.getElementById("addGuestBtn");
+    if (addGuestBtn) {
+        addGuestBtn.addEventListener("click", () => {
+            clearGuestForm();
+            document.getElementById("guestModalLabel").textContent = "Add Guest";
+            // Always use the same modal instance, don't create new every time
+            const modalEl = document.getElementById("guestModal");
+            if (modalEl) {
+                const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+                modalInstance.show();
+            }
+        });
+    }
+
+    // Ensure modal is properly hidden on close (fix stuck backdrop)
+    const guestModal = document.getElementById("guestModal");
+    if (guestModal) {
+        guestModal.addEventListener('hidden.bs.modal', () => {
+            document.body.classList.remove('modal-open');
+            const backdrops = document.querySelectorAll('.modal-backdrop');
+            backdrops.forEach(bd => bd.parentNode && bd.parentNode.removeChild(bd));
+        });
+    }
+
     // Save guest
     const saveGuestBtn = document.getElementById("saveGuestBtn");
     if (saveGuestBtn) {
         saveGuestBtn.addEventListener("click", async () => {
             if (!validateGuestForm()) return;
+            saveGuestBtn.disabled = true; // Disable button to prevent double submit
             const guestData = getGuestFormData();
             let result;
-            if (guestData.guest_id) {
-                result = await GuestAPI.updateGuest(guestData);
-            } else {
-                result = await GuestAPI.insertGuest(guestData);
+            try {
+                if (guestData.guest_id) {
+                    result = await GuestAPI.updateGuest(guestData);
+                } else {
+                    result = await GuestAPI.insertGuest(guestData);
+                }
+            } catch (err) {
+                showError("Failed to save guest.");
+                saveGuestBtn.disabled = false;
+                return;
             }
-            if (result == 1) {
+            // Accept both {guest_id: ...} and 1 as success
+            if (
+                result == 1 ||
+                (typeof result === "object" && result !== null && result.guest_id)
+            ) {
                 showSuccess("Guest saved!");
                 loadGuestsTable();
                 clearGuestForm();
-                bootstrap.Modal.getInstance(document.getElementById("guestModal"))?.hide();
+                const modalEl = document.getElementById("guestModal");
+                if (modalEl) {
+                    const modalInstance = bootstrap.Modal.getOrCreateInstance(modalEl);
+                    modalInstance.hide();
+                }
             } else {
                 showError("Failed to save guest.");
             }
+            saveGuestBtn.disabled = false;
         });
     }
 });
@@ -143,7 +184,20 @@ async function showGuestViewModal(guest) {
 
 // Show guest reservation history modal
 async function showGuestReservationsModal(guest_id, guest) {
-    const reservations = await GuestAPI.getGuestReservations(guest_id);
+    // Fetch only this guest's reservations
+    let reservations = [];
+    try {
+        const res = await axios.get("/Hotel-Reservation-Billing-System/api/admin/reservations/reservations.php", {
+            params: { operation: "getAllReservations", guest_id }
+        });
+        // Filter by guest_id (API should already do this, but double-check)
+        reservations = Array.isArray(res.data)
+            ? res.data.filter(r => String(r.guest_id) === String(guest_id))
+            : [];
+    } catch (e) {
+        reservations = [];
+    }
+
     let html = `<div class="mb-2"><b>Guest:</b> ${guest.first_name} ${guest.last_name}</div>`;
     if (!reservations.length) {
         html += `<div class="text-muted">No reservations found.</div>`;
@@ -168,7 +222,6 @@ async function showGuestReservationsModal(guest_id, guest) {
                 `).join("")}
             </tbody>
         </table></div>`;
-        // Show most recent reservation at the top
     }
     if (window.Swal) {
         await Swal.fire({
@@ -202,8 +255,16 @@ async function loadIDTypesSelect() {
 function getGuestFormData() {
     const idPicInput = document.getElementById("idPicInput");
     let id_picture = "";
+    // Only set id_picture if a new file is selected, otherwise keep the old path
     if (idPicInput && idPicInput.files && idPicInput.files[0]) {
         id_picture = idPicInput.files[0]; // Pass File object, not base64
+    } else {
+        // If editing, keep the current image path
+        const idPicPreview = document.getElementById("idPicPreview");
+        if (idPicPreview && idPicPreview.src && !idPicPreview.src.includes('data:') && idPicPreview.style.display !== "none") {
+            // Only set if there is a current image shown
+            id_picture = idPicPreview.src.replace(window.location.origin, "");
+        }
     }
     // Get guest_idtype_id from select option (data-id)
     const idTypeSelect = document.getElementById("idType");
@@ -332,5 +393,25 @@ function showSuccess(msg) {
         Swal.fire("Success", msg, "success");
     } else {
         alert(msg);
+    }
+}
+
+function clearGuestForm() {
+    const form = document.getElementById("guestForm");
+    if (form) form.reset();
+    const guestId = document.getElementById("guestId");
+    if (guestId) guestId.value = "";
+    const idPicPreview = document.getElementById("idPicPreview");
+    if (idPicPreview) {
+        idPicPreview.src = "";
+        idPicPreview.style.display = "none";
+    }
+    const idPicInput = document.getElementById("idPicInput");
+    if (idPicInput) idPicInput.value = "";
+    // Set max date for dateOfBirth
+    const dateOfBirth = document.getElementById("dateOfBirth");
+    if (dateOfBirth) {
+        const today = new Date();
+        dateOfBirth.max = today.toISOString().split("T")[0];
     }
 }

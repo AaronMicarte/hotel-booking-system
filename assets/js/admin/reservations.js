@@ -836,6 +836,7 @@ async function saveReservation() {
 
         try {
             const guestRes = await axios.post(`${BASE_URL}/guests/guests.php`, guestForm);
+            // Accept both {guest_id: ...} and numeric guest_id
             if (guestRes.data && typeof guestRes.data === 'object' && guestRes.data.guest_id) {
                 guestId = guestRes.data.guest_id;
             } else if (guestRes.data && !isNaN(guestRes.data) && Number(guestRes.data) > 0) {

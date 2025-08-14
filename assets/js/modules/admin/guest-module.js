@@ -62,10 +62,18 @@ export async function insertGuest(guestData) {
         if (guestData.id_picture && guestData.id_picture instanceof File) {
             guestData.id_picture = await uploadIdPicture(guestData.id_picture);
         }
+        // Defensive: ensure all required fields are present
+        if (!guestData.first_name || !guestData.last_name || !guestData.email || !guestData.phone_number || !guestData.guest_idtype_id || !guestData.id_number) {
+            return 0;
+        }
         const formData = new FormData();
         formData.append("operation", "insertGuest");
         formData.append("json", JSON.stringify(guestData));
         const res = await axios.post(`${BASE_URL}/guests.php`, formData);
+        // Return the new guest_id if possible
+        if (res.data && typeof res.data === "object" && res.data.guest_id) {
+            return res.data;
+        }
         return res.data;
     } catch (err) {
         console.error("[GuestModule] insertGuest error:", err);

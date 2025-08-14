@@ -29,6 +29,19 @@ class Guest
         $db = $database->getConnection();
         $json = json_decode($json, true);
 
+        // Defensive: check required fields
+        if (
+            empty($json['guest_idtype_id']) ||
+            empty($json['last_name']) ||
+            empty($json['first_name']) ||
+            empty($json['email']) ||
+            empty($json['phone_number']) ||
+            empty($json['id_number'])
+        ) {
+            echo json_encode(0);
+            return;
+        }
+
         $sql = "INSERT INTO Guest (guest_idtype_id, last_name, first_name, middle_name, suffix, date_of_birth, email, phone_number, id_number, id_picture)
                 VALUES (:guest_idtype_id, :last_name, :first_name, :middle_name, :suffix, :date_of_birth, :email, :phone_number, :id_number, :id_picture)";
         $stmt = $db->prepare($sql);
@@ -46,7 +59,9 @@ class Guest
 
         $returnValue = 0;
         if ($stmt->rowCount() > 0) {
-            $returnValue = 1;
+            $returnValue = [
+                "guest_id" => $db->lastInsertId()
+            ];
         }
         echo json_encode($returnValue);
     }
@@ -76,6 +91,17 @@ class Guest
         $database = new Database();
         $db = $database->getConnection();
         $json = json_decode($json, true);
+
+        // If id_picture is not a file and not a valid URL, keep the old value
+        if (empty($json['id_picture']) || strpos($json['id_picture'], 'blob:') === 0 || $json['id_picture'] === 'null') {
+            // Fetch current id_picture
+            $sqlPic = "SELECT id_picture FROM Guest WHERE guest_id = :guest_id";
+            $stmtPic = $db->prepare($sqlPic);
+            $stmtPic->bindParam(":guest_id", $json['guest_id']);
+            $stmtPic->execute();
+            $currentPic = $stmtPic->fetchColumn();
+            $json['id_picture'] = $currentPic;
+        }
 
         $sql = "UPDATE Guest 
                 SET guest_idtype_id = :guest_idtype_id,
