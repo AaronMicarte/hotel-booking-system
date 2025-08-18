@@ -92,7 +92,6 @@ CREATE TABLE RoomType (
     room_type_id INT AUTO_INCREMENT PRIMARY KEY,
     type_name VARCHAR(100),
     description TEXT,
-    key_features TEXT,
     room_size_sqm DECIMAL(5,2),
     max_capacity INT,
     price_per_stay DECIMAL(10,2),
@@ -312,3 +311,21 @@ INSERT INTO PaymentSubMethod (sub_method_id, payment_category_id, name)
     VALUES (4, 3, 'Visa')
     ON DUPLICATE KEY UPDATE name=name;
 -- ...add more as needed...
+
+CREATE TABLE Feature (
+    feature_id INT AUTO_INCREMENT PRIMARY KEY,
+    feature_name VARCHAR(100) NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    is_deleted BOOLEAN DEFAULT FALSE
+);
+
+CREATE TABLE RoomTypeFeature (
+    room_type_id INT NOT NULL,
+    feature_id INT NOT NULL,
+    PRIMARY KEY (room_type_id, feature_id),
+    FOREIGN KEY (room_type_id) REFERENCES RoomType(room_type_id),
+    FOREIGN KEY (feature_id) REFERENCES Feature(feature_id)
+);
+
+ALTER TABLE RoomType DROP COLUMN key_features;

@@ -267,7 +267,7 @@
                                                         <th>Image</th>
                                                         <th>Type Name</th>
                                                         <th>Description</th>
-                                                        <th>Key Features</th>
+                                                        <th>Features</th>
                                                         <th>Max Capacity</th>
                                                         <th>Price/Stay</th>
                                                         <th>Room Size</th>
@@ -344,7 +344,7 @@
 
     <!-- Room Type Modal -->
     <div class="modal fade" id="roomTypeModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-lg"><!-- modal-lg for bigger modal -->
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title" id="roomTypeModalLabel">Add New Room Type</h5>
@@ -360,11 +360,6 @@
                         <div class="mb-3">
                             <label for="typeDescription" class="form-label">Description</label>
                             <textarea class="form-control" id="typeDescription" rows="3"></textarea>
-                        </div>
-                        <div class="mb-3">
-                            <label for="keyFeatures" class="form-label">Key Features</label>
-                            <textarea class="form-control" id="keyFeatures" rows="2"
-                                placeholder="e.g. WiFi, Air conditioning, Mini bar, etc."></textarea>
                         </div>
                         <div class="row mb-3">
                             <div class="col-md-6">
@@ -392,6 +387,25 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" id="saveRoomTypeBtn" class="btn btn-primary">Save Room Type</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Feature Modal -->
+    <div class="modal fade" id="featureModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Add Feature</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <input type="text" id="newFeatureName" class="form-control" placeholder="Feature name">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" class="btn btn-primary" id="saveFeatureBtn">Add Feature</button>
                 </div>
             </div>
         </div>

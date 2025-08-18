@@ -38,7 +38,6 @@ class Room
                     r.*, 
                     rt.type_name, 
                     rt.description AS room_type_description,
-                    rt.key_features,
                     rt.room_size_sqm,
                     rt.max_capacity,
                     rt.price_per_stay,
@@ -53,6 +52,18 @@ class Room
         $stmt = $db->prepare($query);
         $stmt->execute($params);
         $rooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Attach features for each room (by room_type_id)
+        foreach ($rooms as &$room) {
+            $features = [];
+            if (!empty($room['room_type_id'])) {
+                $fstmt = $db->prepare("SELECT f.feature_id, f.feature_name FROM RoomTypeFeature rtf JOIN Feature f ON rtf.feature_id = f.feature_id WHERE rtf.room_type_id = ?");
+                $fstmt->execute([$room['room_type_id']]);
+                $features = $fstmt->fetchAll(PDO::FETCH_ASSOC);
+            }
+            $room['features'] = $features;
+        }
+
         echo json_encode($rooms);
     }
 
@@ -67,7 +78,6 @@ class Room
                     r.*, 
                     rt.type_name, 
                     rt.description AS room_type_description,
-                    rt.key_features,
                     rt.room_size_sqm,
                     rt.max_capacity,
                     rt.price_per_stay,
@@ -82,6 +92,15 @@ class Room
         $stmt->execute();
 
         $room = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        // Attach features for this room (by room_type_id)
+        if (!empty($room[0]['room_type_id'])) {
+            $fstmt = $db->prepare("SELECT f.feature_id, f.feature_name FROM RoomTypeFeature rtf JOIN Feature f ON rtf.feature_id = f.feature_id WHERE rtf.room_type_id = ?");
+            $fstmt->execute([$room[0]['room_type_id']]);
+            $features = $fstmt->fetchAll(PDO::FETCH_ASSOC);
+            $room[0]['features'] = $features;
+        }
+
         echo json_encode($room);
     }
 

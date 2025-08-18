@@ -5,47 +5,102 @@ import {
     deleteRoomTypeModal
 } from '../modules/admin/rooms-module.js';
 
-/**
- * Rooms Management - Main Module
- * Handles room listing, creation, editing, and status updates
- */
-
-// API Base URL
+// ====================================================================
+// CONFIGURATION & GLOBALS
+// ====================================================================
 const BASE_URL = "http://localhost/Hotel-Reservation-Billing-System/api";
-let cachedRoomTypes = [];
-
-// Status cycle order
 const ROOM_STATUSES = ['available', 'occupied', 'maintenance', 'reserved'];
-let cachedRoomImages = {}; // {room_id: [images]}
 
-// Initialize when DOM is ready
+let cachedRoomTypes = [];
+let cachedRoomImages = {}; // {room_id: [images]}
+let cachedFeatures = [];
+
+// ====================================================================
+// INITIALIZATION
+// ====================================================================
 document.addEventListener("DOMContentLoaded", () => {
     loadRoomTypes();
     loadRooms();
-
-    document.getElementById("addRoomBtn")?.addEventListener("click", openRoomModal);
-    document.getElementById("saveRoomBtn")?.addEventListener("click", saveRoom);
-    document.getElementById("applyFilters")?.addEventListener("click", filterRooms);
-    document.getElementById("searchBtn")?.addEventListener("click", searchRooms);
-    document.getElementById("addRoomTypeBtn")?.addEventListener("click", openRoomTypeModal);
-    document.getElementById("saveRoomTypeBtn")?.addEventListener("click", saveRoomType);
-    document.getElementById("refreshBtn")?.addEventListener("click", loadRooms);
-    document.getElementById("roomtypes-tab")?.addEventListener("click", loadRoomTypes);
-    document.getElementById("roomImage")?.addEventListener("change", previewImage);
-    document.getElementById("searchRoom")?.addEventListener("keyup", (e) => {
-        if (e.key === "Enter") searchRooms();
-    });
-    // Add event delegation for add-photo icon
-    document.getElementById("roomsTableBody")?.addEventListener("click", async (e) => {
-        if (e.target.classList.contains("btn-add-photo")) {
-            const roomId = e.target.dataset.roomId;
-            await showRoomImagesModal(roomId);
-        }
-    });
+    initializeEventListeners();
 });
 
+function initializeEventListeners() {
+    // Room Management Events
+    const addRoomBtn = document.getElementById("addRoomBtn");
+    if (addRoomBtn) addRoomBtn.addEventListener("click", openRoomModal);
+
+    const saveRoomBtn = document.getElementById("saveRoomBtn");
+    if (saveRoomBtn) saveRoomBtn.addEventListener("click", saveRoom);
+
+    const searchBtn = document.getElementById("searchBtn");
+    if (searchBtn) searchBtn.addEventListener("click", searchRooms);
+
+    const refreshBtn = document.getElementById("refreshBtn");
+    if (refreshBtn) refreshBtn.addEventListener("click", loadRooms);
+
+    const searchRoom = document.getElementById("searchRoom");
+    if (searchRoom) {
+        searchRoom.addEventListener("keyup", (e) => {
+            if (e.key === "Enter") searchRooms();
+        });
+    }
+
+    // Room Type Management Events
+    const addRoomTypeBtn = document.getElementById("addRoomTypeBtn");
+    if (addRoomTypeBtn) addRoomTypeBtn.addEventListener("click", openRoomTypeModal);
+
+    const saveRoomTypeBtn = document.getElementById("saveRoomTypeBtn");
+    if (saveRoomTypeBtn) saveRoomTypeBtn.addEventListener("click", saveRoomType);
+
+    const roomTypesTab = document.getElementById("roomtypes-tab");
+    if (roomTypesTab) roomTypesTab.addEventListener("click", loadRoomTypes);
+
+    const roomImage = document.getElementById("roomImage");
+    if (roomImage) roomImage.addEventListener("change", previewImage);
+
+    // Filter Events
+    const applyFilters = document.getElementById("applyFilters");
+    if (applyFilters) applyFilters.addEventListener("click", filterRooms);
+
+    // Feature Management Events
+    const addFeatureBtn = document.getElementById("addFeatureBtn");
+    if (addFeatureBtn) {
+        addFeatureBtn.addEventListener("click", () => {
+            const newFeatureName = document.getElementById("newFeatureName");
+            if (newFeatureName) newFeatureName.value = "";
+            const featureModal = document.getElementById("featureModal");
+            if (featureModal) {
+                new bootstrap.Modal(featureModal).show();
+            }
+        });
+    }
+
+    const saveFeatureBtn = document.getElementById("saveFeatureBtn");
+    if (saveFeatureBtn) {
+        saveFeatureBtn.addEventListener("click", saveFeature);
+    }
+
+    // Room Image Events
+    const roomsTableBody = document.getElementById("roomsTableBody");
+    if (roomsTableBody) {
+        roomsTableBody.addEventListener("click", async (e) => {
+            if (e.target.classList.contains("btn-add-photo")) {
+                const roomId = e.target.dataset.roomId;
+                if (roomId) {
+                    await showRoomImagesModal(roomId);
+                }
+            }
+        });
+    }
+}
+
+// ====================================================================
+// ROOM MANAGEMENT
+// ====================================================================
 async function loadRooms() {
     const roomsTableBody = document.getElementById("roomsTableBody");
+    if (!roomsTableBody) return;
+
     roomsTableBody.innerHTML = `<tr><td colspan="7" class="text-center">Loading rooms...</td></tr>`;
     try {
         const response = await axios.get(`${BASE_URL}/admin/rooms/rooms.php`, {
@@ -54,38 +109,41 @@ async function loadRooms() {
         displayRooms(response.data || []);
     } catch (error) {
         roomsTableBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Error loading rooms</td></tr>`;
-    }
-}
-
-async function loadRoomTypes() {
-    const tableBody = document.getElementById("roomTypesTableBody");
-    tableBody.innerHTML = `<tr><td colspan="8" class="text-center">Loading room types...</td></tr>`;
-    try {
-        const response = await axios.get(`${BASE_URL}/admin/rooms/room-type.php`);
-        let types = response.data || [];
-        if (Array.isArray(types)) {
-            types = types.filter(t => t.is_deleted === false || t.is_deleted === 0 || t.is_deleted === "0" || t.is_deleted === "FALSE" || t.is_deleted === "false");
-        }
-        cachedRoomTypes = types;
-        displayRoomTypes(cachedRoomTypes);
-        populateTypeFilter();
-    } catch (error) {
-        tableBody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Error loading room types</td></tr>`;
+        console.error("Error loading rooms:", error);
     }
 }
 
 function displayRooms(rooms) {
     const tableBody = document.getElementById("roomsTableBody");
+    if (!tableBody) return;
+
     tableBody.innerHTML = "";
+    if (!Array.isArray(rooms) || rooms.length === 0) {
+        tableBody.innerHTML = `<tr><td colspan="8" class="text-center text-muted">No rooms found.</td></tr>`;
+        return;
+    }
+
     rooms.forEach(room => {
+        let featuresHtml = "-";
+        if (Array.isArray(room.features) && room.features.length) {
+            featuresHtml = room.features
+                .filter(f => !f.is_deleted || f.is_deleted === 0 || f.is_deleted === false || f.is_deleted === "0")
+                .map(f => `<span class="badge bg-secondary me-1 mb-1">${f.feature_name}</span>`).join('');
+        } else if (room.key_features) {
+            featuresHtml = room.key_features
+                .split(',')
+                .filter(f => !!f.trim())
+                .map(f => `<span class="badge bg-secondary me-1 mb-1">${f.trim()}</span>`).join('');
+        }
+
         tableBody.innerHTML += `
             <tr>
-            <td>${room.room_number}</td>
-            <td>${room.type_name}</td>
-            <td>${room.key_features ? `<small>${room.key_features.split(',').map(f => f.trim()).join(' • ')}</small>` : '-'}</td>
+            <td>${room.room_number || '-'}</td>
+            <td>${room.type_name || '-'}</td>
+            <td>${featuresHtml}</td>
             <td>
                 <span class="badge bg-${getStatusColor(room.room_status)}">
-                ${room.room_status}
+                ${room.room_status || 'unknown'}
                 </span>
             </td>
             <td>${room.max_capacity || '-'}</td>
@@ -100,35 +158,229 @@ function displayRooms(rooms) {
             </tr>
         `;
     });
-    document.getElementById("totalRooms").textContent = rooms.length;
 
-    // Modular event binding (SIR MAC style)
+    const totalRooms = document.getElementById("totalRooms");
+    if (totalRooms) totalRooms.textContent = rooms.length;
+
+    attachRoomEventListeners(tableBody);
+}
+
+function attachRoomEventListeners(tableBody) {
     tableBody.querySelectorAll('.btn-edit-room').forEach(btn => {
         btn.addEventListener('click', () => {
-            updateRoomModal(parseInt(btn.dataset.roomId), cachedRoomTypes, loadRooms);
+            const roomId = parseInt(btn.dataset.roomId);
+            if (!isNaN(roomId)) {
+                updateRoomModal(roomId, cachedRoomTypes, loadRooms);
+            }
         });
     });
+
     tableBody.querySelectorAll('.btn-delete-room').forEach(btn => {
         btn.addEventListener('click', () => {
-            deleteRoomModal(parseInt(btn.dataset.roomId), loadRooms);
+            const roomId = parseInt(btn.dataset.roomId);
+            if (!isNaN(roomId)) {
+                deleteRoomModal(roomId, loadRooms);
+            }
         });
     });
-    // View Room event
+
     tableBody.querySelectorAll('.btn-view-room').forEach(btn => {
         btn.addEventListener('click', () => {
-            showRoomDetailsModal(parseInt(btn.dataset.roomId));
+            const roomId = parseInt(btn.dataset.roomId);
+            if (!isNaN(roomId)) {
+                showRoomDetailsModal(roomId);
+            }
         });
     });
 }
 
+function openRoomModal() {
+    const form = document.getElementById("roomForm");
+    const roomId = document.getElementById("roomId");
+    const roomModalLabel = document.getElementById("roomModalLabel");
+    const roomModal = document.getElementById("roomModal");
+
+    if (!form || !roomId || !roomModalLabel || !roomModal) return;
+
+    form.reset();
+    roomId.value = "";
+    roomModalLabel.textContent = "Add New Room";
+    populateRoomTypeSelect();
+    new bootstrap.Modal(roomModal).show();
+}
+
+async function saveRoom() {
+    const roomNumber = document.getElementById("roomNumber");
+    const roomTypeId = document.getElementById("roomType");
+    const roomId = document.getElementById("roomId");
+
+    if (!roomNumber || !roomTypeId || !roomId) {
+        console.error("Required form elements not found");
+        return;
+    }
+
+    const roomNumberValue = roomNumber.value.trim();
+    const roomTypeIdValue = roomTypeId.value;
+    const roomIdValue = roomId.value;
+
+    if (!roomNumberValue || !roomTypeIdValue) {
+        showToast('warning', 'Please fill in all required fields');
+        return;
+    }
+
+    const typeObj = cachedRoomTypes.find(t => t.room_type_id == roomTypeIdValue);
+    const typeName = typeObj ? typeObj.type_name : '';
+
+    const roomData = {
+        room_number: roomNumberValue,
+        room_type_id: parseInt(roomTypeIdValue)
+    };
+
+    if (!roomIdValue) {
+        roomData.room_status_id = 1;
+    } else {
+        roomData.room_id = parseInt(roomIdValue);
+    }
+
+    try {
+        let response;
+        if (roomIdValue) {
+            response = await axios.put(`${BASE_URL}/admin/rooms/rooms.php`, {
+                operation: 'updateRoom',
+                json: JSON.stringify(roomData)
+            });
+        } else {
+            const formData = new FormData();
+            formData.append('operation', 'insertRoom');
+            formData.append('json', JSON.stringify(roomData));
+            response = await axios.post(`${BASE_URL}/admin/rooms/rooms.php`, formData);
+        }
+
+        if (response.data == 1 || (response.data && response.data.message)) {
+            const roomModal = document.getElementById("roomModal");
+            if (roomModal) {
+                const modalInstance = bootstrap.Modal.getInstance(roomModal);
+                if (modalInstance) modalInstance.hide();
+            }
+
+            await loadRooms();
+            showToast('success', roomIdValue
+                ? `Room ${roomNumberValue} updated successfully`
+                : `Room ${roomNumberValue} ${typeName} added`
+            );
+        } else {
+            throw new Error('API did not return success');
+        }
+    } catch (error) {
+        console.error("Error saving room:", error);
+        showToast('error', 'Failed to save room');
+    }
+}
+
+async function filterRooms() {
+    const typeFilter = document.getElementById("typeFilter");
+    const statusFilter = document.getElementById("statusFilter");
+
+    if (!typeFilter || !statusFilter) return;
+
+    const typeId = typeFilter.value || "";
+    const status = statusFilter.value || "";
+    let url = `${BASE_URL}/admin/rooms/rooms.php`;
+    const params = [];
+
+    if (typeId) params.push(`type_id=${encodeURIComponent(typeId)}`);
+    if (status) params.push(`status=${encodeURIComponent(status)}`);
+    if (params.length > 0) url += "?" + params.join("&");
+
+    try {
+        const response = await axios.get(url);
+        const rooms = response.data || [];
+        displayRooms(rooms);
+
+        let toastMsg = '';
+        if (status) {
+            toastMsg = `Found ${rooms.length} ${status.toLowerCase()} room${rooms.length === 1 ? '' : 's'}`;
+        } else if (typeId) {
+            const typeObj = cachedRoomTypes.find(t => t.room_type_id == typeId);
+            const typeName = typeObj ? typeObj.type_name : 'selected';
+            toastMsg = `Found ${rooms.length} ${typeName} room${rooms.length === 1 ? '' : 's'}`;
+        } else {
+            toastMsg = `Found ${rooms.length} room${rooms.length === 1 ? '' : 's'}`;
+        }
+
+        showToast('info', toastMsg);
+    } catch (error) {
+        console.error("Error filtering rooms:", error);
+        displayRooms([]);
+        showToast('error', 'No rooms found');
+    }
+}
+
+async function searchRooms() {
+    const searchRoom = document.getElementById("searchRoom");
+    if (!searchRoom) return;
+
+    const searchTerm = searchRoom.value.trim();
+    if (!searchTerm) {
+        await loadRooms();
+        return;
+    }
+
+    try {
+        const response = await axios.get(`${BASE_URL}/admin/rooms/rooms.php?search=${encodeURIComponent(searchTerm)}`);
+        const rooms = response.data || [];
+        displayRooms(rooms);
+
+        const toastMsg = `Found ${rooms.length} room${rooms.length === 1 ? '' : 's'}`;
+        showToast('info', toastMsg);
+    } catch (error) {
+        console.error("Error searching rooms:", error);
+        displayRooms([]);
+        showToast('error', 'No rooms found');
+    }
+}
+
+// ====================================================================
+// ROOM TYPE MANAGEMENT
+// ====================================================================
+async function loadRoomTypes() {
+    const tableBody = document.getElementById("roomTypesTableBody");
+    if (!tableBody) return;
+
+    tableBody.innerHTML = `<tr><td colspan="8" class="text-center">Loading room types...</td></tr>`;
+    try {
+        const response = await axios.get(`${BASE_URL}/admin/rooms/room-type.php`);
+        let types = response.data || [];
+        if (Array.isArray(types)) {
+            types = types.filter(t => t.is_deleted === false || t.is_deleted === 0 || t.is_deleted === "0" || t.is_deleted === "FALSE" || t.is_deleted === "false");
+        }
+        cachedRoomTypes = types;
+        displayRoomTypes(cachedRoomTypes);
+        populateTypeFilter();
+    } catch (error) {
+        tableBody.innerHTML = `<tr><td colspan="8" class="text-center text-danger">Error loading room types</td></tr>`;
+        console.error("Error loading room types:", error);
+    }
+}
+
 function displayRoomTypes(types) {
     const tableBody = document.getElementById("roomTypesTableBody");
+    if (!tableBody) return;
+
     tableBody.innerHTML = "";
     if (!Array.isArray(types) || types.length === 0) {
         tableBody.innerHTML = `<tr><td colspan="8" class="text-center">No room types found.</td></tr>`;
         return;
     }
+
     types.forEach(type => {
+        let featuresHtml = "-";
+        if (Array.isArray(type.features) && type.features.length) {
+            featuresHtml = type.features
+                .filter(f => !f.is_deleted || f.is_deleted === 0 || f.is_deleted === false || f.is_deleted === "0")
+                .map(f => `<span class="badge bg-secondary me-1 mb-1">${f.feature_name}</span>`).join('');
+        }
+
         let imgSrc = '';
         if (typeof type.image_url === 'string' && type.image_url.trim() !== '') {
             if (type.image_url.startsWith('http')) {
@@ -139,261 +391,89 @@ function displayRoomTypes(types) {
         } else {
             imgSrc = window.location.origin + "/Hotel-Reservation-Billing-System/assets/images/uploads/room-types/placeholder-room.jpg";
         }
+
         tableBody.innerHTML += `
             <tr>
                 <td>
                     <img src="${imgSrc}" class="img-thumbnail" style="max-width:80px;max-height:80px;" onerror="this.onerror=null;this.src='../../assets/images/uploads/room-types/placeholder-room.jpg';">
                 </td>
-                <td>${type.type_name}</td>
+                <td>${type.type_name || '-'}</td>
                 <td>${type.description || '-'}</td>
-                <td>${type.key_features ? `<small>${type.key_features.split(',').map(f => f.trim()).join(' • ')}</small>` : '-'}</td>
+                <td>${featuresHtml}</td>
                 <td>${type.max_capacity || '-'}</td>
                 <td>₱${type.price_per_stay || '0.00'}</td>
                 <td>${type.room_size_sqm || '-'} sqm</td>
                 <td class="text-center">
-                    <i class="fas fa-edit text-primary btn-edit-roomtype" data-roomtype-id="${type.room_type_id}" title="Edit"  style="cursor:pointer;">
-                    </i>
-                    <i class="fas fa-trash text-danger btn-delete-roomtype" data-roomtype-id="${type.room_type_id}" title="Delete"  style="cursor:pointer;"> 
-                    </i>
+                    <i class="fas fa-cogs text-success btn-manage-features" data-roomtype-id="${type.room_type_id}" title="Manage Features" style="cursor:pointer;margin-right:10px;"></i>
+                    <i class="fas fa-edit text-primary btn-edit-roomtype" data-roomtype-id="${type.room_type_id}" title="Edit" style="cursor:pointer;margin-right:10px;"></i>
+                    <i class="fas fa-trash text-danger btn-delete-roomtype" data-roomtype-id="${type.room_type_id}" title="Delete" style="cursor:pointer;"></i>
                 </td>
             </tr>
         `;
     });
 
-    // Modular event binding (SIR MAC style)
+    attachRoomTypeEventListeners(tableBody);
+}
+
+function attachRoomTypeEventListeners(tableBody) {
     tableBody.querySelectorAll('.btn-edit-roomtype').forEach(btn => {
         btn.addEventListener('click', () => {
-            updateRoomTypeModal(parseInt(btn.dataset.roomtypeId), loadRoomTypes);
+            const roomTypeId = parseInt(btn.dataset.roomtypeId);
+            if (!isNaN(roomTypeId)) {
+                updateRoomTypeModal(roomTypeId, loadRoomTypes);
+            }
         });
     });
+
     tableBody.querySelectorAll('.btn-delete-roomtype').forEach(btn => {
         btn.addEventListener('click', () => {
-            deleteRoomTypeModal(parseInt(btn.dataset.roomtypeId), loadRoomTypes);
+            const roomTypeId = parseInt(btn.dataset.roomtypeId);
+            if (!isNaN(roomTypeId)) {
+                deleteRoomTypeModal(roomTypeId, loadRoomTypes);
+            }
         });
     });
-}
 
-function populateTypeFilter() {
-    const typeFilter = document.getElementById("typeFilter");
-    if (!typeFilter) return;
-    typeFilter.innerHTML = '<option value="">All Types</option>';
-    cachedRoomTypes.forEach(type => {
-        const option = document.createElement("option");
-        option.value = type.room_type_id;
-        option.textContent = type.type_name;
-        typeFilter.appendChild(option);
-    });
-}
-
-async function filterRooms() {
-    const typeId = document.getElementById("typeFilter").value || "";
-    const status = document.getElementById("statusFilter").value || "";
-    let url = `${BASE_URL}/admin/rooms/rooms.php`;
-    const params = [];
-    if (typeId) params.push(`type_id=${encodeURIComponent(typeId)}`);
-    if (status) params.push(`status=${encodeURIComponent(status)}`);
-    if (params.length > 0) url += "?" + params.join("&");
-    try {
-        const response = await axios.get(url);
-        const rooms = response.data || [];
-        displayRooms(rooms);
-
-        // Toast logic
-        let toastMsg = '';
-        if (status) {
-            toastMsg = `Found ${rooms.length} ${status.toLowerCase()} room${rooms.length === 1 ? '' : 's'}`;
-        } else if (typeId) {
-            // Find type name from cachedRoomTypes
-            const typeObj = cachedRoomTypes.find(t => t.room_type_id == typeId);
-            const typeName = typeObj ? typeObj.type_name : 'selected';
-            toastMsg = `Found ${rooms.length} ${typeName} room${rooms.length === 1 ? '' : 's'}`;
-        } else {
-            toastMsg = `Found ${rooms.length} room${rooms.length === 1 ? '' : 's'}`;
-        }
-        if (window.Swal) {
-            Swal.fire({
-                toast: true,
-                position: 'top-end',
-                icon: 'info',
-                title: toastMsg,
-                showConfirmButton: false,
-                timer: 1800
-            });
-        }
-    } catch {
-        displayRooms([]);
-        if (window.Swal) {
-            Swal.fire({
-                toast: true,
-                position: 'top-end',
-                icon: 'error',
-                title: 'No rooms found',
-                showConfirmButton: false,
-                timer: 1800
-            });
-        }
-    }
-}
-
-async function searchRooms() {
-    const searchTerm = document.getElementById("searchRoom").value.trim();
-    if (!searchTerm) {
-        await loadRooms();
-        return;
-    }
-    try {
-        const response = await axios.get(`${BASE_URL}/admin/rooms/rooms.php?search=${encodeURIComponent(searchTerm)}`);
-        const rooms = response.data || [];
-        displayRooms(rooms);
-        // Toast logic for search
-        let toastMsg = `Found ${rooms.length} room${rooms.length === 1 ? '' : 's'}`;
-        if (window.Swal) {
-            Swal.fire({
-                toast: true,
-                position: 'top-end',
-                icon: 'info',
-                title: toastMsg,
-                showConfirmButton: false,
-                timer: 1800
-            });
-        }
-    } catch {
-        displayRooms([]);
-        if (window.Swal) {
-            Swal.fire({
-                toast: true,
-                position: 'top-end',
-                icon: 'error',
-                title: 'No rooms found',
-                showConfirmButton: false,
-                timer: 1800
-            });
-        }
-    }
-}
-
-function openRoomModal() {
-    const form = document.getElementById("roomForm");
-    form.reset();
-    document.getElementById("roomId").value = "";
-    document.getElementById("roomModalLabel").textContent = "Add New Room";
-    populateRoomTypeSelect();
-    new bootstrap.Modal(document.getElementById("roomModal")).show();
-}
-
-function populateRoomTypeSelect(selectedId = "") {
-    const select = document.getElementById("roomType");
-    if (!select) return;
-    select.innerHTML = '<option value="">-- Select Room Type --</option>';
-    cachedRoomTypes.forEach(type => {
-        const option = document.createElement("option");
-        option.value = type.room_type_id;
-        option.textContent = type.type_name;
-        if (selectedId && selectedId == type.room_type_id) option.selected = true;
-        select.appendChild(option);
-    });
-}
-
-async function saveRoom() {
-    const roomNumber = document.getElementById("roomNumber").value;
-    const roomTypeId = document.getElementById("roomType").value;
-    const roomId = document.getElementById("roomId").value; // <-- FIX: get roomId from DOM
-    if (!roomNumber || !roomTypeId) {
-        if (window.Swal) {
-            Swal.fire({
-                toast: true,
-                position: 'top-end',
-                icon: 'warning',
-                title: 'Please fill in all required fields',
-                showConfirmButton: false,
-                timer: 1800
-            });
-        } else {
-            alert("Please fill in all required fields");
-        }
-        return;
-    }
-    // Find type name for toast
-    const typeObj = cachedRoomTypes.find(t => t.room_type_id == roomTypeId);
-    const typeName = typeObj ? typeObj.type_name : '';
-    // Prepare payload for API contract
-    const roomData = {
-        room_number: roomNumber,
-        room_type_id: parseInt(roomTypeId)
-    };
-    if (!roomId) {
-        // Always set status to 1 (available) for new rooms, as required by backend
-        roomData.room_status_id = 1;
-    } else {
-        roomData.room_id = parseInt(roomId);
-    }
-    try {
-        let response;
-        if (roomId) {
-            // For update, use PUT with operation=updateRoom
-            response = await axios.put(`${BASE_URL}/admin/rooms/rooms.php`, {
-                operation: 'updateRoom',
-                json: JSON.stringify(roomData)
-            });
-        } else {
-            // For insert, use POST with operation=insertRoom and json
-            const formData = new FormData();
-            formData.append('operation', 'insertRoom');
-            formData.append('json', JSON.stringify(roomData));
-            response = await axios.post(`${BASE_URL}/admin/rooms/rooms.php`, formData);
-        }
-        // API returns 1 for success
-        if (response.data == 1 || (response.data && response.data.message)) {
-            bootstrap.Modal.getInstance(document.getElementById("roomModal")).hide();
-            await loadRooms();
-            if (window.Swal) {
-                Swal.fire({
-                    toast: true,
-                    position: 'top-end',
-                    icon: 'success',
-                    title: roomId
-                        ? `Room ${roomNumber} updated successfully`
-                        : `Room ${roomNumber} ${typeName} added`,
-                    showConfirmButton: false,
-                    timer: 2500
-                });
+    tableBody.querySelectorAll('.btn-manage-features').forEach(btn => {
+        btn.addEventListener('click', () => {
+            const roomTypeId = parseInt(btn.dataset.roomtypeId);
+            if (!isNaN(roomTypeId)) {
+                showManageFeaturesModal(roomTypeId);
             }
-        } else {
-            throw new Error('API did not return success');
-        }
-    } catch {
-        if (window.Swal) {
-            Swal.fire({
-                toast: true,
-                position: 'top-end',
-                icon: 'error',
-                title: 'Failed to save room',
-                showConfirmButton: false,
-                timer: 2500
-            });
-        } else {
-            alert("Failed to save room");
-        }
-    }
+        });
+    });
 }
 
 function openRoomTypeModal(roomType = null) {
     const form = document.getElementById("roomTypeForm");
+    const roomTypeId = document.getElementById("roomTypeId");
+    const imagePreview = document.getElementById("imagePreview");
+    const roomTypeModal = document.getElementById("roomTypeModal");
+    const roomTypeModalLabel = document.getElementById("roomTypeModalLabel");
+
+    if (!form || !roomTypeId || !imagePreview || !roomTypeModal || !roomTypeModalLabel) return;
+
     form.reset();
-    document.getElementById("roomTypeId").value = "";
-    document.getElementById("imagePreview").innerHTML = "";
+    roomTypeId.value = "";
+    imagePreview.innerHTML = "";
 
     if (roomType) {
-        // Edit mode
-        document.getElementById("roomTypeId").value = roomType.room_type_id;
-        document.getElementById("typeName").value = roomType.type_name || "";
-        document.getElementById("typeDescription").value = roomType.description || "";
-        document.getElementById("keyFeatures").value = roomType.key_features || "";
-        document.getElementById("maxCapacity").value = roomType.max_capacity || "";
-        document.getElementById("pricePerStay").value = roomType.price_per_stay || "";
-        document.getElementById("roomSize").value = roomType.room_size_sqm || "";
-        document.getElementById("roomTypeModalLabel").textContent = "Edit Room Type";
-        // Show image or placeholder
+        roomTypeId.value = roomType.room_type_id;
+
+        const typeName = document.getElementById("typeName");
+        const typeDescription = document.getElementById("typeDescription");
+        const maxCapacity = document.getElementById("maxCapacity");
+        const pricePerStay = document.getElementById("pricePerStay");
+        const roomSize = document.getElementById("roomSize");
+
+        if (typeName) typeName.value = roomType.type_name || "";
+        if (typeDescription) typeDescription.value = roomType.description || "";
+        if (maxCapacity) maxCapacity.value = roomType.max_capacity || "";
+        if (pricePerStay) pricePerStay.value = roomType.price_per_stay || "";
+        if (roomSize) roomSize.value = roomType.room_size_sqm || "";
+
+        roomTypeModalLabel.textContent = "Edit Room Type";
+
         let imgSrc = '';
         if (roomType.image_url) {
             if (roomType.image_url.startsWith('http')) {
@@ -404,108 +484,614 @@ function openRoomTypeModal(roomType = null) {
         } else {
             imgSrc = window.location.origin + "/Hotel-Reservation-Billing-System/assets/images/uploads/room-types/placeholder-room.jpg";
         }
+
         const img = document.createElement("img");
         img.src = imgSrc;
         img.classList.add("img-thumbnail", "mt-2");
         img.style.maxHeight = "150px";
-        document.getElementById("imagePreview").appendChild(img);
+        imagePreview.appendChild(img);
     } else {
-        // Add mode - always clear all fields and show correct modal title
-        document.getElementById("roomTypeModalLabel").textContent = "Add New Room Type";
-        document.getElementById("typeName").value = "";
-        document.getElementById("typeDescription").value = "";
-        document.getElementById("keyFeatures").value = "";
-        document.getElementById("maxCapacity").value = "";
-        document.getElementById("pricePerStay").value = "";
-        document.getElementById("roomSize").value = "";
-        // Always show placeholder image
+        roomTypeModalLabel.textContent = "Add New Room Type";
+
+        const typeName = document.getElementById("typeName");
+        const typeDescription = document.getElementById("typeDescription");
+        const maxCapacity = document.getElementById("maxCapacity");
+        const pricePerStay = document.getElementById("pricePerStay");
+        const roomSize = document.getElementById("roomSize");
+
+        if (typeName) typeName.value = "";
+        if (typeDescription) typeDescription.value = "";
+        if (maxCapacity) maxCapacity.value = "";
+        if (pricePerStay) pricePerStay.value = "";
+        if (roomSize) roomSize.value = "";
+
         const img = document.createElement("img");
         img.src = window.location.origin + "/Hotel-Reservation-Billing-System/assets/images/uploads/room-types/placeholder-room.jpg";
         img.classList.add("img-thumbnail", "mt-2");
         img.style.maxHeight = "150px";
-        document.getElementById("imagePreview").appendChild(img);
+        imagePreview.appendChild(img);
     }
-    new bootstrap.Modal(document.getElementById("roomTypeModal")).show();
+
+    new bootstrap.Modal(roomTypeModal).show();
 }
-// Only handles adding a new room type (createRoomType)
+
 async function saveRoomType() {
-    const typeName = document.getElementById("typeName").value;
-    const description = document.getElementById("typeDescription").value;
-    const keyFeatures = document.getElementById("keyFeatures").value;
-    const maxCapacity = document.getElementById("maxCapacity").value;
-    const pricePerStay = document.getElementById("pricePerStay").value;
-    const roomSize = document.getElementById("roomSize").value;
-    const roomImage = document.getElementById("roomImage").files[0];
+    const typeName = document.getElementById("typeName");
+    const description = document.getElementById("typeDescription");
+    const maxCapacity = document.getElementById("maxCapacity");
+    const pricePerStay = document.getElementById("pricePerStay");
+    const roomSize = document.getElementById("roomSize");
+    const roomImage = document.getElementById("roomImage");
 
     if (!typeName) {
-        if (window.Swal) {
-            Swal.fire({
-                toast: true,
-                position: 'top-end',
-                icon: 'warning',
-                title: 'Type name is required',
-                showConfirmButton: false,
-                timer: 1800
-            });
-        } else {
-            alert("Type name is required");
-        }
+        console.error("Type name element not found");
         return;
     }
 
-    // Prepare FormData for API contract (with image)
+    const typeNameValue = typeName.value.trim();
+
+    if (!typeNameValue) {
+        showToast('warning', 'Type name is required');
+        return;
+    }
+
     const formData = new FormData();
-    formData.append('type_name', typeName);
-    formData.append('description', description);
-    formData.append('key_features', keyFeatures);
-    formData.append('max_capacity', maxCapacity);
-    formData.append('price_per_stay', pricePerStay);
-    formData.append('room_size_sqm', roomSize);
-    if (roomImage) formData.append('room_image', roomImage);
+    formData.append('type_name', typeNameValue);
+    if (description) formData.append('description', description.value || '');
+    if (maxCapacity) formData.append('max_capacity', maxCapacity.value || '');
+    if (pricePerStay) formData.append('price_per_stay', pricePerStay.value || '');
+    if (roomSize) formData.append('room_size_sqm', roomSize.value || '');
+    if (roomImage && roomImage.files[0]) formData.append('room_image', roomImage.files[0]);
     formData.append('operation', 'createRoomType');
 
     try {
         const response = await axios.post(`${BASE_URL}/admin/rooms/room-type.php`, formData, {
             headers: { 'Content-Type': 'multipart/form-data' }
         });
+
         if (response.data && response.data.error) {
             throw new Error(response.data.error);
         }
+
         await loadRoomTypes();
+
         if (response.data && (response.data.message || response.data === 1)) {
-            bootstrap.Modal.getInstance(document.getElementById("roomTypeModal")).hide();
-            if (window.Swal) {
-                Swal.fire({
-                    toast: true,
-                    position: 'top-end',
-                    icon: 'success',
-                    title: 'Room type added!',
-                    showConfirmButton: false,
-                    timer: 2500
-                });
+            const roomTypeModal = document.getElementById("roomTypeModal");
+            if (roomTypeModal) {
+                const modalInstance = bootstrap.Modal.getInstance(roomTypeModal);
+                if (modalInstance) modalInstance.hide();
             }
+
+            showToast('success', 'Room type added!');
         } else {
             throw new Error('API did not return success');
         }
     } catch (err) {
-        if (window.Swal) {
-            Swal.fire({
-                toast: true,
-                position: 'top-end',
-                icon: 'error',
-                title: 'Failed to save room type',
-                text: err && err.message ? err.message : '',
-                showConfirmButton: false,
-                timer: 2500
+        console.error("Error saving room type:", err);
+        showToast('error', 'Failed to save room type', err?.message || '');
+    }
+}
+
+function populateRoomTypeSelect(selectedId = "") {
+    const select = document.getElementById("roomType");
+    if (!select) return;
+
+    select.innerHTML = '<option value="">-- Select Room Type --</option>';
+    cachedRoomTypes.forEach(type => {
+        const option = document.createElement("option");
+        option.value = type.room_type_id;
+        option.textContent = type.type_name;
+        if (selectedId && selectedId == type.room_type_id) option.selected = true;
+        select.appendChild(option);
+    });
+}
+
+function populateTypeFilter() {
+    const typeFilter = document.getElementById("typeFilter");
+    if (!typeFilter) return;
+
+    typeFilter.innerHTML = '<option value="">All Types</option>';
+    cachedRoomTypes.forEach(type => {
+        const option = document.createElement("option");
+        option.value = type.room_type_id;
+        option.textContent = type.type_name;
+        typeFilter.appendChild(option);
+    });
+}
+
+// ====================================================================
+// FEATURE MANAGEMENT
+// ====================================================================
+async function loadFeatures(roomTypeId = null) {
+    try {
+        const res = await axios.get(`${BASE_URL}/admin/rooms/feature.php`);
+        cachedFeatures = Array.isArray(res.data) ? res.data : [];
+        const select = document.getElementById("featuresSelect");
+        if (select) {
+            select.disabled = false;
+        }
+
+        if (roomTypeId) {
+            const featuresRes = await axios.get(`${BASE_URL}/admin/rooms/room-type-feature.php`, {
+                params: { operation: "getFeaturesForRoomType", room_type_id: roomTypeId }
             });
+            const selected = Array.isArray(featuresRes.data)
+                ? featuresRes.data.map(f => String(f.feature_id))
+                : [];
+            populateFeaturesSelect(selected);
         } else {
-            alert("Failed to save room type: " + (err && err.message ? err.message : ''));
+            populateFeaturesSelect();
+        }
+    } catch (e) {
+        console.error("Error loading features:", e);
+        cachedFeatures = [];
+        const select = document.getElementById("featuresSelect");
+        if (select) {
+            select.innerHTML = "";
+            select.disabled = true;
         }
     }
 }
-// Function to preview the selected image
+
+function populateFeaturesSelect(selected = []) {
+    const selectDiv = document.getElementById("featuresSelect");
+    if (!selectDiv) return;
+
+    if (selectDiv.tagName === "SELECT") {
+        const parent = selectDiv.parentNode;
+        const newDiv = document.createElement("div");
+        newDiv.id = "featuresSelect";
+        newDiv.className = "form-check-group";
+        parent.replaceChild(newDiv, selectDiv);
+    }
+
+    const container = document.getElementById("featuresSelect");
+    container.innerHTML = "";
+    cachedFeatures.forEach(f => {
+        if (f.is_deleted && (f.is_deleted === true || f.is_deleted === 1 || f.is_deleted === "1")) return;
+        const id = `feature-checkbox-${f.feature_id}`;
+        const checked = selected.includes(String(f.feature_id)) || selected.includes(f.feature_id);
+        container.innerHTML += `
+            <span class="badge bg-secondary me-2 mb-2 d-inline-flex align-items-center" style="font-size:1em;">
+                <input class="form-check-input me-1" type="checkbox" id="${id}" value="${f.feature_id}" ${checked ? "checked" : ""} style="vertical-align:middle;">
+                <label class="form-check-label me-2" for="${id}" style="cursor:pointer;">${f.feature_name}</label>
+                <i class="fas fa-trash text-danger ms-1 feature-delete-btn" data-feature-id="${f.feature_id}" style="cursor:pointer;" title="Delete Feature"></i>
+            </span>
+        `;
+    });
+
+    container.querySelectorAll('.feature-delete-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            const featureId = btn.getAttribute('data-feature-id');
+            if (!featureId) return;
+
+            const result = await showConfirmDialog('Delete Feature?', 'This will remove this feature from ALL room types. Are you sure?', 'warning');
+            if (!result) return;
+
+            await deleteFeatureGlobally(featureId);
+            await loadFeatures();
+            await loadRoomTypes(); // Refresh to show updated features
+        });
+    });
+}
+
+async function deleteFeatureGlobally(featureId) {
+    try {
+        const formData = new FormData();
+        formData.append('operation', 'deleteFeature');
+        formData.append('json', JSON.stringify({ feature_id: featureId }));
+        await axios.post(`${BASE_URL}/admin/rooms/feature.php`, formData);
+        showToast('success', 'Feature deleted from all room types');
+    } catch (e) {
+        showToast('error', 'Failed to delete feature');
+    }
+}
+
+async function saveFeature() {
+    const newFeatureName = document.getElementById("newFeatureName");
+    if (!newFeatureName) {
+        console.error("Feature name input not found");
+        return;
+    }
+
+    const featureName = newFeatureName.value.trim();
+    if (!featureName) {
+        showToast('warning', 'Feature name is required');
+        return;
+    }
+
+    try {
+        const formData = new FormData();
+        formData.append('operation', 'createFeature');
+        formData.append('feature_name', featureName);
+
+        const res = await axios.post(`${BASE_URL}/admin/rooms/feature.php`, formData);
+
+        if (res.data && (res.data.success || res.data.message || res.data === 1)) {
+            const roomTypeId = document.getElementById("roomTypeId")?.value;
+            if (roomTypeId) {
+                let featureId = null;
+                if (res.data.feature_id) {
+                    featureId = res.data.feature_id;
+                } else {
+                    await loadFeatures();
+                    const found = cachedFeatures.find(f => f.feature_name === featureName);
+                    featureId = found ? found.feature_id : null;
+                }
+                if (featureId) {
+                    const connectForm = new FormData();
+                    connectForm.append('operation', 'addFeatureToRoomType');
+                    connectForm.append('room_type_id', roomTypeId);
+                    connectForm.append('feature_id', featureId);
+                    await axios.post(`${BASE_URL}/admin/rooms/room-type-feature.php`, connectForm);
+                }
+            }
+            showToast('success', 'Feature added!');
+
+            const featureModal = document.getElementById("featureModal");
+            if (featureModal) {
+                const modalInstance = bootstrap.Modal.getInstance(featureModal);
+                if (modalInstance) modalInstance.hide();
+            }
+
+            if (roomTypeId) {
+                await loadFeatures(roomTypeId);
+            } else {
+                await loadFeatures();
+            }
+        } else {
+            throw new Error('Failed to add feature');
+        }
+    } catch (err) {
+        console.error("Error saving feature:", err);
+        showToast('error', 'Failed to add feature', err?.message || '');
+    }
+}
+
+// Enhanced Manage Features Modal with Simple UI
+async function showManageFeaturesModal(roomTypeId) {
+    // Always fetch latest features and assignments from backend
+    let allFeatures = [];
+    try {
+        const res = await axios.get(`${BASE_URL}/admin/rooms/feature.php`);
+        allFeatures = Array.isArray(res.data) ? res.data : [];
+    } catch (e) {
+        allFeatures = [];
+    }
+
+    // Always fetch latest assigned features from backend
+    let assignedFeatures = [];
+    try {
+        // Use POST to avoid caching issues and always get fresh assignments
+        const res = await axios.post(`${BASE_URL}/admin/rooms/room-type-feature.php`, new URLSearchParams({
+            operation: "getFeaturesForRoomType",
+            json: JSON.stringify({ room_type_id: roomTypeId })
+        }));
+        assignedFeatures = Array.isArray(res.data)
+            ? res.data.map(f => String(f.feature_id))
+            : [];
+    } catch (e) {
+        assignedFeatures = [];
+    }
+
+    const roomType = cachedRoomTypes.find(rt => rt.room_type_id == roomTypeId);
+    const roomTypeName = roomType ? roomType.type_name : 'Room Type';
+
+    let html = `
+        <div class="container-fluid">
+            <div class="alert alert-info mb-3">
+                <i class="fas fa-info-circle me-2"></i>
+                <strong>Managing features for: ${roomTypeName}</strong>
+                <br><small>Check to assign, uncheck to remove from this room type.</small>
+            </div>
+            <div class="row">
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header" style="background: #8B0000; color: #fff;">
+                            <i class="fas fa-list me-2"></i>Available Features
+                        </div>
+                        <div class="card-body" style="max-height: 400px; overflow-y: auto;">
+                            <div id="available-features-list">
+                                ${allFeatures.length === 0
+            ? `<div class="text-muted text-center py-3"><i class="fas fa-info-circle me-2"></i>No features available</div>`
+            : allFeatures
+                .filter(f => !f.is_deleted || f.is_deleted === 0 || f.is_deleted === false || f.is_deleted === "0")
+                .map(f => `
+                    <div class="form-check mb-2 p-2 border rounded d-flex align-items-center justify-content-center ${assignedFeatures.includes(String(f.feature_id)) ? 'bg-light border-success' : ''}">
+                        <input class="form-check-input feature-checkbox mx-2" type="checkbox"
+                               value="${f.feature_id}" id="feature-${f.feature_id}"
+                               ${assignedFeatures.includes(String(f.feature_id)) ? 'checked' : ''}
+                               style="width: 1.5em; height: 1.5em; accent-color: #198754; box-shadow: 0 0 0 2px #198754;">
+                        <label class="form-check-label flex-grow-1 ms-3 fw-bold text-center" for="feature-${f.feature_id}" style="font-size:1.1em;">
+                            ${f.feature_name}
+                        </label>
+                        <button class="btn btn-sm btn-outline-danger ms-2 delete-feature-btn"
+                                data-feature-id="${f.feature_id}" title="Delete from ALL room types">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `).join('')
+        }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6">
+                    <div class="card">
+                        <div class="card-header" style="background: #8B0000; color: #fff;">
+                            <i class="fas fa-plus me-2"></i>Add New Feature
+                        </div>
+                        <div class="card-body">
+                            <div class="mb-3">
+                                <label for="quickFeatureName" class="form-label">Feature Name</label>
+                                <input type="text" class="form-control" id="quickFeatureName"
+                                       placeholder="Enter feature name..." maxlength="100">
+                            </div>
+                            <button type="button" class="btn btn-success w-100" id="quickAddFeatureBtn">
+                                <i class="fas fa-plus me-2"></i>Add Feature
+                            </button>
+                        </div>
+                    </div>
+                    <div class="card mt-3">
+                        <div class="card-header" style="background: #8B0000; color: #fff;">
+                            <i class="fas fa-check-circle me-2"></i>Currently Assigned
+                        </div>
+                        <div class="card-body" style="max-height: 250px; overflow-y: auto;">
+                            <div id="assigned-features-preview">
+                                ${assignedFeatures.length === 0
+            ? '<div class="text-muted text-center py-2">No features assigned</div>'
+            : allFeatures
+                .filter(f => assignedFeatures.includes(String(f.feature_id)))
+                .map(f => `<span class="badge bg-info me-1 mb-1">${f.feature_name}</span>`)
+                .join('')
+        }
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    const blankModalTitle = document.getElementById("blank-modal-title");
+    const blankMainDiv = document.getElementById("blank-main-div");
+    const blankModal = document.getElementById("blank-modal");
+    const blankModalFooter = document.getElementById("blank-modal-footer");
+
+    if (!blankModalTitle || !blankMainDiv || !blankModal || !blankModalFooter) {
+        console.error("Required modal elements not found");
+        return;
+    }
+
+    blankModalTitle.innerText = `Manage Features - ${roomTypeName}`;
+    blankMainDiv.innerHTML = html;
+    const modalDialog = blankModal.querySelector('.modal-dialog');
+    if (modalDialog) modalDialog.classList.add('modal-xl');
+    blankModalFooter.innerHTML = `
+        <button type="button" class="btn btn-primary" id="saveAllFeaturesBtn">
+            <i class="fas fa-save me-2"></i>Save Changes
+        </button>
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">
+            <i class="fas fa-times me-2"></i>Cancel
+        </button>
+    `;
+    const myModal = bootstrap.Modal.getOrCreateInstance(blankModal);
+    myModal.show();
+
+    setupFeatureModalEventListeners(roomTypeId, myModal, allFeatures, assignedFeatures);
+}
+
+function setupFeatureModalEventListeners(roomTypeId, modal, allFeatures, assignedFeatures = []) {
+    // Quick add feature
+    const quickAddBtn = document.getElementById("quickAddFeatureBtn");
+    const quickFeatureName = document.getElementById("quickFeatureName");
+
+    if (quickAddBtn && quickFeatureName) {
+        quickAddBtn.addEventListener("click", async () => {
+            const featureName = quickFeatureName.value.trim();
+            if (!featureName) {
+                showToast('warning', 'Please enter a feature name');
+                return;
+            }
+
+            try {
+                const formData = new FormData();
+                formData.append('operation', 'createFeature');
+                formData.append('feature_name', featureName);
+
+                const res = await axios.post(`${BASE_URL}/admin/rooms/feature.php`, formData);
+
+                if (res.data && (res.data.success || res.data.message || res.data === 1)) {
+                    showToast('success', 'Feature added successfully!');
+                    quickFeatureName.value = "";
+                    modal.hide();
+                    await showManageFeaturesModal(roomTypeId); // Refresh modal
+                } else {
+                    throw new Error('Failed to add feature');
+                }
+            } catch (error) {
+                console.error("Error adding feature:", error);
+                showToast('error', 'Failed to add feature');
+            }
+        });
+
+        // Enter key support for quick add
+        quickFeatureName.addEventListener("keypress", (e) => {
+            if (e.key === "Enter") {
+                quickAddBtn.click();
+            }
+        });
+    }
+
+    // Feature assignment/unassignment with live preview update
+    const checkboxes = document.querySelectorAll('.feature-checkbox');
+
+    function updateAssignedPreviewLive() {
+        // Get all checked feature ids
+        const checkedIds = Array.from(document.querySelectorAll('.feature-checkbox:checked')).map(cb => cb.value);
+        const previewDiv = document.getElementById('assigned-features-preview');
+        if (!previewDiv) return;
+
+        if (checkedIds.length === 0) {
+            previewDiv.innerHTML = '<div class="text-muted text-center py-2">No features assigned</div>';
+            return;
+        }
+
+        let html = '';
+        allFeatures.forEach(f => {
+            if (checkedIds.includes(String(f.feature_id))) {
+                html += `<span class="badge bg-success me-1 mb-1">${f.feature_name}</span>`;
+            }
+        });
+        previewDiv.innerHTML = html;
+    }
+
+    checkboxes.forEach(checkbox => {
+        // IMPORTANT: Set initial checked state based on current assignments
+        const isAssigned = assignedFeatures.includes(String(checkbox.value));
+        checkbox.checked = isAssigned;
+
+        console.log(`Feature ${checkbox.value}: assigned=${isAssigned}, checkbox.checked=${checkbox.checked}`);
+
+        // Update the parent div styling to show current state
+        const parentDiv = checkbox.closest('.form-check');
+        if (parentDiv) {
+            if (isAssigned) {
+                parentDiv.classList.add('bg-light', 'border-success');
+            } else {
+                parentDiv.classList.remove('bg-light', 'border-success');
+            }
+        }
+
+        // Handle checkbox change events
+        checkbox.addEventListener('change', async function () {
+            const featureId = this.value;
+            const parentDiv = this.closest('.form-check');
+            this.disabled = true;
+
+            try {
+                if (this.checked) {
+                    // ASSIGN feature to room type
+                    const addForm = new FormData();
+                    addForm.append('operation', 'addFeatureToRoomType');
+                    addForm.append('room_type_id', roomTypeId);
+                    addForm.append('feature_id', featureId);
+
+                    await axios.post(`${BASE_URL}/admin/rooms/room-type-feature.php`, addForm);
+
+                    // Always re-fetch assigned features after change
+                    const res = await axios.post(`${BASE_URL}/admin/rooms/room-type-feature.php`, new URLSearchParams({
+                        operation: "getFeaturesForRoomType",
+                        json: JSON.stringify({ room_type_id: roomTypeId })
+                    }));
+                    assignedFeatures = Array.isArray(res.data)
+                        ? res.data.map(f => String(f.feature_id))
+                        : [];
+
+                    if (parentDiv) {
+                        parentDiv.classList.add('bg-light', 'border-success');
+                    }
+                    showToast('success', 'Feature assigned successfully');
+                } else {
+                    // UNASSIGN feature from room type
+                    const removeForm = new FormData();
+                    removeForm.append('operation', 'removeFeatureFromRoomType');
+                    removeForm.append('json', JSON.stringify({
+                        room_type_id: roomTypeId,
+                        feature_id: featureId
+                    }));
+
+                    await axios.post(`${BASE_URL}/admin/rooms/room-type-feature.php`, removeForm);
+
+                    // Always re-fetch assigned features after change
+                    const res = await axios.post(`${BASE_URL}/admin/rooms/room-type-feature.php`, new URLSearchParams({
+                        operation: "getFeaturesForRoomType",
+                        json: JSON.stringify({ room_type_id: roomTypeId })
+                    }));
+                    assignedFeatures = Array.isArray(res.data)
+                        ? res.data.map(f => String(f.feature_id))
+                        : [];
+
+                    if (parentDiv) {
+                        parentDiv.classList.remove('bg-light', 'border-success');
+                    }
+                    showToast('success', 'Feature unassigned successfully');
+                }
+
+                // Update the live preview
+                updateAssignedPreviewLive();
+
+                // Refresh the main room types table to show updated features
+                await loadRoomTypes();
+
+            } catch (error) {
+                console.error('Error updating feature assignment:', error);
+
+                // Revert checkbox state on error
+                this.checked = !this.checked;
+
+                if (this.checked) {
+                    showToast('error', 'Failed to assign feature');
+                } else {
+                    showToast('error', 'Failed to unassign feature');
+                }
+            } finally {
+                this.disabled = false;
+            }
+        });
+    });
+
+    // Set initial preview state
+    updateAssignedPreviewLive();
+
+    // Delete feature buttons (global deletion)
+    document.querySelectorAll('.delete-feature-btn').forEach(btn => {
+        btn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const featureId = btn.getAttribute('data-feature-id');
+            if (!featureId) return;
+
+            const feature = allFeatures.find(f => f.feature_id == featureId);
+            const featureName = feature ? feature.feature_name : 'this feature';
+
+            const result = await showConfirmDialog(
+                'Delete Feature Globally?',
+                `Are you sure you want to delete "${featureName}"? This will remove it from ALL room types and cannot be undone.`,
+                'warning'
+            );
+
+            if (!result) return;
+
+            try {
+                await deleteFeatureGlobally(featureId);
+                showToast('success', 'Feature deleted from all room types');
+                modal.hide();
+                await showManageFeaturesModal(roomTypeId); // Refresh modal
+                await loadRoomTypes(); // Refresh main table
+            } catch (error) {
+                showToast('error', 'Failed to delete feature');
+            }
+        });
+    });
+
+    // Save button (now mainly for closing modal since changes are instant)
+    const saveAllBtn = document.getElementById("saveAllFeaturesBtn");
+    if (saveAllBtn) {
+        saveAllBtn.addEventListener("click", async () => {
+            modal.hide();
+            showToast('success', 'All changes saved!');
+            await loadRoomTypes();
+        });
+    }
+}
+
+// ====================================================================
+// IMAGE MANAGEMENT
+// ====================================================================
 function previewImage(event) {
     const imagePreview = document.getElementById("imagePreview");
+    if (!imagePreview) return;
+
     imagePreview.innerHTML = "";
     const file = event.target.files[0];
     if (file) {
@@ -521,36 +1107,20 @@ function previewImage(event) {
     }
 }
 
-function getStatusColor(status) {
-    const colors = {
-        "available": "success",
-        "occupied": "danger",
-        "maintenance": "warning",
-        "reserved": "info"
-    };
-    return colors[status] || "secondary";
-}
-
-function formatDate(dateString) {
-    if (!dateString) return "-";
-    return new Date(dateString).toLocaleString();
-}
-
-// --- Room Images Modal Logic ---
 async function showRoomImagesModal(roomId) {
-    // Fetch images for this room
+    if (!roomId) return;
+
     let images = [];
     try {
         const res = await axios.get(`${BASE_URL}/admin/rooms/room-images.php`, {
             params: { room_id: roomId }
         });
         images = Array.isArray(res.data) ? res.data : [];
-        cachedRoomImages[roomId] = images;
-    } catch {
+    } catch (error) {
+        console.error("Error fetching room images:", error);
         images = [];
     }
 
-    // Build modal HTML
     let html = `
         <div>
             <div class="mb-3">
@@ -581,80 +1151,101 @@ async function showRoomImagesModal(roomId) {
             </div>
         </div>
     `;
-    document.getElementById("blank-modal-title").innerText = "Room Images";
-    document.getElementById("blank-main-div").innerHTML = html;
-    // Make modal extra large
-    const modalEl = document.getElementById("blank-modal");
-    modalEl.querySelector('.modal-dialog').classList.add('modal-xl');
-    document.getElementById("blank-modal-footer").innerHTML = `<button type="button" class="btn btn-secondary w-100 btn-close-room-images-modal" data-bs-dismiss="modal">Close</button>`;
-    const myModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+    const blankModalTitle = document.getElementById("blank-modal-title");
+    const blankMainDiv = document.getElementById("blank-main-div");
+    const blankModal = document.getElementById("blank-modal");
+    const blankModalFooter = document.getElementById("blank-modal-footer");
+
+    if (!blankModalTitle || !blankMainDiv || !blankModal || !blankModalFooter) {
+        console.error("Required modal elements not found");
+        return;
+    }
+
+    blankModalTitle.innerText = "Room Images";
+    blankMainDiv.innerHTML = html;
+
+    const modalDialog = blankModal.querySelector('.modal-dialog');
+    if (modalDialog) modalDialog.classList.add('modal-xl');
+
+    blankModalFooter.innerHTML = `<button type="button" class="btn btn-secondary w-100 btn-close-room-images-modal" data-bs-dismiss="modal">Close</button>`;
+    const myModal = bootstrap.Modal.getOrCreateInstance(blankModal);
     myModal.show();
 
-    // Close button handler
-    document.querySelector(".btn-close-room-images-modal").onclick = function () {
-        myModal.hide();
-    };
+    setupImageModalEventListeners(roomId, myModal);
+}
 
-    // Upload handler
-    document.getElementById("uploadRoomImageBtn").onclick = async function () {
-        const fileInput = document.getElementById("roomImageUpload");
-        if (!fileInput.files.length) {
-            if (window.Swal) Swal.fire({ icon: 'warning', title: 'Select an image first', toast: true, position: 'top-end', timer: 1500, showConfirmButton: false });
-            return;
-        }
-        const formData = new FormData();
-        formData.append('operation', 'insertRoomImage');
-        formData.append('json', JSON.stringify({ room_id: roomId }));
-        formData.append('image', fileInput.files[0]);
-        try {
-            const res = await axios.post(`${BASE_URL}/admin/rooms/room-images.php`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' }
-            });
-            if (res.data == 1) {
-                await showRoomImagesModal(roomId);
-                if (window.Swal) Swal.fire({ icon: 'success', title: 'Image uploaded!', toast: true, position: 'top-end', timer: 1200, showConfirmButton: false });
-            } else {
-                throw new Error();
+function setupImageModalEventListeners(roomId, modal) {
+    const closeBtn = document.querySelector(".btn-close-room-images-modal");
+    if (closeBtn) {
+        closeBtn.onclick = function () {
+            modal.hide();
+        };
+    }
+
+    const uploadBtn = document.getElementById("uploadRoomImageBtn");
+    if (uploadBtn) {
+        uploadBtn.onclick = async function () {
+            const fileInput = document.getElementById("roomImageUpload");
+            if (!fileInput || !fileInput.files.length) {
+                showToast('warning', 'Select an image first');
+                return;
             }
-        } catch {
-            if (window.Swal) Swal.fire({ icon: 'error', title: 'Failed to upload', toast: true, position: 'top-end', timer: 1500, showConfirmButton: false });
-        }
-    };
 
-    // Delete handler
+            const formData = new FormData();
+            formData.append('operation', 'insertRoomImage');
+            formData.append('json', JSON.stringify({ room_id: roomId }));
+            formData.append('image', fileInput.files[0]);
+
+            try {
+                const res = await axios.post(`${BASE_URL}/admin/rooms/room-images.php`, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+
+                if (res.data == 1) {
+                    await showRoomImagesModal(roomId);
+                    showToast('success', 'Image uploaded!');
+                } else {
+                    throw new Error('Upload failed');
+                }
+            } catch (error) {
+                console.error("Error uploading image:", error);
+                showToast('error', 'Failed to upload');
+            }
+        };
+    }
+
     document.querySelectorAll(".btn-delete-room-image").forEach(btn => {
         btn.onclick = async function () {
             const imageId = btn.dataset.imageId;
-            if (window.Swal) {
-                const result = await Swal.fire({
-                    title: 'Delete image?',
-                    icon: 'warning',
-                    showCancelButton: true,
-                    confirmButtonText: 'Delete',
-                    confirmButtonColor: '#d33'
-                });
-                if (!result.isConfirmed) return;
-            }
+            if (!imageId) return;
+
+            const proceed = await showConfirmDialog('Delete image?', '', 'warning');
+            if (!proceed) return;
+
             const formData = new FormData();
             formData.append('operation', 'deleteRoomImage');
             formData.append('json', JSON.stringify({ room_image_id: imageId }));
+
             try {
                 const res = await axios.post(`${BASE_URL}/admin/rooms/room-images.php`, formData);
                 if (res.data == 1) {
                     await showRoomImagesModal(roomId);
                 } else {
-                    throw new Error();
+                    throw new Error('Delete failed');
                 }
-            } catch {
-                if (window.Swal) Swal.fire({ icon: 'error', title: 'Failed to delete', toast: true, position: 'top-end', timer: 1500, showConfirmButton: false });
+            } catch (error) {
+                console.error("Error deleting image:", error);
+                showToast('error', 'Failed to delete');
             }
         };
     });
 
-    // Update handler
     document.querySelectorAll(".btn-update-room-image").forEach(btn => {
         btn.onclick = function () {
             const imageId = btn.dataset.imageId;
+            if (!imageId) return;
+
             const input = document.querySelector(`.update-image-input[data-image-id="${imageId}"]`);
             if (input) input.click();
         };
@@ -663,72 +1254,69 @@ async function showRoomImagesModal(roomId) {
     document.querySelectorAll(".update-image-input").forEach(input => {
         input.onchange = async function (e) {
             const imageId = input.dataset.imageId;
-            if (!input.files.length) return;
+            if (!imageId || !input.files.length) return;
+
             const file = input.files[0];
-            // Confirm update
-            let proceed = true;
-            if (window.Swal) {
-                const result = await Swal.fire({
-                    title: 'Update image?',
-                    text: 'This will replace the current image.',
-                    icon: 'question',
-                    showCancelButton: true,
-                    confirmButtonText: 'Update',
-                    confirmButtonColor: '#3085d6'
-                });
-                proceed = result.isConfirmed;
-            }
+            const proceed = await showConfirmDialog('Update image?', 'This will replace the current image.', 'question');
             if (!proceed) return;
+
             const formData = new FormData();
             formData.append('operation', 'updateRoomImage');
             formData.append('json', JSON.stringify({ room_image_id: imageId }));
             formData.append('image', file);
+
             try {
                 const res = await axios.post(`${BASE_URL}/admin/rooms/room-images.php`, formData, {
                     headers: { 'Content-Type': 'multipart/form-data' }
                 });
+
                 if (res.data == 1) {
                     await showRoomImagesModal(roomId);
-                    if (window.Swal) Swal.fire({ icon: 'success', title: 'Image updated!', toast: true, position: 'top-end', timer: 1200, showConfirmButton: false });
+                    showToast('success', 'Image updated!');
                 } else {
-                    throw new Error();
+                    throw new Error('Update failed');
                 }
-            } catch {
-                if (window.Swal) Swal.fire({ icon: 'error', title: 'Failed to update', toast: true, position: 'top-end', timer: 1500, showConfirmButton: false });
+            } catch (error) {
+                console.error("Error updating image:", error);
+                showToast('error', 'Failed to update');
             }
         };
     });
 }
 
-// --- View Room Details Modal ---
+// ====================================================================
+// ROOM DETAILS MODAL
+// ====================================================================
 async function showRoomDetailsModal(roomId) {
-    // Fetch room details
+    if (!roomId) return;
+
     let room = null;
     try {
         const res = await axios.get(`${BASE_URL}/admin/rooms/rooms.php`, {
             params: { room_id: roomId }
         });
         room = Array.isArray(res.data) ? res.data[0] : res.data;
-    } catch {
+    } catch (error) {
+        console.error("Error fetching room details:", error);
         room = null;
     }
+
     if (!room) {
-        if (window.Swal) Swal.fire({ icon: 'error', title: 'Room not found', toast: true, position: 'top-end', timer: 1800, showConfirmButton: false });
+        showToast('error', 'Room not found');
         return;
     }
 
-    // Fetch room images
     let images = [];
     try {
         const res = await axios.get(`${BASE_URL}/admin/rooms/room-images.php`, {
             params: { room_id: roomId }
         });
         images = Array.isArray(res.data) ? res.data : [];
-    } catch {
+    } catch (error) {
+        console.error("Error fetching room images:", error);
         images = [];
     }
 
-    // Room type image
     let typeImg = '';
     if (room.room_type_image_url) {
         if (room.room_type_image_url.startsWith('http')) {
@@ -740,68 +1328,56 @@ async function showRoomDetailsModal(roomId) {
         typeImg = window.location.origin + "/Hotel-Reservation-Billing-System/assets/images/uploads/room-types/placeholder-room.jpg";
     }
 
-    // Room images HTML (additional images section)
-    let imagesHtml = images.length
-        ? images.map(img =>
-            `<div class="d-inline-block text-center m-1">
-                <img src="/Hotel-Reservation-Billing-System/assets/images/uploads/room-images/${img.image_url}" class="img-thumbnail shadow-sm" style="max-width:110px;max-height:80px;">
-                <div class="small text-muted mt-1"><i class="fas fa-image"></i> #${img.room_image_id}</div>
-            </div>`
-        ).join('')
-        : '<div class="text-muted"><i class="fas fa-images"></i> No additional images uploaded.</div>';
+    let featuresHtml = '<span class="text-muted">No features specified</span>';
+    if (Array.isArray(room.features) && room.features.length) {
+        featuresHtml = room.features.map(f => `<span class="badge bg-success me-1 mb-1"><i class="fas fa-check-circle me-1"></i>${f.feature_name}</span>`).join('');
+    } else if (room.key_features) {
+        featuresHtml = room.key_features.split(',').map(f => `<span class="badge bg-success me-1 mb-1"><i class="fas fa-check-circle me-1"></i>${f.trim()}</span>`).join('');
+    }
 
-    // Features
-    let featuresHtml = room.key_features
-        ? room.key_features.split(',').map(f => `<span class="badge bg-secondary me-1 mb-1"><i class="fas fa-check-circle me-1"></i>${f.trim()}</span>`).join('')
-        : '-';
-
-    // Modal HTML with enhanced layout and color
     let html = `
         <div class="container-fluid">
             <div class="row">
-                <!-- Room Type Card -->
                 <div class="col-md-4 mb-3">
                     <div class="card shadow border-0">
-                        <div class="card-header text-white" style="background: var(--primary-color);">
+                        <div class="card-header text-white" style="background: var(--primary-color, #007bff);">
                             <i class="fas fa-tag me-2"></i> Room Type
                         </div>
                         <div class="card-body text-center">
                             <img src="${typeImg}" class="img-thumbnail mb-2" style="max-width:220px;max-height:180px;">
-                            <div class="fw-bold mt-2">${room.type_name}</div>
-                            <div class="text-muted small mt-1">${room.room_type_description || '-'}</div>
+                            <div class="fw-bold mt-2">${room.type_name || 'N/A'}</div>
+                            <div class="text-muted small mt-1">${room.room_type_description || 'No description available'}</div>
                         </div>
                     </div>
                 </div>
-                <!-- Room Details Card -->
                 <div class="col-md-8 mb-3">
                     <div class="card shadow border-0">
-                        <div class="card-header text-white" style="background: var(--primary-color);">
+                        <div class="card-header text-white" style="background: var(--primary-color, #007bff);">
                             <i class="fas fa-bed me-2"></i> Room Details
                         </div>
                         <div class="card-body">
                             <div class="row mb-2">
                                 <div class="col-6">
-                                    <h5 class="mb-1"><i class="fas fa-door-closed me-2"></i>Room #${room.room_number}</h5>
+                                    <h5 class="mb-1"><i class="fas fa-door-closed me-2"></i>Room #${room.room_number || 'N/A'}</h5>
                                 </div>
                                 <div class="col-6 text-end">
                                     <span class="badge bg-${getStatusColor(room.room_status)} px-3 py-2 fs-6">
-                                        <i class="fas fa-info-circle me-1"></i>${room.room_status}
+                                        <i class="fas fa-info-circle me-1"></i>${room.room_status || 'unknown'}
                                     </span>
                                 </div>
                             </div>
-                            <div class="mb-2"><i class="fas fa-users me-2"></i><strong>Capacity:</strong> ${room.max_capacity || '-'} guests</div>
-                            <div class="mb-2"><i class="fas fa-ruler-combined me-2"></i><strong>Room Size:</strong> ${room.room_size_sqm || '-'} sqm</div>
+                            <div class="mb-2"><i class="fas fa-users me-2"></i><strong>Capacity:</strong> ${room.max_capacity || 'N/A'} guests</div>
+                            <div class="mb-2"><i class="fas fa-ruler-combined me-2"></i><strong>Room Size:</strong> ${room.room_size_sqm || 'N/A'} sqm</div>
                             <div class="mb-2"><i class="fas fa-coins me-2"></i><strong>Price per Stay:</strong> ₱${room.price_per_stay || '0.00'}</div>
                             <div class="mb-2"><i class="fas fa-calendar-alt me-2"></i><strong>Last Updated:</strong> ${formatDate(room.updated_at)}</div>
                         </div>
                     </div>
                 </div>
             </div>
-            <!-- Features Card -->
             <div class="row mt-2">
                 <div class="col-12">
                     <div class="card shadow border-0">
-                        <div class="card-header text-white" style="background: var(--primary-color);">
+                        <div class="card-header text-white" style="background: var(--primary-color, #007bff);">
                             <i class="fas fa-list-ul me-2"></i> Features
                         </div>
                         <div class="card-body">
@@ -812,11 +1388,10 @@ async function showRoomDetailsModal(roomId) {
                     </div>
                 </div>
             </div>
-            <!-- Additional Images Section -->
             <div class="row mt-2">
                 <div class="col-12">
                     <div class="card shadow border-0">
-                        <div class="card-header text-white" style="background: var(--primary-color);">
+                        <div class="card-header text-white" style="background: var(--primary-color, #007bff);">
                             <i class="fas fa-images me-2"></i> Additional Room Images
                         </div>
                         <div class="card-body">
@@ -824,9 +1399,9 @@ async function showRoomDetailsModal(roomId) {
                                 ${images.length
             ? images.map(img =>
                 `<div class="d-inline-block text-center m-1">
-                                                <img src="/Hotel-Reservation-Billing-System/assets/images/uploads/room-images/${img.image_url}" class="img-thumbnail shadow-sm" style="max-width:220px;max-height:180px;">
-                                                <div class="small text-muted mt-1"><i class="fas fa-image"></i> #${img.room_image_id}</div>
-                                            </div>`
+                                            <img src="/Hotel-Reservation-Billing-System/assets/images/uploads/room-images/${img.image_url}" class="img-thumbnail shadow-sm" style="max-width:220px;max-height:180px;">
+                                            <div class="small text-muted mt-1"><i class="fas fa-image"></i> #${img.room_image_id}</div>
+                                        </div>`
             ).join('')
             : '<div class="text-muted"><i class="fas fa-images"></i> No additional images uploaded.</div>'
         }
@@ -837,13 +1412,79 @@ async function showRoomDetailsModal(roomId) {
             </div>
         </div>
     `;
-    // Show in blank-modal
-    document.getElementById("blank-modal-title").innerText = "Room Details";
-    document.getElementById("blank-main-div").innerHTML = html;
-    // Make modal extra large for details
-    const modalEl = document.getElementById("blank-modal");
-    modalEl.querySelector('.modal-dialog').classList.add('modal-xl');
-    document.getElementById("blank-modal-footer").innerHTML = `<button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal"><i class="fas fa-times"></i> Close</button>`;
-    const myModal = bootstrap.Modal.getOrCreateInstance(modalEl);
+
+    const blankModalTitle = document.getElementById("blank-modal-title");
+    const blankMainDiv = document.getElementById("blank-main-div");
+    const blankModal = document.getElementById("blank-modal");
+    const blankModalFooter = document.getElementById("blank-modal-footer");
+
+    if (!blankModalTitle || !blankMainDiv || !blankModal || !blankModalFooter) {
+        console.error("Required modal elements not found");
+        return;
+    }
+
+    blankModalTitle.innerText = "Room Details";
+    blankMainDiv.innerHTML = html;
+
+    const modalDialog = blankModal.querySelector('.modal-dialog');
+    if (modalDialog) modalDialog.classList.add('modal-xl');
+
+    blankModalFooter.innerHTML = `<button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal"><i class="fas fa-times"></i> Close</button>`;
+    const myModal = bootstrap.Modal.getOrCreateInstance(blankModal);
     myModal.show();
+}
+
+// ====================================================================
+// UTILITY FUNCTIONS
+// ====================================================================
+function getStatusColor(status) {
+    const colors = {
+        "available": "success",
+        "occupied": "danger",
+        "maintenance": "warning",
+        "reserved": "info"
+    };
+    return colors[status] || "secondary";
+}
+
+function formatDate(dateString) {
+    if (!dateString) return "-";
+    try {
+        return new Date(dateString).toLocaleString();
+    } catch (error) {
+        console.error("Error formatting date:", error);
+        return "-";
+    }
+}
+
+function showToast(type, title, text = '') {
+    if (window.Swal) {
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: type,
+            title: title,
+            text: text,
+            showConfirmButton: false,
+            timer: type === 'error' ? 2500 : 1800
+        });
+    } else {
+        alert(`${title}${text ? ': ' + text : ''}`);
+    }
+}
+
+async function showConfirmDialog(title, text, icon = 'warning') {
+    if (window.Swal) {
+        const result = await Swal.fire({
+            title: title,
+            text: text,
+            icon: icon,
+            showCancelButton: true,
+            confirmButtonText: icon === 'warning' ? 'Delete' : 'Confirm',
+            confirmButtonColor: icon === 'warning' ? '#d33' : '#3085d6'
+        });
+        return result.isConfirmed;
+    } else {
+        return confirm(`${title}${text ? '\n' + text : ''}`);
+    }
 }

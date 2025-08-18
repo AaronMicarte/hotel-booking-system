@@ -75,14 +75,6 @@ class RoomSelectionManager {
                 <div class="card-body">
                     <p class="card-text text-muted small">${data.description}</p>
                     
-                    <div class="room-features-list">
-                        ${data.features.slice(0, 4).map(feature =>
-            `<div class="feature-item">
-                                <i class="${feature.icon}"></i>
-                                <span>${feature.text}</span>
-                            </div>`
-        ).join('')}
-                    </div>
 
                     <div class="room-quantity-controls">
                         <button type="button" class="quantity-btn decrease" data-room-type="${type}">

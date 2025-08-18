@@ -153,26 +153,30 @@ export const updateRoomTypeModal = async (roomTypeId, refreshDisplay) => {
 
         document.getElementById("blank-modal-title").innerText = "Update Room Type";
 
-        const roomType = await getRoomTypeDetails(roomTypeId);
+        // Fetch room type details (no features logic here)
+        let roomType = {};
+        try {
+            const res = await axios.get(
+                `${window.location.origin}/Hotel-Reservation-Billing-System/api/admin/rooms/room-type.php`,
+                { params: { id: roomTypeId } }
+            );
+            roomType = Array.isArray(res.data) ? res.data[0] : res.data;
+        } catch (e) {
+            roomType = {};
+        }
 
         let myHtml = `
-            <table class="table table-sm">
+            <table class="table table-sm border-0">
               <tr>
                 <td>Type Name</td>
                 <td>
-                  <input type="text" id="update-type-name" class="form-control" value="${roomType.type_name}" />
+                  <input type="text" id="update-type-name" class="form-control" value="${roomType.type_name || ''}" />
                 </td>
               </tr>
               <tr>
                 <td>Description</td>
                 <td>
                   <textarea id="update-type-description" class="form-control">${roomType.description || ''}</textarea>
-                </td>
-              </tr>
-              <tr>
-                <td>Key Features</td>
-                <td>
-                  <textarea id="update-key-features" class="form-control">${roomType.key_features || ''}</textarea>
                 </td>
               </tr>
               <tr>
@@ -203,13 +207,13 @@ export const updateRoomTypeModal = async (roomTypeId, refreshDisplay) => {
             </table>
         `;
         document.getElementById("blank-main-div").innerHTML = myHtml;
+
         // Show current image or placeholder
         let imgSrc = '';
         if (roomType.image_url) {
             if (roomType.image_url.startsWith('http')) {
                 imgSrc = roomType.image_url;
             } else {
-                // Always build full path from filename - same as placeholder-room.jpg
                 imgSrc = window.location.origin + "/Hotel-Reservation-Billing-System/assets/images/uploads/room-types/" + roomType.image_url.replace(/^.*[\\\/]/, '');
             }
         } else {
@@ -220,6 +224,7 @@ export const updateRoomTypeModal = async (roomTypeId, refreshDisplay) => {
         img.classList.add("img-thumbnail", "mt-2");
         img.style.maxHeight = "120px";
         document.getElementById("update-image-preview").appendChild(img);
+
         // Preview new image on file select
         document.getElementById("update-room-image").addEventListener("change", function (e) {
             const file = e.target.files[0];
@@ -240,22 +245,58 @@ export const updateRoomTypeModal = async (roomTypeId, refreshDisplay) => {
         modalFooter.innerHTML = myHtml;
 
         modalFooter.querySelector(".btn-update-type").addEventListener("click", async () => {
-            const result = await updateRoomType(roomTypeId);
-            if (result && (result.message || result === 1)) {
-                refreshDisplay();
+            try {
+                const typeNameValue = document.getElementById("update-type-name").value.trim();
+                if (!typeNameValue) {
+                    if (window.Swal) {
+                        Swal.fire({
+                            toast: true,
+                            position: 'top-end',
+                            icon: 'warning',
+                            title: 'Type name is required',
+                            showConfirmButton: false,
+                            timer: 1800
+                        });
+                    } else {
+                        alert("Type name is required");
+                    }
+                    return;
+                }
+
+                // No features logic here
+                const result = await updateRoomType(roomTypeId);
+
+                if (result && (result.message || result === 1)) {
+                    refreshDisplay();
+                    if (window.Swal) {
+                        Swal.fire({
+                            toast: true,
+                            position: 'top-end',
+                            icon: 'success',
+                            title: 'Room type has been successfully updated!',
+                            showConfirmButton: false,
+                            timer: 1800
+                        });
+                    }
+                    myModal.hide();
+                } else {
+                    throw new Error('API did not return success');
+                }
+            } catch (error) {
+                console.error("Error updating room type:", error);
                 if (window.Swal) {
                     Swal.fire({
                         toast: true,
                         position: 'top-end',
-                        icon: 'success',
-                        title: 'Room type has been successfully updated!',
+                        icon: 'error',
+                        title: 'Failed to update room type!',
+                        text: error && error.message ? error.message : '',
                         showConfirmButton: false,
                         timer: 1800
                     });
+                } else {
+                    alert("ERROR updating room type: " + (error && error.message ? error.message : ''));
                 }
-                myModal.hide();
-            } else {
-                alert("ERROR!");
             }
         });
 
@@ -296,7 +337,18 @@ export const deleteRoomTypeModal = async (roomTypeId, refreshDisplay) => {
                 });
             }
         } else {
-            alert("ERROR!");
+            if (window.Swal) {
+                Swal.fire({
+                    toast: true,
+                    position: 'top-end',
+                    icon: 'error',
+                    title: 'Failed to delete room type!',
+                    showConfirmButton: false,
+                    timer: 1800
+                });
+            } else {
+                alert("ERROR deleting room type!");
+            }
         }
     } catch (error) {
         console.error("Error deleting room type:", error);
@@ -397,7 +449,6 @@ const getRoomTypeDetails = async (roomTypeId) => {
     return Array.isArray(response.data) ? response.data[0] : response.data;
 };
 
-// --- Update Room Type Logic ---
 const updateRoomType = async (roomTypeId) => {
     // Use FormData for update, support image upload
     const formData = new FormData();
@@ -405,12 +456,12 @@ const updateRoomType = async (roomTypeId) => {
     formData.append("room_type_id", roomTypeId);
     formData.append("type_name", document.getElementById("update-type-name").value);
     formData.append("description", document.getElementById("update-type-description").value);
-    formData.append("key_features", document.getElementById("update-key-features").value);
     formData.append("max_capacity", document.getElementById("update-max-capacity").value);
     formData.append("price_per_stay", document.getElementById("update-price-per-stay").value);
     formData.append("room_size_sqm", document.getElementById("update-room-size").value);
     const imageFile = document.getElementById("update-room-image").files[0];
     if (imageFile) formData.append("room_image", imageFile);
+    // Do not send features here, handled by room-type-feature.php above
     const response = await axios.post(`${window.location.origin}/Hotel-Reservation-Billing-System/api/admin/rooms/room-type.php`, formData);
     return response.data;
 };
@@ -430,4 +481,3 @@ const deleteRoomType = async (roomTypeId) => {
     });
     return response.data;
 };
-
