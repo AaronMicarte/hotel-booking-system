@@ -12,8 +12,10 @@ const BASE_URL = "http://localhost/Hotel-Reservation-Billing-System/api";
 const ROOM_STATUSES = ['available', 'occupied', 'maintenance', 'reserved'];
 
 let cachedRoomTypes = [];
-let cachedRoomImages = {}; // {room_id: [images]}
+let cachedRoomImages = {};
 let cachedFeatures = [];
+let cachedRooms = []; // For stats
+let selectedFeatureIds = []; // For chips/tags selection
 
 // ====================================================================
 // INITIALIZATION
@@ -21,6 +23,7 @@ let cachedFeatures = [];
 document.addEventListener("DOMContentLoaded", () => {
     loadRoomTypes();
     loadRooms();
+    loadFeaturesForFilter(); // New: populate feature filter
     initializeEventListeners();
 });
 
@@ -92,6 +95,22 @@ function initializeEventListeners() {
             }
         });
     }
+
+    // Compact filter form events
+    const filterForm = document.getElementById("roomsFilterForm");
+    if (filterForm) {
+        filterForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            filterRooms();
+        });
+        document.getElementById("applyFilters")?.addEventListener("click", filterRooms);
+        document.getElementById("searchRoom")?.addEventListener("keyup", (e) => {
+            if (e.key === "Enter") filterRooms();
+        });
+        document.getElementById("featureFilter")?.addEventListener("change", filterRooms);
+        document.getElementById("typeFilter")?.addEventListener("change", filterRooms);
+        document.getElementById("statusFilter")?.addEventListener("change", filterRooms);
+    }
 }
 
 // ====================================================================
@@ -106,7 +125,9 @@ async function loadRooms() {
         const response = await axios.get(`${BASE_URL}/admin/rooms/rooms.php`, {
             params: { operation: 'getAllRooms' }
         });
-        displayRooms(response.data || []);
+        cachedRooms = response.data || [];
+        displayRooms(cachedRooms);
+        updateRoomStatsOverview(cachedRooms); // Update stats
     } catch (error) {
         roomsTableBody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Error loading rooms</td></tr>`;
         console.error("Error loading rooms:", error);
@@ -163,6 +184,7 @@ function displayRooms(rooms) {
     if (totalRooms) totalRooms.textContent = rooms.length;
 
     attachRoomEventListeners(tableBody);
+    updateRoomStatsOverview(rooms); // Always update stats on display
 }
 
 function attachRoomEventListeners(tableBody) {
@@ -277,41 +299,142 @@ async function saveRoom() {
     }
 }
 
+// --- Room Stats Overview ---
+function updateRoomStatsOverview(rooms) {
+    // Count by status
+    let total = rooms.length;
+    let available = 0, occupied = 0, maintenance = 0, reserved = 0;
+    rooms.forEach(r => {
+        switch ((r.room_status || '').toLowerCase()) {
+            case "available": available++; break;
+            case "occupied": occupied++; break;
+            case "maintenance": maintenance++; break;
+            case "reserved": reserved++; break;
+        }
+    });
+    document.getElementById("statTotalRooms").textContent = total;
+    document.getElementById("statAvailableRooms").textContent = available;
+    document.getElementById("statOccupiedRooms").textContent = occupied;
+    document.getElementById("statMaintenanceRooms").textContent = maintenance;
+    document.getElementById("statReservedRooms").textContent = reserved;
+}
+
+// --- Feature Chips/Tags UI ---
+function renderFeatureChips() {
+    const container = document.getElementById("featureChipsContainer");
+    if (!container) return;
+    container.innerHTML = '';
+    if (!cachedFeatures.length) {
+        container.innerHTML = '<span class="text-muted">No features available</span>';
+        return;
+    }
+    // Remove deleted features from selectedFeatureIds
+    const validFeatureIds = cachedFeatures
+        .filter(f => !f.is_deleted || f.is_deleted === 0 || f.is_deleted === false || f.is_deleted === "0")
+        .map(f => String(f.feature_id));
+    selectedFeatureIds = selectedFeatureIds.filter(fid => validFeatureIds.includes(fid));
+    // Sort features alphabetically
+    const sorted = [...cachedFeatures].sort((a, b) => (a.feature_name || '').localeCompare(b.feature_name || ''));
+    sorted.forEach(f => {
+        if (!f.is_deleted || f.is_deleted === 0 || f.is_deleted === false || f.is_deleted === "0") {
+            const isActive = selectedFeatureIds.includes(String(f.feature_id));
+            const chip = document.createElement('span');
+            chip.className = `badge rounded-pill me-2 mb-2 feature-chip ${isActive ? 'bg-primary text-white' : 'bg-light text-dark'}`
+                + ' d-inline-flex align-items-center';
+            chip.style.cursor = 'pointer';
+            chip.setAttribute('data-feature-id', f.feature_id);
+            chip.innerHTML = `<i class="fas fa-tag me-1"></i>${f.feature_name}`;
+            chip.onclick = () => {
+                toggleFeatureChip(f.feature_id);
+            };
+            container.appendChild(chip);
+        }
+    });
+}
+
+function toggleFeatureChip(featureId) {
+    featureId = String(featureId);
+    const idx = selectedFeatureIds.indexOf(featureId);
+    if (idx === -1) {
+        selectedFeatureIds.push(featureId);
+    } else {
+        selectedFeatureIds.splice(idx, 1);
+    }
+    renderFeatureChips();
+    filterRooms();
+}
+
+// --- Feature Filter Dropdown (now only loads features and renders chips) ---
+async function loadFeaturesForFilter() {
+    try {
+        const res = await axios.get(`${BASE_URL}/admin/rooms/feature.php`);
+        cachedFeatures = Array.isArray(res.data) ? res.data : [];
+        renderFeatureChips();
+    } catch (e) {
+        cachedFeatures = [];
+        renderFeatureChips();
+    }
+}
+
+// --- Filter Rooms (with chips/tags feature filter) ---
 async function filterRooms() {
     const typeFilter = document.getElementById("typeFilter");
     const statusFilter = document.getElementById("statusFilter");
+    const searchRoom = document.getElementById("searchRoom");
 
-    if (!typeFilter || !statusFilter) return;
+    const typeId = typeFilter?.value || "";
+    const status = statusFilter?.value || "";
+    const featureIds = selectedFeatureIds || [];
+    const searchTerm = searchRoom?.value.trim() || "";
 
-    const typeId = typeFilter.value || "";
-    const status = statusFilter.value || "";
-    let url = `${BASE_URL}/admin/rooms/rooms.php`;
+    // If no filter, just reload all
+    if (!typeId && !status && (!featureIds || featureIds.length === 0) && !searchTerm) {
+        await loadRooms();
+        return;
+    }
+
+    let url = `${BASE_URL}/admin/rooms/rooms.php?operation=getAllRooms`;
     const params = [];
-
     if (typeId) params.push(`type_id=${encodeURIComponent(typeId)}`);
     if (status) params.push(`status=${encodeURIComponent(status)}`);
-    if (params.length > 0) url += "?" + params.join("&");
+    if (searchTerm) params.push(`search=${encodeURIComponent(searchTerm)}`);
+    // For backend, only send one feature_id (for optimization), but do full multi-feature filtering on frontend
+    if (featureIds && featureIds.length === 1) params.push(`feature_id=${encodeURIComponent(featureIds[0])}`);
+    if (params.length > 0) url += "&" + params.join("&");
 
     try {
         const response = await axios.get(url);
-        const rooms = response.data || [];
-        displayRooms(rooms);
-
-        let toastMsg = '';
-        if (status) {
-            toastMsg = `Found ${rooms.length} ${status.toLowerCase()} room${rooms.length === 1 ? '' : 's'}`;
-        } else if (typeId) {
-            const typeObj = cachedRoomTypes.find(t => t.room_type_id == typeId);
-            const typeName = typeObj ? typeObj.type_name : 'selected';
-            toastMsg = `Found ${rooms.length} ${typeName} room${rooms.length === 1 ? '' : 's'}`;
-        } else {
-            toastMsg = `Found ${rooms.length} room${rooms.length === 1 ? '' : 's'}`;
+        let rooms = response.data || [];
+        // Multi-feature filter: only show rooms that have ALL selected features
+        if (featureIds && featureIds.length > 0) {
+            rooms = rooms.filter(r => {
+                if (!Array.isArray(r.features)) return false;
+                const roomFeatureIds = r.features.map(f => String(f.feature_id));
+                // Must have ALL selected features
+                return featureIds.every(fid => roomFeatureIds.includes(String(fid)));
+            });
         }
+        displayRooms(rooms);
+        updateRoomStatsOverview(rooms);
 
+        let toastMsg = `Found ${rooms.length} room${rooms.length === 1 ? '' : 's'}`;
+        if (status) toastMsg += ` (${status})`;
+        if (typeId) {
+            const typeObj = cachedRoomTypes.find(t => t.room_type_id == typeId);
+            if (typeObj) toastMsg += ` (${typeObj.type_name})`;
+        }
+        if (featureIds && featureIds.length > 0) {
+            const featNames = cachedFeatures
+                .filter(f => featureIds.includes(String(f.feature_id)))
+                .map(f => f.feature_name)
+                .join(', ');
+            toastMsg += ` (with: ${featNames})`;
+        }
         showToast('info', toastMsg);
     } catch (error) {
         console.error("Error filtering rooms:", error);
         displayRooms([]);
+        updateRoomStatsOverview([]);
         showToast('error', 'No rooms found');
     }
 }

@@ -32,6 +32,13 @@ class Room
             $params[':status'] = $_GET['status'];
         }
 
+        // Feature filter (by feature_id)
+        $featureJoin = '';
+        if (isset($_GET['feature_id']) && !empty($_GET['feature_id'])) {
+            $featureJoin = "JOIN RoomTypeFeature rtf ON r.room_type_id = rtf.room_type_id AND rtf.feature_id = :feature_id";
+            $params[':feature_id'] = $_GET['feature_id'];
+        }
+
         $whereClause = implode(" AND ", $where);
 
         $query = "SELECT 
@@ -46,6 +53,7 @@ class Room
                   FROM Room r 
                   LEFT JOIN RoomType rt ON r.room_type_id = rt.room_type_id 
                   LEFT JOIN RoomStatus rs ON r.room_status_id = rs.room_status_id 
+                  $featureJoin
                   WHERE {$whereClause}
                   ORDER BY r.room_number";
 

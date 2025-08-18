@@ -15,6 +15,7 @@
     <link rel="stylesheet" href="../../assets/css/style.css">
     <link rel="stylesheet" href="../../assets/css/admin.css">
     <link rel="stylesheet" href="../../assets/css/admin-dashboard.css">
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 </head>
 
 <body class="admin-page">
@@ -137,59 +138,82 @@
                     <!-- Rooms Tab -->
                     <div class="tab-pane fade show active" id="rooms-content" role="tabpanel"
                         aria-labelledby="rooms-tab">
-                        <!-- Action Bar -->
-                        <div class="row mb-4">
-                            <div class="col-md-8">
-                                <div class="input-group">
-                                    <input type="text" id="searchRoom" class="form-control"
-                                        placeholder="Search by room number, type or status...">
-                                    <button id="searchBtn" class="btn btn-primary">
-                                        <i class="fas fa-search"></i> Search
-                                    </button>
+                        <!-- Room Stats Overview -->
+                        <div class="row mb-3" id="roomStatsOverview">
+                            <div class="col-6 col-md mb-2">
+                                <div class="card text-center border-primary h-100">
+                                    <div class="card-body p-2">
+                                        <div class="fw-bold fs-5" id="statTotalRooms">0</div>
+                                        <div class="small text-muted">Total Rooms</div>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="col-md-4 text-end">
-                                <button id="addRoomBtn" class="btn btn-primary">
-                                    <i class="fas fa-plus"></i> Add Room
+                            <div class="col-6 col-md mb-2">
+                                <div class="card text-center border-success h-100">
+                                    <div class="card-body p-2">
+                                        <div class="fw-bold fs-5 text-success" id="statAvailableRooms">0</div>
+                                        <div class="small text-muted">Available</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md mb-2">
+                                <div class="card text-center border-danger h-100">
+                                    <div class="card-body p-2">
+                                        <div class="fw-bold fs-5 text-danger" id="statOccupiedRooms">0</div>
+                                        <div class="small text-muted">Occupied</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md mb-2">
+                                <div class="card text-center border-warning h-100">
+                                    <div class="card-body p-2">
+                                        <div class="fw-bold fs-5 text-warning" id="statMaintenanceRooms">0</div>
+                                        <div class="small text-muted">Maintenance</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-6 col-md mb-2">
+                                <div class="card text-center border-info h-100">
+                                    <div class="card-body p-2">
+                                        <div class="fw-bold fs-5 text-info" id="statReservedRooms">0</div>
+                                        <div class="small text-muted">Reserved</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <!-- Compact Filter Row -->
+                        <!-- Chips/Tags Feature Filter UI -->
+                        <div class="mb-2" id="featureChipsContainer" style="min-height:38px;">
+                            <!-- Chips will be injected here by JS -->
+                        </div>
+                        <form id="roomsFilterForm" class="row g-2 align-items-end mb-3">
+                            <div class="col-md-3">
+                                <input type="text" id="searchRoom" class="form-control"
+                                    placeholder="Search room #, type, status...">
+                            </div>
+                            <div class="col-md-2">
+                                <select id="typeFilter" class="form-select">
+                                    <option value="">All Types</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2">
+                                <select id="statusFilter" class="form-select">
+                                    <option value="">All Statuses</option>
+                                    <option value="available">Available</option>
+                                    <option value="occupied">Occupied</option>
+                                    <option value="maintenance">Maintenance</option>
+                                    <option value="reserved">Reserved</option>
+                                </select>
+                            </div>
+                            <div class="col-md-2 d-flex gap-2">
+                                <button id="applyFilters" class="btn btn-primary w-100" type="button">
+                                    <i class="fas fa-filter"></i>
+                                </button>
+                                <button id="addRoomBtn" class="btn btn-primary w-100" type="button">
+                                    <i class="fas fa-plus"></i>
                                 </button>
                             </div>
-                        </div>
-
-                        <!-- Filters -->
-                        <div class="row mb-4">
-                            <div class="col-md-12">
-                                <div class="card">
-                                    <div class="card-header">
-                                        <h5><i class="fas fa-filter"></i> Filters</h5>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row g-3">
-                                            <div class="col-md-4">
-                                                <label for="typeFilter" class="form-label">Room Type</label>
-                                                <select id="typeFilter" class="form-select">
-                                                    <option value="">All Types</option>
-                                                </select>
-                                            </div>
-                                            <div class="col-md-4">
-                                                <label for="statusFilter" class="form-label">Status</label>
-                                                <select id="statusFilter" class="form-select">
-                                                    <option value="">All Statuses</option>
-                                                    <option value="available">Available</option>
-                                                    <option value="occupied">Occupied</option>
-                                                    <option value="maintenance">Maintenance</option>
-                                                    <option value="reserved">Reserved</option>
-                                                </select>
-                                            </div>
-                                            <div class="col-md-4 d-flex align-items-end">
-                                                <button id="applyFilters" class="btn btn-primary w-100">
-                                                    <i class="fas fa-check"></i> Apply Filters
-                                                </button>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        </form>
 
                         <!-- Rooms Table -->
                         <div class="row">
@@ -415,9 +439,22 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
     <script src="../../assets/js/admin/auth.js"></script>
     <!-- Use type="module" for your admin/rooms.js -->
     <script type="module" src="../../assets/js/admin/rooms.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            if (window.jQuery && $('#featureFilter').length) {
+                $('#featureFilter').select2({
+                    placeholder: "Filter by Features",
+                    allowClear: true,
+                    width: '100%',
+                    dropdownAutoWidth: true
+                });
+            }
+        });
+    </script>
 </body>
 
 </html>
