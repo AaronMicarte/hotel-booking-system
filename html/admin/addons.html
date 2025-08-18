@@ -227,6 +227,13 @@
                             <input type="checkbox" class="form-check-input" id="addonAvailable" checked>
                             <label class="form-check-label" for="addonAvailable">Available</label>
                         </div>
+                        <!-- Add image upload field -->
+                        <div class="mb-3">
+                            <label for="addonImage" class="form-label">Addon Image</label>
+                            <input type="file" class="form-control" id="addonImage" accept="image/*">
+                            <div class="form-text">Upload an image for the addon (JPG, PNG, etc.)</div>
+                            <div id="addonImagePreview" class="mt-2"></div>
+                        </div>
                     </form>
                 </div>
                 <div class="modal-footer">
@@ -258,6 +265,24 @@
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="button" id="saveCategoryBtn" class="btn btn-primary">Save Category</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Blank Modal -->
+    <div class="modal fade" id="blank-modal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-xl">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="blank-modal-title"></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body" id="blank-main-div">
+                    <!-- Dynamic content injected by JS -->
+                </div>
+                <div class="modal-footer" id="blank-modal-footer">
+                    <!-- Dynamic footer injected by JS -->
                 </div>
             </div>
         </div>

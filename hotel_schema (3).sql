@@ -180,6 +180,7 @@ CREATE TABLE Addon (
     name VARCHAR(100),
     is_available BOOLEAN,
     price DECIMAL(10,2),
+    image_url VARCHAR(255) AFTER price, -- Add this line to store image filename or URL
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     is_deleted BOOLEAN DEFAULT FALSE,

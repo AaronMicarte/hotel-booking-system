@@ -38,8 +38,42 @@ async function openAddonModal(addon = null) {
     document.getElementById('addonCategory').value = addon?.category_id || '';
     document.getElementById('addonPrice').value = addon?.price || '';
     document.getElementById('addonAvailable').checked = addon?.is_available == 1 || !addon;
+    // Image preview logic
+    const previewDiv = document.getElementById('addonImagePreview');
+    previewDiv.innerHTML = '';
+    if (addon && addon.image_url) {
+        let imgSrc = '';
+        if (addon.image_url.startsWith('http')) {
+            imgSrc = addon.image_url;
+        } else {
+            imgSrc = window.location.origin + "/Hotel-Reservation-Billing-System/assets/images/uploads/addon-images/" + addon.image_url.replace(/^.*[\\\/]/, '');
+        }
+        const img = document.createElement("img");
+        img.src = imgSrc;
+        img.classList.add("img-thumbnail", "mt-2");
+        img.style.maxHeight = "120px";
+        previewDiv.appendChild(img);
+    }
     modal.show();
 }
+
+// Addon image preview on file select
+document.getElementById('addonImage')?.addEventListener('change', function (e) {
+    const previewDiv = document.getElementById('addonImagePreview');
+    previewDiv.innerHTML = '';
+    const file = e.target.files[0];
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function (ev) {
+            const img = document.createElement("img");
+            img.src = ev.target.result;
+            img.classList.add("img-thumbnail", "mt-2");
+            img.style.maxHeight = "120px";
+            previewDiv.appendChild(img);
+        };
+        reader.readAsDataURL(file);
+    }
+});
 
 // --- CRUD Functions ---
 async function saveAddon() {
@@ -48,6 +82,7 @@ async function saveAddon() {
     const categoryId = document.getElementById('addonCategory').value;
     const price = document.getElementById('addonPrice').value;
     const isAvailable = document.getElementById('addonAvailable').checked ? 1 : 0;
+    const addonImage = document.getElementById('addonImage');
     if (!name || !categoryId || !price) {
         Swal.fire({ icon: 'warning', title: 'All fields are required!' });
         return;
@@ -62,13 +97,17 @@ async function saveAddon() {
     const formData = new FormData();
     formData.append("operation", addonId ? "updateAddon" : "createAddon");
     formData.append("json", JSON.stringify(jsonData));
+    // Append image if selected
+    if (addonImage && addonImage.files[0]) {
+        formData.append("addon_image", addonImage.files[0]);
+    }
     try {
         const response = await axios({
             url: `${BASE_URL}/admin/addons/addons.php`,
             method: "POST",
             data: formData
         });
-        if (response.data == 1) {
+        if (response.data == 1 || (response.data && response.data.status === 'success')) {
             loadAddons();
             Swal.fire({ icon: 'success', title: `Addon ${addonId ? 'updated' : 'created'} successfully!` });
             bootstrap.Modal.getInstance(document.getElementById('addonModal')).hide();
@@ -209,17 +248,29 @@ function displayAddons(addons) {
     const tableDiv = document.getElementById("addons-table-div");
     if (!tableDiv) return;
     let html = `<table class='table'>
-        <thead><tr><th>Name</th><th>Category</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead><tbody>`;
+        <thead><tr><th>Image</th><th>Name</th><th>Category</th><th>Price</th><th>Status</th><th>Actions</th></tr></thead><tbody>`;
     if (!addons.length) {
-        html += `<tr><td colspan="5" class="text-center p-3">No addons found.</td></tr>`;
+        html += `<tr><td colspan="6" class="text-center p-3">No addons found.</td></tr>`;
     } else {
         addons.forEach(addon => {
+            let imgSrc = '';
+            if (addon.image_url) {
+                if (addon.image_url.startsWith('http')) {
+                    imgSrc = addon.image_url;
+                } else {
+                    imgSrc = window.location.origin + "/Hotel-Reservation-Billing-System/assets/images/uploads/addon-images/" + addon.image_url.replace(/^.*[\\\/]/, '');
+                }
+            } else {
+                imgSrc = window.location.origin + "/Hotel-Reservation-Billing-System/assets/images/uploads/addon-images/placeholder-addon.jpg";
+            }
             html += `<tr>
+                <td><img src="${imgSrc}" class="img-thumbnail" style="max-width:60px;max-height:60px;" onerror="this.onerror=null;this.src='../../assets/images/uploads/addon-images/placeholder-addon.jpg';"></td>
                 <td>${addon.name}</td>
                 <td>${addon.category_name || '-'}</td>
                 <td>₱${parseFloat(addon.price).toFixed(2)}</td>
                 <td><span class="badge ${addon.is_available == 1 ? 'bg-success' : 'bg-secondary'}">${addon.is_available == 1 ? 'Available' : 'Unavailable'}</span></td>
                 <td>
+                    <i class='fas fa-eye text-info me-1' data-addon-id="${addon.addon_id}" title="View" style="cursor:pointer;"></i>
                     <i class='fas fa-edit text-primary me-1' data-addon-id="${addon.addon_id}" title="Edit" style="cursor:pointer;"></i>
                     <i class='fas fa-trash text-danger' data-addon-id="${addon.addon_id}" title="Delete" style="cursor:pointer;"></i>
                 </td>
@@ -354,8 +405,13 @@ async function editCategory(id) {
     }
 }
 
-// Use event delegation for edit/delete actions instead of window globals
+// Use event delegation for edit/delete/view actions instead of window globals
 document.addEventListener('click', async (e) => {
+    // View Addon
+    if (e.target.matches('.fa-eye[data-addon-id]')) {
+        const id = e.target.getAttribute('data-addon-id');
+        if (id && typeof viewAddonModal === "function") await viewAddonModal(Number(id));
+    }
     // Edit Addon
     if (e.target.matches('.fa-edit[data-addon-id]')) {
         const id = e.target.getAttribute('data-addon-id');

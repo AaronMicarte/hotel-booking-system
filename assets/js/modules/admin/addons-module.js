@@ -1,5 +1,4 @@
 // Addon View & Update Modal Module (Admin)
-// Similar structure to SIR MAC's update.js and rooms-module.js
 
 export const viewAddonModal = async (addonId) => {
     try {
@@ -14,13 +13,34 @@ export const viewAddonModal = async (addonId) => {
         });
         document.getElementById("blank-modal-title").innerText = "View Addon";
         const addon = await getAddonDetails(addonId);
+
+        // Prepare image
+        let imgSrc = '';
+        if (addon.image_url) {
+            if (addon.image_url.startsWith('http')) {
+                imgSrc = addon.image_url;
+            } else {
+                imgSrc = window.location.origin + "/Hotel-Reservation-Billing-System/assets/images/uploads/addon-images/" + addon.image_url.replace(/^.*[\\\/]/, '');
+            }
+        } else {
+            imgSrc = window.location.origin + "/Hotel-Reservation-Billing-System/assets/images/uploads/addon-images/placeholder-addon.jpg";
+        }
+
         let myHtml = `
-            <table class="table table-sm">
-              <tr><td>Name</td><td>${addon.name}</td></tr>
-              <tr><td>Category</td><td>${addon.category_name || "-"}</td></tr>
-              <tr><td>Price</td><td>₱${parseFloat(addon.price).toFixed(2)}</td></tr>
-              <tr><td>Status</td><td>${addon.is_available == 1 ? 'Available' : 'Unavailable'}</td></tr>
-            </table>
+            <div class="row">
+                <div class="col-md-4 text-center mb-3">
+                    <img src="${imgSrc}" class="img-thumbnail mb-2" style="max-width:180px;max-height:180px;" onerror="this.onerror=null;this.src='../../assets/images/uploads/addon-images/placeholder-addon.jpg';">
+                </div>
+                <div class="col-md-8">
+                    <table class="table table-sm">
+                        <tr><td><strong>Name</strong></td><td>${addon.name}</td></tr>
+                        <tr><td><strong>Category</strong></td><td>${addon.category_name || "-"}</td></tr>
+                        <tr><td><strong>Price</strong></td><td>₱${parseFloat(addon.price).toFixed(2)}</td></tr>
+                        <tr><td><strong>Status</strong></td><td>${addon.is_available == 1 ? '<span class="badge bg-success">Available</span>' : '<span class="badge bg-secondary">Unavailable</span>'}</td></tr>
+                        <tr><td><strong>ID</strong></td><td>${addon.addon_id}</td></tr>
+                    </table>
+                </div>
+            </div>
         `;
         document.getElementById("blank-main-div").innerHTML = myHtml;
         document.getElementById("blank-modal-footer").innerHTML = `<button type="button" class="btn btn-secondary w-100" data-bs-dismiss="modal">Close</button>`;
@@ -48,6 +68,17 @@ export const updateAddonModal = async (addonId, categories, refreshDisplay) => {
         document.getElementById("blank-modal-title").innerText = "Update Addon";
         const addon = await getAddonDetails(addonId);
 
+        let imgSrc = '';
+        if (addon.image_url) {
+            if (addon.image_url.startsWith('http')) {
+                imgSrc = addon.image_url;
+            } else {
+                imgSrc = window.location.origin + "/Hotel-Reservation-Billing-System/assets/images/uploads/addon-images/" + addon.image_url.replace(/^.*[\\\/]/, '');
+            }
+        } else {
+            imgSrc = window.location.origin + "/Hotel-Reservation-Billing-System/assets/images/uploads/addon-images/placeholder-addon.jpg";
+        }
+
         let myHtml = `
             <table class="table table-sm">
               <tr>
@@ -66,9 +97,36 @@ export const updateAddonModal = async (addonId, categories, refreshDisplay) => {
                 <td>Status</td>
                 <td>${createStatusSelect(addon.is_available)}</td>
               </tr>
+              <tr>
+                <td>Image</td>
+                <td>
+                  <input type="file" id="update-addon-image" class="form-control" accept="image/*" />
+                  <div id="update-addon-image-preview" class="mt-2">
+                    <img src="${imgSrc}" class="img-thumbnail mt-2" style="max-height:120px;">
+                  </div>
+                </td>
+              </tr>
             </table>
         `;
         document.getElementById("blank-main-div").innerHTML = myHtml;
+
+        // Preview new image on file select
+        document.getElementById("update-addon-image").addEventListener("change", function (e) {
+            const file = e.target.files[0];
+            const previewDiv = document.getElementById("update-addon-image-preview");
+            previewDiv.innerHTML = '';
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (ev) {
+                    const img = document.createElement("img");
+                    img.src = ev.target.result;
+                    img.classList.add("img-thumbnail", "mt-2");
+                    img.style.maxHeight = "120px";
+                    previewDiv.appendChild(img);
+                };
+                reader.readAsDataURL(file);
+            }
+        });
 
         // Modal footer with update button
         const modalFooter = document.getElementById("blank-modal-footer");
@@ -203,6 +261,11 @@ const updateAddon = async (addonId) => {
     const formData = new FormData();
     formData.append("operation", "updateAddon");
     formData.append("json", JSON.stringify(jsonData));
+    // Add image if selected
+    const imageInput = document.getElementById("update-addon-image");
+    if (imageInput && imageInput.files[0]) {
+        formData.append("addon_image", imageInput.files[0]);
+    }
     const response = await axios({
         url: `${window.location.origin}/Hotel-Reservation-Billing-System/api/admin/addons/addons.php`,
         method: "POST",
