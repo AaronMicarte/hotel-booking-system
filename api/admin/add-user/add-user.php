@@ -47,11 +47,12 @@ class AddUser
         // Hash the password
         $hashedPassword = password_hash($data['password'], PASSWORD_DEFAULT);
         // Prepare and execute the insert statement
-        $stmt = $this->db->prepare("INSERT INTO User (username, password, email, user_roles_id) VALUES (:username, :password, :email, :user_roles_id)");
+        $stmt = $this->db->prepare("INSERT INTO User (username, password, email, user_roles_id, new_password) VALUES (:username, :password, :email, :user_roles_id, :new_password)");
         $stmt->bindParam(':username', $data['username']);
         $stmt->bindParam(':password', $hashedPassword);
         $stmt->bindParam(':email', $data['email']);
         $stmt->bindParam(':user_roles_id', $data['user_roles_id']);
+        $stmt->bindParam(':new_password', $hashedPassword); // Set new_password to the same hash
         if ($stmt->execute()) {
             echo json_encode(['status' => 'success', 'message' => 'User added successfully']);
         } else {

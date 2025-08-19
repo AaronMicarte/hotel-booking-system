@@ -17,9 +17,16 @@ class Category
     {
         $params = [];
         $query = "SELECT category_id, category_name FROM AddonCategory WHERE is_deleted = FALSE";
+        // Accept search from GET or POST
+        $search = '';
         if (!empty($_GET['search'])) {
+            $search = $_GET['search'];
+        } else if (!empty($_POST['search'])) {
+            $search = $_POST['search'];
+        }
+        if ($search !== '') {
             $query .= " AND category_name LIKE :search";
-            $params[':search'] = '%' . $_GET['search'] . '%';
+            $params[':search'] = '%' . $search . '%';
         }
         $query .= " ORDER BY category_name";
         try {

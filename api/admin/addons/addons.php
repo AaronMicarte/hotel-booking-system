@@ -14,8 +14,23 @@ class AddonAPI
     function getAllAddons()
     {
         $db = $this->getDb();
-        $query = "SELECT a.*, c.category_name FROM Addon a LEFT JOIN AddonCategory c ON a.category_id = c.category_id WHERE a.is_deleted = FALSE ORDER BY a.addon_id";
+        $where = "a.is_deleted = FALSE";
+        $params = [];
+        // Add category filter if provided
+        if (isset($_GET['category']) && $_GET['category'] !== '') {
+            $where .= " AND a.category_id = :category_id";
+            $params[':category_id'] = $_GET['category'];
+        }
+        // Add search filter if provided
+        if (isset($_GET['search']) && trim($_GET['search']) !== '') {
+            $where .= " AND (a.name LIKE :search OR c.category_name LIKE :search)";
+            $params[':search'] = '%' . $_GET['search'] . '%';
+        }
+        $query = "SELECT a.*, c.category_name FROM Addon a LEFT JOIN AddonCategory c ON a.category_id = c.category_id WHERE $where ORDER BY a.addon_id";
         $stmt = $db->prepare($query);
+        foreach ($params as $k => $v) {
+            $stmt->bindValue($k, $v);
+        }
         $stmt->execute();
         $addons = $stmt->fetchAll(PDO::FETCH_ASSOC);
         echo json_encode($addons ?: []);

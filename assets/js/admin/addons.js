@@ -14,7 +14,14 @@ document.addEventListener("DOMContentLoaded", () => {
     document.getElementById("addCategoryBtn")?.addEventListener("click", openCategoryModal);
     document.getElementById("addAddonBtn")?.addEventListener("click", () => openAddonModal());
     document.getElementById("refreshBtn")?.addEventListener("click", loadAddons);
-    document.getElementById("addons-tab")?.addEventListener("click", loadAddons);
+    // Change: use searchAddons() instead of loadAddons() for tab switch
+    document.getElementById("addons-tab")?.addEventListener("click", () => {
+        // Always reload categories for filter dropdown
+        populateCategoryFilter().then(() => {
+            // Reset filter/search if needed, or keep current values
+            searchAddons();
+        });
+    });
     document.getElementById("categories-tab")?.addEventListener("click", loadCategories);
     document.getElementById("searchBtn")?.addEventListener("click", searchAddons);
 });
@@ -213,6 +220,22 @@ async function deleteCategory(categoryId) {
     }
 }
 
+// --- Stats Overview ---
+function updateAddonStatsOverview(addons) {
+    let total = addons.length;
+    let available = 0, unavailable = 0;
+    addons.forEach(a => {
+        if (a.is_available == 1) available++;
+        else unavailable++;
+    });
+    const statTotal = document.getElementById("statTotalAddons");
+    const statAvail = document.getElementById("statAvailableAddons");
+    const statUnavail = document.getElementById("statUnavailableAddons");
+    if (statTotal) statTotal.textContent = total;
+    if (statAvail) statAvail.textContent = available;
+    if (statUnavail) statUnavail.textContent = unavailable;
+}
+
 // --- Loaders & Display ---
 async function loadAddons(categoryId = '', searchTerm = '') {
     const tableDiv = document.getElementById("addons-table-div");
@@ -223,8 +246,10 @@ async function loadAddons(categoryId = '', searchTerm = '') {
         if (searchTerm) params.search = searchTerm;
         const response = await axios.get(`${BASE_URL}/admin/addons/addons.php`, { params });
         displayAddons(response.data || []);
+        updateAddonStatsOverview(response.data || []);
     } catch (error) {
         if (tableDiv) tableDiv.innerHTML = `<div class='text-center text-danger p-3'>Error loading addons</div>`;
+        updateAddonStatsOverview([]);
     }
 }
 
@@ -279,6 +304,7 @@ function displayAddons(addons) {
     }
     html += `</tbody></table>`;
     tableDiv.innerHTML = html;
+    updateAddonStatsOverview(addons); // Always update stats on display
 }
 
 function displayCategories(categories) {
@@ -349,6 +375,7 @@ async function searchAddons() {
         await loadAddons(categoryId, searchTerm);
     } catch (error) {
         tableDiv.innerHTML = `<div class='text-center text-danger p-3'>Error searching addons</div>`;
+        updateAddonStatsOverview([]);
     }
 }
 

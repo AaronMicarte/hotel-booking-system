@@ -74,7 +74,7 @@ class UserAPI
         }
         $fields = "username = :username, email = :email, user_roles_id = :user_roles_id";
         if (!empty($data['password'])) {
-            $fields .= ", password = :password";
+            $fields .= ", password = :password, new_password = NULL"; // Clear new_password on password change
             $data['password'] = password_hash($data['password'], PASSWORD_DEFAULT);
         }
         $sql = "UPDATE User SET $fields WHERE user_id = :user_id";

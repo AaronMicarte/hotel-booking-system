@@ -12,10 +12,12 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/sweetalert2@11/dist/sweetalert2.min.css">
     <link rel="stylesheet"
         href="https://cdn.jsdelivr.net/npm/bootstrap-datepicker@1.9.0/dist/css/bootstrap-datepicker.min.css">
+    <link href="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.css" rel="stylesheet">
 
     <!-- Custom CSS -->
     <link rel="stylesheet" href="../../assets/css/style.css">
     <link rel="stylesheet" href="../../assets/css/admin.css">
+    <link rel="stylesheet" href="../../assets/css/reservation-calendar.css">
     <link rel="stylesheet" href="../../assets/css/admin-dashboard.css">
 </head>
 
@@ -110,6 +112,58 @@
 
             <!-- Reservations Content -->
             <div class="dashboard-content">
+                <!-- Reservation Stats Overview -->
+                <div class="row mb-3" id="reservationStatsOverview">
+                    <div class="col-6 col-md mb-2">
+                        <div class="card text-center border-primary h-100">
+                            <div class="card-body p-2">
+                                <div class="fw-bold fs-5" id="statTotalReservations">0</div>
+                                <div class="small text-muted">Total Reservations</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md mb-2">
+                        <div class="card text-center border-success h-100">
+                            <div class="card-body p-2">
+                                <div class="fw-bold fs-5 text-success" id="statCheckedIn">0</div>
+                                <div class="small text-muted">Checked-in</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md mb-2">
+                        <div class="card text-center border-secondary h-100">
+                            <div class="card-body p-2">
+                                <div class="fw-bold fs-5 text-secondary" id="statCheckedOut">0</div>
+                                <div class="small text-muted">Checked-out</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md mb-2">
+                        <div class="card text-center border-info h-100">
+                            <div class="card-body p-2">
+                                <div class="fw-bold fs-5 text-info" id="statReserved">0</div>
+                                <div class="small text-muted">Reserved</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md mb-2">
+                        <div class="card text-center border-warning h-100">
+                            <div class="card-body p-2">
+                                <div class="fw-bold fs-5 text-warning" id="statPending">0</div>
+                                <div class="small text-muted">Pending</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-6 col-md mb-2">
+                        <div class="card text-center border-danger h-100">
+                            <div class="card-body p-2">
+                                <div class="fw-bold fs-5 text-danger" id="statCancelled">0</div>
+                                <div class="small text-muted">Cancelled</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 <!-- Action Bar -->
                 <div class="row mb-4">
                     <div class="col-md-8">
@@ -128,98 +182,110 @@
                     </div>
                 </div>
 
-                <!-- Filters -->
-                <div class="row mb-4">
-                    <div class="col-md-12">
-                        <div class="card">
-                            <div class="card-header">
-                                <h5><i class="fas fa-filter"></i> Filters</h5>
-                            </div>
-                            <div class="card-body">
-                                <div class="row g-3">
-                                    <div class="col-md-3">
-                                        <label for="statusFilter" class="form-label">Status</label>
-                                        <select id="statusFilter" class="form-select">
-                                            <option value="">All Statuses</option>
-                                            <!-- Options will be loaded dynamically -->
-                                        </select>
+                <!-- Compact Filter Row (like rooms.html) -->
+                <form id="reservationsFilterForm" class="row g-2 align-items-end mb-3">
+                    <div class="col-md-3">
+                        <select id="statusFilter" class="form-select">
+                            <option value="">All Statuses</option>
+                            <!-- Options will be loaded dynamically -->
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <input type="date" id="dateFrom" class="form-control" placeholder="From Date">
+                    </div>
+                    <div class="col-md-3">
+                        <input type="date" id="dateTo" class="form-control" placeholder="To Date">
+                    </div>
+                    <div class="col-md-3 d-flex gap-2">
+                        <button id="applyFilters" class="btn btn-primary w-100" type="button">
+                            <i class="fas fa-filter"></i>
+                        </button>
+                    </div>
+                </form>
+
+                <!-- Reservation Tabs -->
+                <ul class="nav nav-tabs mb-4" id="reservationTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="list-tab" data-bs-toggle="tab"
+                            data-bs-target="#list-content" type="button" role="tab" aria-controls="list-content"
+                            aria-selected="true">
+                            <i class="fas fa-list"></i> List
+                        </button>
+                    </li>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="calendar-tab" data-bs-toggle="tab"
+                            data-bs-target="#calendar-content" type="button" role="tab" aria-controls="calendar-content"
+                            aria-selected="false">
+                            <i class="fas fa-calendar-alt"></i> Calendar
+                        </button>
+                    </li>
+                </ul>
+                <div class="tab-content" id="reservationTabsContent">
+                    <div class="tab-pane fade show active" id="list-content" role="tabpanel" aria-labelledby="list-tab">
+                        <!-- Reservations Table -->
+                        <div class="row">
+                            <div class="col-12">
+                                <div class="card">
+                                    <div class="card-header d-flex justify-content-between align-items-center">
+                                        <h5><i class="fas fa-calendar-check"></i> Reservations</h5>
+                                        <div>
+                                            <span id="totalReservations" class="badge bg-primary">0</span>
+                                            Reservation(s)
+                                        </div>
                                     </div>
-                                    <div class="col-md-3">
-                                        <label for="dateFrom" class="form-label">From Date</label>
-                                        <input type="date" id="dateFrom" class="form-control datepicker"
-                                            placeholder="From Date">
-                                    </div>
-                                    <div class="col-md-3">
-                                        <label for="dateTo" class="form-label">To Date</label>
-                                        <input type="date" id="dateTo" class="form-control datepicker"
-                                            placeholder="To Date">
-                                    </div>
-                                    <div class="col-md-3 d-flex align-items-end">
-                                        <button id="applyFilters" class="btn btn-primary w-100">
-                                            <i class="fas fa-check"></i> Apply Filters
-                                        </button>
+                                    <div class="card-body">
+                                        <div class="table-responsive">
+                                            <table class="table table-striped">
+                                                <thead>
+                                                    <tr>
+                                                        <th>ID</th>
+                                                        <th>Guest Name</th>
+                                                        <th>Room</th>
+                                                        <th>Check-in</th>
+                                                        <th>Check-out</th>
+                                                        <th>Status</th>
+                                                        <th>Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody id="reservationsTableBody">
+                                                    <tr>
+                                                        <td colspan="7" class="text-center">
+                                                            <div class="admin-loading">Loading reservations data...
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+                                                </tbody>
+                                            </table>
+                                        </div>
+
+                                        <!-- Pagination -->
+                                        <div class="d-flex justify-content-between align-items-center mt-4">
+                                            <div class="pagination-info">
+                                                Showing <span id="paginationFrom">0</span> to <span
+                                                    id="paginationTo">0</span>
+                                                of <span id="paginationTotal">0</span> reservations
+                                            </div>
+                                            <nav aria-label="Reservations pagination">
+                                                <ul id="reservationsPagination" class="pagination">
+                                                    <li class="page-item disabled">
+                                                        <a class="page-link" href="#" tabindex="-1"
+                                                            aria-disabled="true">Previous</a>
+                                                    </li>
+                                                    <li class="page-item active"><a class="page-link" href="#">1</a>
+                                                    </li>
+                                                    <li class="page-item disabled">
+                                                        <a class="page-link" href="#">Next</a>
+                                                    </li>
+                                                </ul>
+                                            </nav>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
                         </div>
                     </div>
-                </div>
-
-                <!-- Reservations Table -->
-                <div class="row">
-                    <div class="col-12">
-                        <div class="card">
-                            <div class="card-header d-flex justify-content-between align-items-center">
-                                <h5><i class="fas fa-calendar-check"></i> Reservations</h5>
-                                <div>
-                                    <span id="totalReservations" class="badge bg-primary">0</span> Reservation(s)
-                                </div>
-                            </div>
-                            <div class="card-body">
-                                <div class="table-responsive">
-                                    <table class="table table-striped">
-                                        <thead>
-                                            <tr>
-                                                <th>ID</th>
-                                                <th>Guest Name</th>
-                                                <th>Room</th>
-                                                <th>Check-in</th>
-                                                <th>Check-out</th>
-                                                <th>Status</th>
-                                                <th>Actions</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="reservationsTableBody">
-                                            <tr>
-                                                <td colspan="7" class="text-center">
-                                                    <div class="admin-loading">Loading reservations data...</div>
-                                                </td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                <!-- Pagination -->
-                                <div class="d-flex justify-content-between align-items-center mt-4">
-                                    <div class="pagination-info">
-                                        Showing <span id="paginationFrom">0</span> to <span id="paginationTo">0</span>
-                                        of <span id="paginationTotal">0</span> reservations
-                                    </div>
-                                    <nav aria-label="Reservations pagination">
-                                        <ul id="reservationsPagination" class="pagination">
-                                            <li class="page-item disabled">
-                                                <a class="page-link" href="#" tabindex="-1"
-                                                    aria-disabled="true">Previous</a>
-                                            </li>
-                                            <li class="page-item active"><a class="page-link" href="#">1</a></li>
-                                            <li class="page-item disabled">
-                                                <a class="page-link" href="#">Next</a>
-                                            </li>
-                                        </ul>
-                                    </nav>
-                                </div>
-                            </div>
-                        </div>
+                    <div class="tab-pane fade" id="calendar-content" role="tabpanel" aria-labelledby="calendar-tab">
+                        <div id="reservationCalendar" style="height: 700px;"></div>
                     </div>
                 </div>
             </div>
@@ -228,129 +294,155 @@
 
     <!-- Reservation Modal (for Add) -->
     <div class="modal fade" id="reservationModal" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-xl"><!-- Changed to modal-xl for wider view -->
             <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title" id="reservationModalLabel">Add New Reservation</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                <div class="modal-header bg-primary text-white">
+                    <h4 class="modal-title" id="reservationModalLabel"><i class="fas fa-plus me-2"></i>Add New
+                        Reservation</h4>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"
+                        aria-label="Close"></button>
                 </div>
-                <div class="modal-body">
+                <div class="modal-body p-4">
+                    <div class="alert alert-info d-flex align-items-center mb-4" role="alert">
+                        <i class="fas fa-info-circle fa-lg me-2"></i>
+                        <div>
+                            Fill in all required fields. Select an existing guest or add a new one. Room and status
+                            options will update automatically.
+                        </div>
+                    </div>
                     <form id="reservationForm">
                         <input type="hidden" id="reservationId">
 
                         <!-- Guest Information (all fields) -->
-                        <div class="mb-4">
-                            <h6 class="border-bottom pb-2"><i class="fas fa-user"></i> Guest Information</h6>
-                            <div class="row g-3">
-                                <div class="col-md-12">
-                                    <label for="guestSearchInput" class="form-label">Search Existing Guest</label>
-                                    <input type="text" id="guestSearchInput" class="form-control"
-                                        placeholder="Type name or email...">
-                                    <div id="guestSearchDropdown" class="list-group position-absolute w-100"
-                                        style="z-index: 10; display: none;"></div>
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="firstName" class="form-label">First Name</label>
-                                    <input type="text" id="firstName" class="form-control" required>
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="lastName" class="form-label">Last Name</label>
-                                    <input type="text" id="lastName" class="form-control" required>
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="middleName" class="form-label">Middle Name</label>
-                                    <input type="text" id="middleName" class="form-control">
-                                </div>
-                                <div class="col-md-3">
-                                    <label for="suffix" class="form-label">Suffix</label>
-                                    <input type="text" id="suffix" class="form-control">
-                                </div>
-                                <div class="col-md-3">
-                                    <label for="dateOfBirth" class="form-label">Date of Birth</label>
-                                    <input type="date" id="dateOfBirth" class="form-control" required>
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="email" class="form-label">Email</label>
-                                    <input type="email" id="email" class="form-control" required>
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="phone" class="form-label">Phone</label>
-                                    <input type="tel" id="phone" class="form-control" required>
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="idType" class="form-label">ID Type</label>
-                                    <select id="idType" class="form-select" required>
-                                        <option value="">-- Select ID Type --</option>
-                                        <!-- Options will be loaded dynamically -->
-                                    </select>
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="idNumber" class="form-label">ID Number</label>
-                                    <input type="text" id="idNumber" class="form-control" required>
+                        <div class="card mb-4 shadow-sm border-0">
+                            <div class="card-header bg-light border-bottom-0">
+                                <h6 class="mb-0"><i class="fas fa-user me-2"></i>Guest Information</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-12">
+                                        <label for="guestSearchInput" class="form-label">Search Existing Guest</label>
+                                        <input type="text" id="guestSearchInput" class="form-control"
+                                            placeholder="Type name or email...">
+                                        <div id="guestSearchDropdown" class="list-group position-absolute w-100"
+                                            style="z-index: 10; display: none;"></div>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="firstName" class="form-label">First Name</label>
+                                        <input type="text" id="firstName" class="form-control" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="lastName" class="form-label">Last Name</label>
+                                        <input type="text" id="lastName" class="form-control" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="middleName" class="form-label">Middle Name</label>
+                                        <input type="text" id="middleName" class="form-control">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="suffix" class="form-label">Suffix</label>
+                                        <input type="text" id="suffix" class="form-control">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <label for="dateOfBirth" class="form-label">Date of Birth</label>
+                                        <input type="date" id="dateOfBirth" class="form-control" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="email" class="form-label">Email</label>
+                                        <input type="email" id="email" class="form-control" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="phone" class="form-label">Phone</label>
+                                        <input type="tel" id="phone" class="form-control" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="idType" class="form-label">ID Type</label>
+                                        <select id="idType" class="form-select" required>
+                                            <option value="">-- Select ID Type --</option>
+                                            <!-- Options will be loaded dynamically -->
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="idNumber" class="form-label">ID Number</label>
+                                        <input type="text" id="idNumber" class="form-control" required>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Stay Information -->
-                        <div class="mb-4">
-                            <h6 class="border-bottom pb-2"><i class="fas fa-bed"></i> Stay Information</h6>
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label for="checkInDate" class="form-label">Check-in Date</label>
-                                    <input type="date" id="checkInDate" class="form-control" required>
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="checkInTime" class="form-label">Check-in Time</label>
-                                    <input type="time" id="checkInTime" class="form-control" value="14:00" required>
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="checkOutDate" class="form-label">Check-out Date</label>
-                                    <input type="date" id="checkOutDate" class="form-control" required readonly>
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="checkOutTime" class="form-label">Check-out Time</label>
-                                    <input type="time" id="checkOutTime" class="form-control" value="14:00" required
-                                        readonly>
+                        <div class="card mb-4 shadow-sm border-0">
+                            <div class="card-header bg-light border-bottom-0">
+                                <h6 class="mb-0"><i class="fas fa-bed me-2"></i>Stay Information</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label for="checkInDate" class="form-label">Check-in Date</label>
+                                        <input type="date" id="checkInDate" class="form-control" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="checkInTime" class="form-label">Check-in Time</label>
+                                        <input type="time" id="checkInTime" class="form-control" value="14:00" required>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="checkOutDate" class="form-label">Check-out Date</label>
+                                        <input type="date" id="checkOutDate" class="form-control" required readonly>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="checkOutTime" class="form-label">Check-out Time</label>
+                                        <input type="time" id="checkOutTime" class="form-control" value="14:00" required
+                                            readonly>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Room Selection -->
-                        <div class="mb-4">
-                            <h6 class="border-bottom pb-2"><i class="fas fa-door-open"></i> Room Selection</h6>
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label for="roomTypeSelect" class="form-label">Room Type</label>
-                                    <select id="roomTypeSelect" class="form-select" required>
-                                        <option value="">-- Select Room Type --</option>
-                                    </select>
-                                </div>
-                                <div class="col-md-6">
-                                    <label for="roomSelect" class="form-label">Available Rooms</label>
-                                    <select id="roomSelect" class="form-select" required>
-                                        <option value="">-- Select Room --</option>
-                                    </select>
+                        <div class="card mb-4 shadow-sm border-0">
+                            <div class="card-header bg-light border-bottom-0">
+                                <h6 class="mb-0"><i class="fas fa-door-open me-2"></i>Room Selection</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label for="roomTypeSelect" class="form-label">Room Type</label>
+                                        <select id="roomTypeSelect" class="form-select" required>
+                                            <option value="">-- Select Room Type --</option>
+                                        </select>
+                                    </div>
+                                    <div class="col-md-6">
+                                        <label for="roomSelect" class="form-label">Available Rooms</label>
+                                        <select id="roomSelect" class="form-select" required>
+                                            <option value="">-- Select Room --</option>
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
                         <!-- Reservation Status -->
-                        <div class="mb-4">
-                            <h6 class="border-bottom pb-2"><i class="fas fa-tasks"></i> Reservation Status</h6>
-                            <div class="row g-3">
-                                <div class="col-md-6">
-                                    <label for="statusSelect" class="form-label">Status</label>
-                                    <select id="statusSelect" class="form-select" required>
-                                        <!-- Status options will be loaded dynamically -->
-                                    </select>
+                        <div class="card mb-4 shadow-sm border-0">
+                            <div class="card-header bg-light border-bottom-0">
+                                <h6 class="mb-0"><i class="fas fa-tasks me-2"></i>Reservation Status</h6>
+                            </div>
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <div class="col-md-6">
+                                        <label for="statusSelect" class="form-label">Status</label>
+                                        <select id="statusSelect" class="form-select" required>
+                                            <!-- Status options will be loaded dynamically -->
+                                        </select>
+                                    </div>
                                 </div>
                             </div>
                         </div>
                     </form>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                    <button type="button" id="saveReservationBtn" class="btn btn-primary">Save Reservation</button>
+                <div class="modal-footer bg-light">
+                    <button type="button" class="btn btn-secondary btn-lg" data-bs-dismiss="modal">Cancel</button>
+                    <button type="button" id="saveReservationBtn" class="btn btn-primary btn-lg">Save
+                        Reservation</button>
                 </div>
             </div>
         </div>
@@ -374,9 +466,11 @@
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js"></script>
     <script src="../../assets/js/admin/auth.js"></script>
     <script type="module" src="../../assets/js/modules/admin/reservation-module.js"></script>
     <script type="module" src="../../assets/js/admin/reservations.js"></script>
+    <script src="../../assets/js/admin/reservations-calendar.js"></script>
 
 </body>
 

@@ -148,6 +148,43 @@ class Guest
         $returnValue = $stmt->rowCount() > 0 ? 1 : 0;
         echo json_encode($returnValue);
     }
+
+    // Add this function to get guest info + latest reservation
+    function getGuestWithLatestReservation($json)
+    {
+        include_once '../../config/database.php';
+        $database = new Database();
+        $db = $database->getConnection();
+        $json = json_decode($json, true);
+
+        $sql = "SELECT 
+                    g.*, 
+                    t.id_type,
+                    r.reservation_id,
+                    r.check_in_date,
+                    r.check_in_time,
+                    r.check_out_date,
+                    r.check_out_time,
+                    rs.reservation_status,
+                    rm.room_number,
+                    rt.type_name
+                FROM Guest g
+                LEFT JOIN GuestIDType t ON g.guest_idtype_id = t.guest_idtype_id
+                LEFT JOIN Reservation r ON r.guest_id = g.guest_id AND r.is_deleted = 0
+                LEFT JOIN ReservationStatus rs ON r.reservation_status_id = rs.reservation_status_id
+                LEFT JOIN ReservedRoom rr ON rr.reservation_id = r.reservation_id AND rr.is_deleted = 0
+                LEFT JOIN Room rm ON rr.room_id = rm.room_id AND rm.is_deleted = 0
+                LEFT JOIN RoomType rt ON rm.room_type_id = rt.room_type_id
+                WHERE g.guest_id = :guest_id AND g.is_deleted = 0
+                ORDER BY r.check_in_date DESC, r.reservation_id DESC
+                LIMIT 1";
+        $stmt = $db->prepare($sql);
+        $stmt->bindParam(":guest_id", $json['guest_id']);
+        $stmt->execute();
+        $rs = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode($rs);
+    }
 }
 
 // Request handling
@@ -185,5 +222,8 @@ switch ($operation) {
         break;
     case "deleteGuest":
         $guest->deleteGuest($json);
+        break;
+    case "getGuestWithLatestReservation":
+        $guest->getGuestWithLatestReservation($json);
         break;
 }

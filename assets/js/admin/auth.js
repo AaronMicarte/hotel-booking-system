@@ -191,6 +191,15 @@ class AdminAuth {
                 sessionStorage.setItem('admin_user', JSON.stringify(result.user));
                 sessionStorage.setItem('login_time', Date.now().toString());
 
+                // Check if password change is required
+                if (result.user.new_password) {
+                    // Store user info in session/localStorage if needed
+                    localStorage.setItem('pendingChangeUserId', result.user.user_id);
+                    // Redirect to change password page
+                    window.location.href = "change-password.html";
+                    return;
+                }
+
                 // Show success and redirect
                 await Swal.fire({
                     title: 'Login Successful!',

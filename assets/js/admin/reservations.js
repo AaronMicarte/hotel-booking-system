@@ -223,6 +223,15 @@ document.addEventListener("DOMContentLoaded", () => {
             // You might want to call displayReservations() or apply filters directly
         });
     }
+
+    document.getElementById("applyFilters")?.addEventListener("click", filterReservations);
+    document.getElementById("statusFilter")?.addEventListener("change", filterReservations);
+    document.getElementById("dateFrom")?.addEventListener("change", filterReservations);
+    document.getElementById("dateTo")?.addEventListener("change", filterReservations);
+    document.getElementById("reservationsFilterForm")?.addEventListener("submit", (e) => {
+        e.preventDefault();
+        filterReservations();
+    });
 });
 
 // ==========================
@@ -295,6 +304,9 @@ function displayReservationsTable(reservations) {
         )
         : [];
 
+    // --- Update stats overview ---
+    updateReservationStatsOverview(filteredReservations);
+
     if (!filteredReservations.length) {
         tbody.innerHTML = `<tr><td colspan="7" class="text-center">No reservations found.</td></tr>`;
         return;
@@ -362,11 +374,16 @@ function displayReservationsTable(reservations) {
 
 function getStatusBadge(status) {
     status = (status || '').toLowerCase();
-    if (status === 'pending') return `<span class="badge bg-warning text-dark">${status}</span>`;
-    if (status === 'confirmed') return `<span class="badge bg-success">${status}</span>`;
-    if (status === 'checked-in') return `<span class="badge bg-primary">${status}</span>`;
-    if (status === 'checked-out') return `<span class="badge bg-secondary">${status}</span>`;
-    if (status === 'cancelled') return `<span class="badge bg-danger">${status}</span>`;
+    if (status === 'checked-in')
+        return `<span class="badge" style="background:#28a745;color:#fff;">${status}</span>`;
+    if (status === 'checked-out')
+        return `<span class="badge" style="background:#6c757d;color:#fff;">${status}</span>`;
+    if (status === 'reserved' || status === 'confirmed')
+        return `<span class="badge" style="background:#0dcaf0;color:#fff;">${status}</span>`;
+    if (status === 'pending')
+        return `<span class="badge" style="background:#ffc107;color:#212529;border:1px solid #ffc107;">${status}</span>`;
+    if (status === 'cancelled')
+        return `<span class="badge" style="background:#dc3545;color:#fff;">${status}</span>`;
     return `<span class="badge bg-info">${status}</span>`;
 }
 
@@ -1076,4 +1093,49 @@ async function loadIDTypes() {
     } catch (error) {
         // fallback: keep only the placeholder
     }
+}
+
+async function filterReservations() {
+    const status = document.getElementById("statusFilter")?.value || "";
+    const dateFrom = document.getElementById("dateFrom")?.value || "";
+    const dateTo = document.getElementById("dateTo")?.value || "";
+    const search = document.getElementById("searchReservation")?.value.trim() || "";
+
+    let url = "/Hotel-Reservation-Billing-System/api/admin/reservations/reservations.php?operation=getAllReservations";
+    const params = [];
+    if (status) params.push(`status=${encodeURIComponent(status)}`);
+    if (dateFrom) params.push(`date_from=${encodeURIComponent(dateFrom)}`);
+    if (dateTo) params.push(`date_to=${encodeURIComponent(dateTo)}`);
+    if (search) params.push(`search=${encodeURIComponent(search)}`);
+    if (params.length > 0) url += "&" + params.join("&");
+
+    try {
+        const response = await axios.get(url);
+        displayReservations(response.data || []);
+        // Optionally update stats, etc.
+    } catch (error) {
+        displayReservations([]);
+    }
+}
+
+// --- Reservation Stats Overview ---
+function updateReservationStatsOverview(reservations) {
+    // Defensive: always use array
+    reservations = Array.isArray(reservations) ? reservations : [];
+    let total = reservations.length;
+    let checkedIn = 0, checkedOut = 0, reserved = 0, pending = 0, cancelled = 0;
+    reservations.forEach(r => {
+        const status = (r.reservation_status || r.room_status || '').toLowerCase();
+        if (status === "checked-in") checkedIn++;
+        else if (status === "checked-out") checkedOut++;
+        else if (status === "confirmed") reserved++;
+        else if (status === "pending") pending++;
+        else if (status === "cancelled") cancelled++;
+    });
+    document.getElementById("statTotalReservations").textContent = total;
+    document.getElementById("statCheckedIn").textContent = checkedIn;
+    document.getElementById("statCheckedOut").textContent = checkedOut;
+    document.getElementById("statReserved").textContent = reserved;
+    document.getElementById("statPending").textContent = pending;
+    document.getElementById("statCancelled").textContent = cancelled;
 }

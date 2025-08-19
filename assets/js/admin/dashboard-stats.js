@@ -75,10 +75,10 @@
     // Helper to get status color
     function getStatusColor(status) {
         status = (status || '').toLowerCase();
-        if (status === 'confirmed') return 'success';
+        if (status === 'confirmed') return 'info';
         if (status === 'pending') return 'warning';
-        if (status === 'checked-in') return 'primary';
-        if (status === 'checked-out') return 'info';
+        if (status === 'checked-in') return 'success';
+        if (status === 'checked-out') return 'primary';
         if (status === 'cancelled') return 'danger';
         return 'secondary';
     }
