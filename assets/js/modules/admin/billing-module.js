@@ -399,12 +399,35 @@ export const recordPayment = async () => {
         return false;
     }
 
-    // Get user_id
-    let user_id = 1;
-    if (window.currentUser && window.currentUser.user_id) user_id = window.currentUser.user_id;
 
-    // Use today's date for payment_date
-    const payment_date = new Date().toISOString().slice(0, 10);
+    // --- Get user_id ---
+    let user_id = null;
+    if (window.Auth && typeof window.Auth.getUserId === "function") {
+        user_id = window.Auth.getUserId();
+    }
+    if (!user_id) {
+        user_id = window.currentUserId;
+    }
+    if (!user_id) {
+        const userInput = document.getElementById("currentUserId");
+        if (userInput) user_id = userInput.value;
+    }
+    if (!user_id) {
+        Swal.fire({
+            toast: true,
+            position: 'top-end',
+            icon: 'error',
+            title: 'User ID not found. Please log in again or reload the page.',
+            showConfirmButton: false,
+            timer: 3000
+        });
+        return false;
+    }
+
+    // --- Get payment_date as current datetime (YYYY-MM-DD HH:mm:ss) ---
+    const now = new Date();
+    const pad = n => n.toString().padStart(2, '0');
+    const payment_date = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}:${pad(now.getSeconds())}`;
 
     const payload = {
         user_id,

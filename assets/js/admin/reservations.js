@@ -210,35 +210,60 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- Filters with proper null checks ---
     const statusFilter = document.getElementById("statusFilter");
     const applyFilters = document.getElementById("applyFilters");
+    const dateFrom = document.getElementById("dateFrom");
+    const dateTo = document.getElementById("dateTo");
 
-    if (statusFilter && applyFilters) {
-        statusFilter.addEventListener("change", () => {
-            applyFilters.click();
-        });
-    } else if (statusFilter) {
-        // If applyFilters doesn't exist, handle the filter change directly
-        statusFilter.addEventListener("change", () => {
-            // Add your filter logic here, or call displayReservations with filters
-            console.log("Status filter changed:", statusFilter.value);
-            // You might want to call displayReservations() or apply filters directly
+    // Trigger filterReservations on filter changes
+    if (statusFilter) {
+        statusFilter.addEventListener("change", filterReservations);
+    }
+    if (dateFrom) {
+        dateFrom.addEventListener("change", filterReservations);
+    }
+    if (dateTo) {
+        dateTo.addEventListener("change", filterReservations);
+    }
+    if (applyFilters) {
+        applyFilters.addEventListener("click", filterReservations);
+    }
+
+    // Reset filters and reload all reservations on refresh
+    if (refreshBtn) {
+        refreshBtn.addEventListener("click", () => {
+            if (statusFilter) statusFilter.value = "";
+            if (dateFrom) dateFrom.value = "";
+            if (dateTo) dateTo.value = "";
+            const searchInput = document.getElementById("searchReservation");
+            if (searchInput) searchInput.value = "";
+            displayReservations();
         });
     }
 
-    document.getElementById("applyFilters")?.addEventListener("click", filterReservations);
-    document.getElementById("statusFilter")?.addEventListener("change", filterReservations);
-    document.getElementById("dateFrom")?.addEventListener("change", filterReservations);
-    document.getElementById("dateTo")?.addEventListener("change", filterReservations);
-    document.getElementById("reservationsFilterForm")?.addEventListener("submit", (e) => {
-        e.preventDefault();
-        filterReservations();
-    });
+    // --- Search logic ---
+    const searchBtn = document.getElementById("searchBtn");
+    const searchInput = document.getElementById("searchReservation");
+    if (searchBtn) {
+        searchBtn.addEventListener("click", filterReservations);
+    }
+    if (searchInput) {
+        searchInput.addEventListener("keydown", function (e) {
+            if (e.key === "Enter") {
+                e.preventDefault();
+                filterReservations();
+            }
+        });
+    }
 });
 
 // ==========================
 // === RESERVATIONS TABLE ===
 // ==========================
-async function displayReservations() {
-    console.log("🔍 displayReservations() called"); // DEBUG
+async function displayReservations(data) {
+    // If data is provided, use it; otherwise fetch all
+    if (data) {
+        displayReservationsTable(data);
+        return;
+    }
     try {
         const response = await axios.get(`${BASE_URL}/reservations/reservations.php`, {
             params: { operation: "getAllReservations" }
@@ -821,6 +846,32 @@ async function saveReservation() {
         return;
     }
 
+    // --- Prevent double booking for the same guest in the same check-in/check-out date/time ---
+    try {
+        const resList = await axios.get(`${BASE_URL}/reservations/reservations.php`, {
+            params: { operation: "getAllReservations" }
+        });
+        if (Array.isArray(resList.data)) {
+            const overlap = resList.data.find(r =>
+                r.guest_id == guestId &&
+                r.reservation_id != reservationId && // allow update of self
+                r.is_deleted != 1 &&
+                // Overlap logic: (existing.check_in < new.check_out && existing.check_out > new.check_in)
+                (
+                    (r.check_in_date < checkOutDate && r.check_out_date > checkInDate) ||
+                    (r.check_in_date === checkInDate && r.check_in_time === checkInTime)
+                )
+            );
+            if (overlap) {
+                showError("This guest already has a reservation that overlaps with the selected check-in/check-out date and time.");
+                if (saveBtn) saveBtn.disabled = false;
+                return;
+            }
+        }
+    } catch (err) {
+        // If API fails, allow reservation (fail open)
+    }
+
     // Map id_type to guest_idtype_id
     let guest_idtype_id = null;
     try {
@@ -1097,8 +1148,8 @@ async function loadIDTypes() {
 
 async function filterReservations() {
     const status = document.getElementById("statusFilter")?.value || "";
-    const dateFrom = document.getElementById("dateFrom")?.value || "";
-    const dateTo = document.getElementById("dateTo")?.value || "";
+    const dateFrom = document.getElementById("dateFrom")?.value || ""; // check-in date
+    const dateTo = document.getElementById("dateTo")?.value || "";     // check-out date
     const search = document.getElementById("searchReservation")?.value.trim() || "";
 
     let url = "/Hotel-Reservation-Billing-System/api/admin/reservations/reservations.php?operation=getAllReservations";
@@ -1111,10 +1162,31 @@ async function filterReservations() {
 
     try {
         const response = await axios.get(url);
-        displayReservations(response.data || []);
-        // Optionally update stats, etc.
+        let reservations = response.data || [];
+
+        // --- Filter by check-in and check-out date ---
+        reservations = reservations.filter(r => {
+            const checkIn = r.check_in_date;
+            const checkOut = r.check_out_date;
+            if (!checkIn || !checkOut) return false;
+            // If both dates are set: check_in_date >= dateFrom AND check_out_date <= dateTo
+            if (dateFrom && dateTo) {
+                return checkIn >= dateFrom && checkOut <= dateTo;
+            }
+            // Only check-in date set
+            if (dateFrom) {
+                return checkIn >= dateFrom;
+            }
+            // Only check-out date set
+            if (dateTo) {
+                return checkOut <= dateTo;
+            }
+            return true;
+        });
+
+        displayReservationsTable(reservations);
     } catch (error) {
-        displayReservations([]);
+        displayReservationsTable([]);
     }
 }
 

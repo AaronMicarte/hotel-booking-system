@@ -162,7 +162,7 @@ class AdminAuth {
 
                 // Store session data securely
                 sessionStorage.setItem('admin_token', result.token);
-                sessionStorage.setItem('admin_user', JSON.stringify(result.user));
+                sessionStorage.setItem('admin_user', JSON.stringify(result.user)); // <-- user_id should be present here
                 sessionStorage.setItem('login_time', Date.now().toString());
 
                 // Show success and redirect AFTER SweetAlert timer
@@ -363,7 +363,7 @@ class AdminAuth {
 
     getUser() {
         const user = sessionStorage.getItem('admin_user');
-        return user ? JSON.parse(user) : null;
+        return user ? JSON.parse(user) : null; // <-- user_id should be present in this object
     }
 
     logout(silent = false) {

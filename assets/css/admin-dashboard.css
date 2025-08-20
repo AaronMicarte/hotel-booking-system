@@ -174,6 +174,12 @@
     display: flex;
     align-items: center;
     gap: 1rem;
+    /* --- from enhanced --- */
+    background: #fff;
+    border-radius: 1rem;
+    transition: box-shadow 0.2s, transform 0.2s;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+    padding: 1.5rem 1rem;
 }
 
 .stats-card::before {
@@ -197,6 +203,9 @@
 .stats-card:hover {
     box-shadow: var(--shadow-heavy);
     border-color: rgba(255, 51, 102, 0.2);
+    /* --- from enhanced --- */
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.10);
+    transform: translateY(-4px) scale(1.03);
 }
 
 .stats-icon {
@@ -211,6 +220,12 @@
     box-shadow: var(--shadow-light);
     position: relative;
     z-index: 2;
+    /* --- from enhanced --- */
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    font-size: 1.7rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 .stats-icon.bg-primary {
@@ -242,6 +257,9 @@
     color: var(--dark-color);
     margin: 0;
     line-height: 1;
+    /* --- from enhanced --- */
+    font-size: 2rem;
+    font-weight: 700;
 }
 
 .stats-info p {
@@ -250,6 +268,9 @@
     font-size: 0.9rem;
     font-weight: 500;
     margin-top: 0.25rem;
+    /* --- from enhanced --- */
+    color: #6c757d;
+    font-size: 1rem;
 }
 
 /* Card Styles */
@@ -348,16 +369,27 @@
     box-shadow: var(--shadow-medium);
     border-radius: var(--border-radius);
     backdrop-filter: blur(20px);
+    /* --- from enhanced --- */
+    min-width: 180px;
+    padding: 0.5rem 0;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    background-color: white;
 }
 
 .dropdown-item {
     color: var(--text-color);
     transition: var(--transition);
+    /* --- from enhanced --- */
+    padding: 0.75rem 1rem;
+    font-weight: 500;
 }
 
 .dropdown-item:hover {
     background: var(--accent-color);
     color: var(--primary-color);
+    /* --- from enhanced --- */
+    background-color: #f8f9fa;
 }
 
 /* Button Enhancements */
@@ -388,14 +420,20 @@
 .room-status-maintenance,
 .room-status-reserved,
 .room-status-default {
-    display: inline-block;
-    padding: 6px 12px;
-    border-radius: 6px;
-    font-weight: 600;
-    font-size: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
     text-align: center;
-    min-width: 110px;
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    padding: 0.35em 0.7em;
+    border-radius: 16px;
+    font-weight: 600;
+    font-size: 0.82em;
+    min-width: 2.2em;
+    min-height: 1.7em;
+    line-height: 1;
+    vertical-align: middle;
+    margin: 0.25rem 0;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.12);
     color: white;
 }
 
@@ -466,6 +504,266 @@
     color: white;
 }
 
+/* --- admin-dashboard-charts.css --- */
+/* Dashboard Charts Styles */
+
+/* Chart container styles */
+.chart-container {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    min-height: 200px;
+}
+
+/* Room Status Chart */
+.room-status-chart {
+    padding: 1rem 0;
+}
+
+.chart-bars {
+    margin-bottom: 1.5rem;
+}
+
+.chart-bar-container {
+    margin-bottom: 1rem;
+}
+
+.chart-label {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    color: var(--dark-color);
+}
+
+.chart-bar {
+    height: 24px;
+    border-radius: 12px;
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: var(--transition);
+}
+
+.chart-percentage {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+    text-align: right;
+}
+
+.chart-legend {
+    display: flex;
+    justify-content: center;
+    gap: 1.5rem;
+    flex-wrap: wrap;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    display: inline-block;
+}
+
+/* Status Badges */
+.badge {
+    padding: 0.35em 0.7em;
+    border-radius: 16px;
+    font-weight: 500;
+    font-size: 0.82em;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.08);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    min-width: 2.2em;
+    min-height: 1.7em;
+    line-height: 1;
+    vertical-align: middle;
+}
+
+/* Revenue Stats */
+.revenue-stats {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 1.5rem;
+}
+
+.revenue-amount {
+    font-family: var(--font-primary);
+    font-size: 3rem;
+    font-weight: 700;
+    color: #28a745;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, #28a745, #20c997);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+}
+
+.revenue-label {
+    font-size: 1rem;
+    color: var(--text-muted);
+    font-weight: 500;
+}
+
+.revenue-date {
+    margin-top: 0.25rem;
+    margin-bottom: 0.25rem;
+    font-size: 0.93em;
+    color: #6c757d;
+    text-align: center;
+    letter-spacing: 0.01em;
+}
+
+/* Loading State */
+.admin-loading {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 2rem;
+    font-size: 0.9rem;
+    color: var(--text-muted);
+}
+
+.admin-loading::before {
+    content: '';
+    width: 20px;
+    height: 20px;
+    border: 2px solid #e9ecef;
+    border-top: 2px solid var(--primary-color);
+    border-radius: 50%;
+    margin-right: 10px;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+/* --- admin-dashboard-enhanced.css --- */
+/* Background */
+.enhanced-dashboard-bg {
+    background: linear-gradient(135deg, #f8fafc 0%, #e9ecef 100%);
+    min-height: 100vh;
+}
+
+/* Revenue Sparkline */
+#revenueSparkline {
+    width: 100%;
+    max-width: 220px;
+    margin: 0 auto 0.5rem auto;
+    height: 36px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+#revenueSparkline svg {
+    width: 100%;
+    height: 36px;
+    background: transparent;
+    display: block;
+}
+
+#revenueSparkline .sparkline-x-label {
+    font-size: 0.8em;
+    fill: #adb5bd;
+    text-anchor: middle;
+}
+
+#revenueSparkline .sparkline-dot {
+    fill: #28a745;
+    stroke: #fff;
+    stroke-width: 1.5;
+}
+
+/* Avatars */
+.avatar-circle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font-size: 1.1rem;
+    font-weight: 600;
+    background: #0d6efd;
+    color: #fff;
+    margin-right: 0.5rem;
+    box-shadow: 0 1px 4px rgba(0, 0, 0, 0.08);
+}
+
+/* Table */
+.table-striped>tbody>tr:nth-of-type(odd) {
+    --bs-table-accent-bg: #f8f9fa;
+}
+
+.table th,
+.table td {
+    vertical-align: middle !important;
+}
+
+.table .badge i {
+    margin-right: 0.3em;
+}
+
+/* Progress Bar */
+.progress {
+    background: #e9ecef;
+    border-radius: 1rem;
+    height: 18px;
+}
+
+.progress-bar {
+    font-size: 0.95em;
+    font-weight: 500;
+    border-radius: 1rem;
+    transition: width 0.6s cubic-bezier(.4, 0, .2, 1);
+}
+
+/* Footer */
+.dashboard-footer {
+    padding: 1.5rem 0 0.5rem 0;
+    color: #adb5bd;
+    font-size: 0.95rem;
+    letter-spacing: 0.01em;
+    background: transparent;
+    border: none;
+}
+
+/* Revenue Chart */
+#revenueChart {
+    width: 100% !important;
+    max-width: 480px;
+    min-width: 260px;
+    min-height: 180px;
+    height: 180px !important;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 1.2em;
+    box-shadow: 0 2px 12px rgba(40, 167, 69, 0.08);
+    padding: 0.5em 0.5em 0.2em 0.5em;
+    display: block;
+}
+
 /* Responsive Design */
 @media (max-width: 1024px) {
     .sidebar {
@@ -505,6 +803,10 @@
     .card-body {
         padding: 1rem;
     }
+
+    .revenue-amount {
+        font-size: 2.5rem;
+    }
 }
 
 @media (max-width: 480px) {
@@ -531,5 +833,17 @@
 
     .stats-info h3 {
         font-size: 1.5rem;
+    }
+
+    .chart-bars {
+        margin-bottom: 1rem;
+    }
+
+    .chart-bar {
+        height: 20px;
+    }
+
+    .revenue-amount {
+        font-size: 2rem;
     }
 }

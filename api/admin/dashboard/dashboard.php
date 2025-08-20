@@ -93,6 +93,34 @@ try {
         'reservations' => $recentReservations
     ];
 
+    // --- Revenue per day (last 14 days) ---
+    $stmt = $conn->prepare("
+        SELECT DATE(payment_date) as day, SUM(amount_paid) as revenue
+        FROM Payment
+        WHERE is_deleted = 0
+        GROUP BY day
+        ORDER BY day DESC
+        LIMIT 14
+    ");
+    $stmt->execute();
+    $revenuePerDay = array_reverse($stmt->fetchAll(PDO::FETCH_ASSOC)); // oldest first
+
+    // --- Revenue per month (last 12 months) ---
+    $stmt = $conn->prepare("
+        SELECT DATE_FORMAT(payment_date, '%Y-%m') as month, SUM(amount_paid) as revenue
+        FROM Payment
+        WHERE is_deleted = 0
+        GROUP BY month
+        ORDER BY month DESC
+        LIMIT 12
+    ");
+    $stmt->execute();
+    $revenuePerMonth = array_reverse($stmt->fetchAll(PDO::FETCH_ASSOC)); // oldest first
+
+    // Add to response
+    $response['stats']['revenuePerDay'] = $revenuePerDay;
+    $response['stats']['revenuePerMonth'] = $revenuePerMonth;
+
     echo json_encode($response);
 } catch (Exception $e) {
     echo json_encode(['status' => 'error', 'message' => 'Database error: ' . $e->getMessage()]);
