@@ -28,10 +28,10 @@ try {
 
     // FIX: Corrected JOIN condition - Join on user_roles_id (which exists in both tables)
     // instead of trying to join on ur.user_id which doesn't match the schema
-    $query = "SELECT u.user_id, u.username, u.password, ur.role_type 
+    $query = "SELECT u.user_id, u.username, u.password, u.user_roles_id, u.new_password, u.is_deleted, ur.role_type 
               FROM User u 
               JOIN UserRoles ur ON u.user_roles_id = ur.user_roles_id 
-              WHERE u.username = :username AND u.is_deleted = 0";
+              WHERE u.username = :username";
 
     $stmt = $db->prepare($query);
     $stmt->bindParam(":username", $data['username']);
@@ -39,6 +39,18 @@ try {
 
     if ($stmt->rowCount() > 0) {
         $user = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        // Check if user is inactive/deleted (treat 1, "1", true, "true" as inactive)
+        if (
+            isset($user['is_deleted']) &&
+            ($user['is_deleted'] === 1 || $user['is_deleted'] === "1" || $user['is_deleted'] === true || $user['is_deleted'] === "true")
+        ) {
+            echo json_encode([
+                "success" => false,
+                "message" => "Your account is deactivated. Please contact the administrator."
+            ]);
+            exit;
+        }
 
         // Verify password
         if (password_verify($data['password'], $user['password'])) {
@@ -80,7 +92,9 @@ try {
             "user" => [
                 "user_id" => $user['user_id'],
                 "username" => $user['username'],
-                "role_type" => $user['role_type']
+                "role_type" => $user['role_type'],
+                "user_roles_id" => $user['user_roles_id'],
+                "new_password" => $user['new_password'] // For force password change logic
             ]
         ]);
     } else {

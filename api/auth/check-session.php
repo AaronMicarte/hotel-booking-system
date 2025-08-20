@@ -74,10 +74,17 @@ $loginTime = $_SESSION['login_time'] ?? time();
 $sessionAge = time() - $loginTime;
 $timeRemaining = $sessionTimeout - $sessionAge;
 
+// Ensure user object has all needed fields
+$user = $_SESSION['admin_user'];
+if (!isset($user['user_id']) && isset($_SESSION['user_id'])) $user['user_id'] = $_SESSION['user_id'];
+if (!isset($user['role_type']) && isset($_SESSION['role_type'])) $user['role_type'] = $_SESSION['role_type'];
+if (!isset($user['user_roles_id']) && isset($_SESSION['user_roles_id'])) $user['user_roles_id'] = $_SESSION['user_roles_id'];
+if (!isset($user['new_password']) && isset($_SESSION['new_password'])) $user['new_password'] = $_SESSION['new_password'];
+
 echo json_encode([
     "success" => true,
     "message" => "Session valid",
-    "user" => $_SESSION['admin_user'],
+    "user" => $user,
     "session_info" => [
         "time_remaining" => $timeRemaining,
         "last_activity" => $_SESSION['last_activity']

@@ -77,40 +77,6 @@ class AdminAuth {
             }, 3000);
         });
     }
-
-    showUnauthorizedAlert() {
-        // Ensure page is visible for the alert
-        document.body.style.display = '';
-
-        if (window.Swal) {
-            Swal.fire({
-                title: '🚫 Access Denied!',
-                text: 'You must be logged in as an administrator to access this area. Unauthorized access attempts are logged.',
-                icon: 'error',
-                confirmButtonText: 'Go to Login',
-                allowOutsideClick: false,
-                allowEscapeKey: false,
-                showClass: {
-                    popup: 'animate__animated animate__shakeX'
-                },
-                confirmButtonColor: '#dc3545',
-                background: '#fff',
-                customClass: {
-                    popup: 'security-alert'
-                }
-            }).then(() => {
-                // Clear any stored tokens that might be invalid
-                this.clearSession();
-                window.location.href = 'admin-login.html';
-            });
-        } else {
-            // Fallback if SweetAlert is not available
-            alert('Access Denied! You must be logged in as an administrator to access this area.');
-            this.clearSession();
-            window.location.href = 'admin-login.html';
-        }
-    }
-
     async validateSession() {
         try {
             const token = sessionStorage.getItem('admin_token');
@@ -186,22 +152,21 @@ class AdminAuth {
             const result = await response.json();
 
             if (result.success) {
+                // Check if password change is required
+                if (result.user.new_password) {
+                    // Do NOT set sessionStorage/session data!
+                    localStorage.setItem('pendingChangeUserId', result.user.user_id);
+                    window.location.href = "change-password.html";
+                    return;
+                }
+
                 // Store session data securely
                 sessionStorage.setItem('admin_token', result.token);
                 sessionStorage.setItem('admin_user', JSON.stringify(result.user));
                 sessionStorage.setItem('login_time', Date.now().toString());
 
-                // Check if password change is required
-                if (result.user.new_password) {
-                    // Store user info in session/localStorage if needed
-                    localStorage.setItem('pendingChangeUserId', result.user.user_id);
-                    // Redirect to change password page
-                    window.location.href = "change-password.html";
-                    return;
-                }
-
-                // Show success and redirect
-                await Swal.fire({
+                // Show success and redirect AFTER SweetAlert timer
+                Swal.fire({
                     title: 'Login Successful!',
                     text: `Welcome back, ${result.user.username}`,
                     icon: 'success',
@@ -209,13 +174,34 @@ class AdminAuth {
                     showConfirmButton: false,
                     showClass: {
                         popup: 'animate__animated animate__fadeInDown'
+                    },
+                    willClose: () => {
+                        window.location.href = 'dashboard.html';
                     }
                 });
 
-                window.location.href = 'dashboard.html';
             } else {
                 this.resetLoginButton();
-                throw new Error(result.message || 'Login failed');
+                // Custom message for deactivated account
+                if (
+                    result.message &&
+                    result.message.toLowerCase().includes('deactivated')
+                ) {
+                    Swal.fire({
+                        title: 'Account Deactivated',
+                        text: result.message,
+                        imageUrl: '../../assets/images/hehe.jpeg', // local image
+                        imageWidth: 120,
+                        imageHeight: 120,
+
+                        confirmButtonColor: '#dc3545',
+                        showClass: {
+                            popup: 'animate__animated animate__shakeX'
+                        }
+                    });
+                } else {
+                    throw new Error(result.message || 'Login failed');
+                }
             }
         } catch (error) {
             console.error('Login error:', error);
@@ -309,16 +295,21 @@ class AdminAuth {
             // Clear session
             this.clearSession();
 
-            // Show logout success
+            // Show logout success and animate before redirect
             await Swal.fire({
                 title: 'Logged Out',
                 text: 'You have been successfully logged out.',
                 icon: 'success',
                 timer: 2000,
-                showConfirmButton: false
+                showConfirmButton: false,
+                showClass: {
+                    popup: 'animate__animated animate__fadeOutUp'
+                },
+                willClose: () => {
+                    window.location.href = 'admin-login.html';
+                }
             });
 
-            window.location.href = 'admin-login.html';
         } catch (error) {
             console.error('Logout error:', error);
             // Force logout even if API fails
@@ -402,7 +393,10 @@ class AdminAuth {
 // Password toggle function
 function togglePassword() {
     const passwordInput = document.getElementById('password');
-    const toggleIcon = document.querySelector('.toggle-password i');
+    const toggleBtn = document.querySelector('.toggle-password');
+    const toggleIcon = toggleBtn ? toggleBtn.querySelector('i') : null;
+
+    if (!passwordInput || !toggleIcon) return;
 
     if (passwordInput.type === 'password') {
         passwordInput.type = 'text';

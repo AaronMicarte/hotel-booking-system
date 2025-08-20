@@ -20,8 +20,8 @@
     --shadow-heavy: 0 8px 30px rgba(0, 0, 0, 0.12);
     --shadow-primary: 0 4px 15px rgba(255, 51, 102, 0.2);
 
-    --font-primary: 'Poppins', sans-serif;
-    --font-secondary: 'Inter', sans-serif;
+    --font-primary: 'Inter', 'Poppins', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+    --font-secondary: 'Poppins', 'Inter', 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
 
     --border-radius: 12px;
     --border-radius-lg: 16px;
