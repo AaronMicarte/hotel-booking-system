@@ -1,134 +1,140 @@
-const API_BASE = '/Hotel-Reservation-Billing-System/api/admin/rooms/rooms.php';
+const API_BASE = '/Hotel-Reservation-Billing-System/api';
 let selectedFeatureIds = [];
 
 document.addEventListener('DOMContentLoaded', () => {
     loadRoomTypes();
     loadFeatures();
-    fetchAndRenderRooms();
+    fetchAndRenderRoomTypes();
 
     document.getElementById('roomSearchForm').addEventListener('submit', function (e) {
         e.preventDefault();
-        fetchAndRenderRooms();
+        fetchAndRenderRoomTypes();
     });
 });
 
-async function fetchAndRenderRooms() {
+// Fetch and render all room types (not rooms), with guest/capacity/date filtering
+async function fetchAndRenderRoomTypes() {
     showLoading(true);
 
-    // Correct guest capacity filter: show rooms with max_capacity >= selected value
-    const capacity = document.getElementById('filterCapacity').value;
-    const type = document.getElementById('filterRoomType').value;
     const features = selectedFeatureIds;
+    const capacity = document.getElementById('filterCapacity').value;
     const checkin = document.getElementById('filterCheckin').value;
     const checkout = document.getElementById('filterCheckout').value;
-
-    const params = { operation: 'getAllRooms' };
-    if (type) params.type_id = type;
-    if (features.length === 1) params.feature_id = features[0];
-    if (checkin) params.checkin = checkin;
-    if (checkout) params.checkout = checkout;
+    const roomTypeId = document.getElementById('filterRoomType').value;
 
     try {
-        const { data } = await axios.get(API_BASE, { params });
-        let rooms = Array.isArray(data) ? data : [];
+        // Fetch all room types
+        const { data } = await axios.get('/Hotel-Reservation-Billing-System/api/admin/rooms/room-type.php');
+        let roomTypes = Array.isArray(data) ? data : [];
 
-        // Multi-feature filter
+        // Room type filter (fix: filter by room_type_id)
+        if (roomTypeId) {
+            roomTypes = roomTypes.filter(type => String(type.room_type_id) === String(roomTypeId));
+        }
+
+        // Multi-feature filter (if needed)
         if (features.length > 0) {
-            rooms = rooms.filter(room => {
-                if (!Array.isArray(room.features)) return false;
-                const roomFeatureIds = room.features.map(f => String(f.feature_id));
-                return features.every(fid => roomFeatureIds.includes(String(fid)));
+            roomTypes = roomTypes.filter(type => {
+                if (!Array.isArray(type.features)) return false;
+                const typeFeatureIds = type.features.map(f => String(f.feature_id));
+                return features.every(fid => typeFeatureIds.includes(String(fid)));
             });
         }
 
-        // Filter by guest capacity (show rooms with max_capacity >= selected value)
+        // Filter by guest capacity (show types with max_capacity >= selected value)
         if (capacity) {
-            rooms = rooms.filter(room =>
-                Number(room.max_capacity) >= Number(capacity)
+            roomTypes = roomTypes.filter(type =>
+                Number(type.max_capacity) >= Number(capacity)
             );
         }
 
-        renderRooms(rooms);
+        // If check-in/check-out is set, filter types with at least one available room for those dates
+        if (checkin && checkout) {
+            // For each type, check if there is at least one available room for the dates
+            const filteredTypes = [];
+            for (const type of roomTypes) {
+                try {
+                    const res = await axios.get('/Hotel-Reservation-Billing-System/api/admin/rooms/rooms.php', {
+                        params: {
+                            operation: 'getAvailableRooms',
+                            room_type_id: type.room_type_id,
+                            check_in_date: checkin,
+                            check_out_date: checkout
+                        }
+                    });
+                    const availableRooms = Array.isArray(res.data) ? res.data : [];
+                    if (availableRooms.length > 0) {
+                        filteredTypes.push(type);
+                    }
+                } catch {
+                    // If API fails, skip this type
+                }
+            }
+            roomTypes = filteredTypes;
+        }
+
+        renderRoomTypes(roomTypes);
     } catch (err) {
-        renderRooms([]);
+        renderRoomTypes([]);
     } finally {
         showLoading(false);
     }
 }
 
-function renderRooms(rooms) {
+// Render all room types as hero sections (image left, content right, full width)
+function renderRoomTypes(roomTypes) {
     const grid = document.getElementById('roomsGrid');
     const noRooms = document.getElementById('noRoomsMsg');
-
     grid.innerHTML = '';
 
-    if (!rooms.length) {
+    if (!roomTypes.length) {
         noRooms.classList.remove('d-none');
         return;
     }
-
     noRooms.classList.add('d-none');
 
-    rooms.forEach(room => {
+    roomTypes.forEach(type => {
         let img = '';
-        if (room.room_type_image_url) {
-            img = room.room_type_image_url.startsWith('http')
-                ? room.room_type_image_url
-                : `/Hotel-Reservation-Billing-System/assets/images/uploads/room-types/${room.room_type_image_url.replace(/^.*[\\\/]/, '')}`;
+        if (type.image_url) {
+            img = type.image_url.startsWith('http')
+                ? type.image_url
+                : `/Hotel-Reservation-Billing-System/assets/images/uploads/room-types/${type.image_url.replace(/^.*[\\\/]/, '')}`;
         } else {
-            img = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=400&h=250&fit=crop';
+            img = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=800&h=500&fit=crop';
         }
 
-        // Determine booking status (skip "occupied" rooms)
-        let status = (room.room_status || '').toLowerCase();
-        if (status === 'occupied') return; // Do not show occupied rooms
-
-        // Dot indicator for available, reserved, maintenance
-        let statusDot = '';
-        let statusText = '';
-        if (status === 'available') {
-            statusDot = `<span title="Available" style="display:inline-block;width:12px;height:12px;background:#28a745;border-radius:50%;margin-right:8px;vertical-align:middle;"></span>`;
-            statusText = `<span class="small text-success align-middle">Available</span>`;
-        } else if (status === 'reserved') {
-            statusDot = `<span title="Reserved" style="display:inline-block;width:12px;height:12px;background:#0dcaf0;border-radius:50%;margin-right:8px;vertical-align:middle;"></span>`;
-            statusText = `<span class="small text-info align-middle">Reserved</span>`;
-        } else if (status === 'maintenance') {
-            statusDot = `<span title="Maintenance" style="display:inline-block;width:12px;height:12px;background:#ffc107;border-radius:50%;margin-right:8px;vertical-align:middle;"></span>`;
-            statusText = `<span class="small text-warning align-middle">Maintenance</span>`;
+        // Compose features
+        let featuresHtml = '';
+        if (Array.isArray(type.features) && type.features.length) {
+            featuresHtml = type.features.map(f =>
+                `<span class="feature-tag">${f.feature_name}</span>`
+            ).join('');
         }
-
-        // Only allow booking if available
-        const isBookable = status === 'available';
+        // Description fallback
+        let desc = type.description || '';
 
         grid.innerHTML += `
-            <div class="col-xl-4 col-lg-6 col-md-6">
-            <div class="room-card d-flex flex-column h-100">
-                <div class="room-image" style="background-image: url('${img}');"></div>
-                <div class="room-content d-flex flex-column flex-grow-1">
-                <div class="d-flex align-items-center mb-2" style="min-height:24px;">
-                    ${statusDot}${statusText}
+            <section class="room-hero-section d-flex flex-column flex-md-row align-items-stretch mb-5" style="min-height:340px;">
+                <div class="room-hero-image flex-shrink-0" style="background-image: url('${img}'); min-width:340px; min-height:260px; background-size:cover; background-position:center; border-radius:20px 0 0 20px;"></div>
+                <div class="room-hero-content d-flex flex-column flex-grow-1 p-4" style="background:rgba(26,26,26,0.93); border-radius:0 20px 20px 0;">
+                    <h3 class="mb-2" style="color:var(--hell-red);font-weight:700;">${type.type_name}</h3>
+                    <div class="badge-container mb-2">
+                        <span class="custom-badge badge-info">${type.room_size_sqm ? type.room_size_sqm + ' sqm' : 'Spacious'}</span>
+                        <span class="custom-badge badge-dark">${type.max_capacity || '2'} guests</span>
+                    </div>
+                    <p class="room-description mb-3">${desc}</p>
+                    <div class="features-container mb-4">
+                        ${featuresHtml}
+                    </div>
+                    <div class="room-footer mt-auto d-flex align-items-center justify-content-between">
+                        <span class="price">₱${type.price_per_stay ? Number(type.price_per_stay).toLocaleString() : '0'}/night</span>
+                        <a href="./selected-room.html?type=${encodeURIComponent(type.type_name)}" class="book-btn" style="font-size:1.1rem;">
+                            <i class="fas fa-arrow-right"></i>
+                            View Details
+                        </a>
+                    </div>
                 </div>
-                <div class="badge-container">
-                    <span class="custom-badge badge-primary">${room.type_name || 'Standard'}</span>
-                    <span class="custom-badge badge-info">${room.room_size_sqm ? room.room_size_sqm + ' sqm' : 'Spacious'}</span>
-                    <span class="custom-badge badge-dark">${room.max_capacity || '2'} guests</span>
-                </div>
-                <div class="features-container">
-                    ${(room.features || []).map(f =>
-            `<span class="feature-tag">${f.feature_name || f}</span>`
-        ).join('')}
-                </div>
-                <div class="room-footer mt-auto">
-                    <span class="price">₱${room.price_per_stay ? Number(room.price_per_stay).toLocaleString() : '0'}/night</span>
-                    <a href="../rooms/room-template.html?type=${room.type_name || ''}" class="book-btn${isBookable ? '' : ' disabled'}"
-                    ${isBookable ? '' : 'tabindex="-1" aria-disabled="true" style="pointer-events:none;opacity:0.6;"'}>
-                    <i class="fas fa-arrow-right"></i>
-                    ${isBookable ? 'Book Now' : 'Not Available'}
-                    </a>
-                </div>
-                </div>
-            </div>
-            </div>
+            </section>
         `;
     });
 }
@@ -192,7 +198,7 @@ function toggleFeatureChip(featureId) {
     }
 
     loadFeatures();
-    fetchAndRenderRooms();
+    fetchAndRenderRoomTypes();
 }
 
 function showLoading(show) {
