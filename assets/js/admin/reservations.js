@@ -1,6 +1,32 @@
 import { updateReservationModal, deleteReservationModal } from '../modules/admin/reservation-module.js';
 
 // ==========================
+// === DYNAMIC PAYMENT METHODS LOADER ===
+async function loadPaymentMethodsDropdown() {
+    const select = document.getElementById("paymentMethodSelect");
+    if (!select) return;
+    select.innerHTML = '<option value="">Loading...</option>';
+    try {
+        const res = await axios.post(`${BASE_URL}/payments/sub-method.php`, new URLSearchParams({ operation: "getAllSubMethods" }));
+        const methods = Array.isArray(res.data) ? res.data : [];
+        if (methods.length === 0) {
+            select.innerHTML = '<option value="">No payment methods</option>';
+            return;
+        }
+        select.innerHTML = '';
+        for (const m of methods) {
+            select.innerHTML += `<option value="${m.sub_method_id}">${m.name}</option>`;
+        }
+    } catch (err) {
+        select.innerHTML = '<option value="">Failed to load</option>';
+    }
+}
+
+// Load payment methods when modal is shown
+const reservationModal = document.getElementById("reservationModal");
+if (reservationModal) {
+    reservationModal.addEventListener("show.bs.modal", loadPaymentMethodsDropdown);
+}
 // === GLOBALS & CONSTANTS ===
 // ==========================
 const BASE_URL = "/Hotel-Reservation-Billing-System/api/admin";
@@ -12,6 +38,39 @@ let cachedRooms = [];
 // === INITIALIZATION =======
 // ==========================
 document.addEventListener("DOMContentLoaded", () => {
+    // --- Live update for room price and partial payment ---
+    function updateRoomPriceAndPartial() {
+        const roomTypeSelectEl = document.getElementById("roomTypeSelect");
+        const roomPriceDiv = document.getElementById("roomPrice");
+        const partialPaymentDiv = document.getElementById("partialPayment");
+        let price = 0;
+        if (roomTypeSelectEl && roomTypeSelectEl.value) {
+            const type = cachedRoomTypes.find(t => t.room_type_id == roomTypeSelectEl.value);
+            if (type && type.price_per_stay) {
+                price = parseFloat(type.price_per_stay);
+            }
+        }
+        // Format as PHP peso
+        const formatPeso = v => `₱${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        if (roomPriceDiv) {
+            roomPriceDiv.textContent = formatPeso(price);
+        }
+        if (partialPaymentDiv) {
+            partialPaymentDiv.textContent = formatPeso(price * 0.5);
+        }
+    }
+
+    // Attach listeners for live update
+    const roomTypeSelectEl = document.getElementById("roomTypeSelect");
+    if (roomTypeSelectEl) {
+        roomTypeSelectEl.addEventListener("change", updateRoomPriceAndPartial);
+    }
+    const roomSelectEl = document.getElementById("roomSelect");
+    if (roomSelectEl) {
+        roomSelectEl.addEventListener("change", updateRoomPriceAndPartial);
+    }
+    // Also update on modal open
+    updateRoomPriceAndPartial();
     // --- Guest search logic ---
     let allGuests = [];
     const guestSearchInput = document.getElementById("guestSearchInput");
@@ -133,8 +192,11 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
+
     // --- Load initial data ---
-    loadRoomTypes();
+    loadRoomTypes().then(() => {
+        updateRoomPriceAndPartial();
+    });
     loadGuests();
     loadIDTypes();
     loadStatuses().then(() => {
@@ -154,6 +216,7 @@ document.addEventListener("DOMContentLoaded", () => {
             new bootstrap.Modal(document.getElementById("reservationModal")).show();
             updateAvailableRooms();
             updateCheckoutDate();
+            updateRoomPriceAndPartial();
         });
     }
 
@@ -268,11 +331,6 @@ async function displayReservations(data) {
         const response = await axios.get(`${BASE_URL}/reservations/reservations.php`, {
             params: { operation: "getAllReservations" }
         });
-
-        console.log("📡 API Response Status:", response.status); // DEBUG
-        console.log("📡 API Response Data:", response.data); // DEBUG
-        console.log("📡 Data Type:", typeof response.data); // DEBUG
-        console.log("📡 Is Array:", Array.isArray(response.data)); // DEBUG
 
         if (response.status === 200) {
             displayReservationsTable(response.data);
@@ -425,7 +483,6 @@ function clearReservationForm() {
     };
 
     setFieldValue("reservationId", "");
-    setFieldValue("checkInTime", "14:00");
 
     const modalLabel = document.getElementById("reservationModalLabel");
     if (modalLabel) {
@@ -442,6 +499,8 @@ function clearReservationForm() {
     setFieldValue("roomTypeSelect", "");
     updateAvailableRooms();
     loadIDTypes();
+    // Ensure price/partial fields are reset
+    if (typeof updateRoomPriceAndPartial === 'function') updateRoomPriceAndPartial();
 }
 
 function updateCheckoutDate() {
@@ -805,6 +864,9 @@ async function saveReservation() {
         return el ? el.value : "";
     }
 
+    // Get selected payment method for partial payment
+    const subMethodId = getVal("paymentMethodSelect");
+
     // Use hidden guestSelectId if present
     let guestId = document.getElementById("guestSelectId")?.value || getVal("guestSelect");
 
@@ -821,15 +883,13 @@ async function saveReservation() {
     const idType = getVal("idType");
     const idNumber = getVal("idNumber");
     const checkInDate = getVal("checkInDate");
-    const checkInTime = getVal("checkInTime") || "14:00";
     const checkOutDate = getVal("checkOutDate");
-    const checkOutTime = getVal("checkOutTime") || checkInTime;
     const roomTypeId = getVal("roomTypeSelect");
     const roomId = getVal("roomSelect");
     const statusId = getVal("statusSelect");
 
     // Validation
-    if (!firstName || !lastName || !dateOfBirth || !email || !phone || !idType || !idNumber || !checkInDate || !checkInTime || !roomTypeId || !roomId || !statusId) {
+    if (!firstName || !lastName || !dateOfBirth || !email || !phone || !idType || !idNumber || !checkInDate || !roomTypeId || !roomId || !statusId) {
         showError("Please fill in all required fields.");
         if (saveBtn) saveBtn.disabled = false;
         return;
@@ -932,12 +992,11 @@ async function saveReservation() {
     const jsonData = {
         guest_id: guestId,
         check_in_date: checkInDate,
-        check_in_time: checkInTime,
         check_out_date: checkOutDate,
-        check_out_time: checkOutTime,
         room_type_id: roomTypeId,
         room_id: roomId,
-        reservation_status_id: statusId
+        reservation_status_id: statusId,
+        sub_method_id: subMethodId // Pass payment method to backend
     };
 
     let operation = "insertReservation";

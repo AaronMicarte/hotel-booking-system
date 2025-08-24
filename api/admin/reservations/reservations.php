@@ -167,6 +167,54 @@ class Reservation
                 }
             }
 
+
+            // --- AUTO BILLING: FULL AMOUNT, PARTIAL PAYMENT ---
+            // Only insert billing if one does not already exist for this reservation
+            $sqlCheckBill = "SELECT COUNT(*) FROM Billing WHERE reservation_id = :reservation_id AND is_deleted = 0";
+            $stmtCheckBill = $db->prepare($sqlCheckBill);
+            $stmtCheckBill->bindParam(":reservation_id", $reservationId);
+            $stmtCheckBill->execute();
+            $billingExists = $stmtCheckBill->fetchColumn();
+            if (!$billingExists) {
+                // Get room price for this reservation (first room only for single booking)
+                $sqlRoom = "SELECT rt.price_per_stay\n                FROM Reservation res\n                LEFT JOIN ReservedRoom rr ON res.reservation_id = rr.reservation_id AND rr.is_deleted = 0\n                LEFT JOIN Room r ON rr.room_id = r.room_id\n                LEFT JOIN RoomType rt ON r.room_type_id = rt.room_type_id\n                WHERE res.reservation_id = :reservation_id\n                LIMIT 1";
+                $stmtRoom = $db->prepare($sqlRoom);
+                $stmtRoom->bindParam(":reservation_id", $reservationId);
+                $stmtRoom->execute();
+                $rowRoom = $stmtRoom->fetch(PDO::FETCH_ASSOC);
+                $room_price = ($rowRoom && isset($rowRoom['price_per_stay'])) ? floatval($rowRoom['price_per_stay']) : 0;
+                $partial_amount = $room_price * 0.5;
+                // Insert billing with FULL price, PARTIAL status (id=3)
+                $sqlBill = "INSERT INTO Billing (reservation_id, billing_status_id, total_amount, billing_date) VALUES (:reservation_id, :billing_status_id, :total_amount, NOW())";
+                $stmtBill = $db->prepare($sqlBill);
+                $billing_status_id = 3; // PARTIAL
+                $stmtBill->bindParam(":reservation_id", $reservationId);
+                $stmtBill->bindParam(":billing_status_id", $billing_status_id);
+                $stmtBill->bindParam(":total_amount", $room_price);
+                $stmtBill->execute();
+
+                // Get the billing_id just created
+                $billingId = $db->lastInsertId();
+                // Insert payment for 50% (partial)
+                if ($billingId && $partial_amount > 0) {
+                    // Use sub_method_id from frontend if provided, else default to 1 (GCash)
+                    $sub_method_id = 1;
+                    if (isset($json['sub_method_id']) && is_numeric($json['sub_method_id'])) {
+                        $sub_method_id = intval($json['sub_method_id']);
+                    }
+                    $sqlPay = "INSERT INTO Payment (user_id, billing_id, reservation_id, sub_method_id, amount_paid, payment_date, notes, is_deleted) VALUES (:user_id, :billing_id, :reservation_id, :sub_method_id, :amount_paid, NOW(), :notes, 0)";
+                    $stmtPay = $db->prepare($sqlPay);
+                    $stmtPay->bindParam(":user_id", $userId);
+                    $stmtPay->bindParam(":billing_id", $billingId);
+                    $stmtPay->bindParam(":reservation_id", $reservationId);
+                    $stmtPay->bindParam(":sub_method_id", $sub_method_id);
+                    $stmtPay->bindParam(":amount_paid", $partial_amount);
+                    $note = "Partial/Downpayment (auto)";
+                    $stmtPay->bindParam(":notes", $note);
+                    $stmtPay->execute();
+                }
+            }
+
             $this->logStatusHistory($reservationId, $reservation_status_id, $userId);
         }
         echo json_encode($returnValue);
@@ -178,6 +226,23 @@ class Reservation
         $database = new Database();
         $db = $database->getConnection();
         $json = is_array($json) ? $json : json_decode($json, true);
+
+        // --- Update Payment sub_method_id for this reservation's partial payment if present ---
+        if (isset($json['sub_method_id']) && is_numeric($json['sub_method_id'])) {
+            // Find the latest partial payment for this reservation
+            $sqlPay = "SELECT payment_id FROM Payment WHERE reservation_id = :reservation_id AND is_deleted = 0 ORDER BY payment_id DESC LIMIT 1";
+            $stmtPay = $db->prepare($sqlPay);
+            $stmtPay->bindParam(":reservation_id", $json['reservation_id']);
+            $stmtPay->execute();
+            $paymentId = $stmtPay->fetchColumn();
+            if ($paymentId) {
+                $sqlUpdatePay = "UPDATE Payment SET sub_method_id = :sub_method_id WHERE payment_id = :payment_id";
+                $stmtUpdatePay = $db->prepare($sqlUpdatePay);
+                $stmtUpdatePay->bindParam(":sub_method_id", $json['sub_method_id']);
+                $stmtUpdatePay->bindParam(":payment_id", $paymentId);
+                $stmtUpdatePay->execute();
+            }
+        }
 
         // --- Get previous status for comparison ---
         $sqlPrev = "SELECT reservation_status_id FROM Reservation WHERE reservation_id = :reservation_id";

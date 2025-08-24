@@ -235,8 +235,19 @@ class Billing
         $db = $database->getConnection();
         $json = is_array($json) ? $json : json_decode($json, true);
 
-        // --- Compute total_amount (room price + addons) ---
         $reservation_id = $json['reservation_id'];
+        // Prevent duplicate billing for the same reservation
+        $sqlCheck = "SELECT COUNT(*) FROM Billing WHERE reservation_id = :reservation_id AND is_deleted = 0";
+        $stmtCheck = $db->prepare($sqlCheck);
+        $stmtCheck->bindParam(":reservation_id", $reservation_id);
+        $stmtCheck->execute();
+        $exists = $stmtCheck->fetchColumn();
+        if ($exists) {
+            echo json_encode(0);
+            return;
+        }
+
+        // --- Compute total_amount (room price + addons) ---
         $room_price = 0;
         // Get room price for this reservation
         $sqlRoom = "SELECT rt.price_per_stay

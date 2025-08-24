@@ -83,9 +83,6 @@ export const updateReservationModal = async (reservation, roomTypes, statuses, r
             ? guest[field]
             : (reservation[field] || "");
 
-        // Use reservation's check-in/out time as provided by API, fallback to empty string
-        const checkInTime = reservation.check_in_time || "";
-        const checkOutTime = reservation.check_out_time || "";
 
         let myHtml = `
             <form id="updateReservationForm">
@@ -142,16 +139,8 @@ export const updateReservationModal = async (reservation, roomTypes, statuses, r
                             <input type="date" id="update-checkInDate" class="form-control" value="${reservation.check_in_date || ''}" required>
                         </div>
                         <div class="col-md-6">
-                            <label for="update-checkInTime" class="form-label">Check-in Time</label>
-                            <input type="time" id="update-checkInTime" class="form-control" value="${checkInTime}" required>
-                        </div>
-                        <div class="col-md-6">
                             <label for="update-checkOutDate" class="form-label">Check-out Date</label>
                             <input type="date" id="update-checkOutDate" class="form-control" value="${reservation.check_out_date || ''}" required readonly>
-                        </div>
-                        <div class="col-md-6">
-                            <label for="update-checkOutTime" class="form-label">Check-out Time</label>
-                            <input type="time" id="update-checkOutTime" class="form-control" value="${checkOutTime}" required readonly>
                         </div>
                     </div>
                 </div>
@@ -357,9 +346,7 @@ async function updateReservationFromModal() {
         reservation_id: reservationId,
         guest_id: guest_id,
         check_in_date: document.getElementById("update-checkInDate").value,
-        check_in_time: document.getElementById("update-checkInTime").value,
         check_out_date: document.getElementById("update-checkOutDate").value,
-        check_out_time: document.getElementById("update-checkOutTime").value,
         room_type_id: document.getElementById("update-roomTypeSelect").value,
         room_id: document.getElementById("update-roomSelect").value,
         reservation_status_id: document.getElementById("update-statusSelect").value
