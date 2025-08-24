@@ -185,7 +185,6 @@
 /* Modal (Swal2) */
 .swal2-popup {
     border-radius: 16px !important;
-    box-shadow: 0 8px 32px rgba(210, 7, 7, 0.10) !important;
     border: 1px solid var(--calendar-border) !important;
     font-family: var(--calendar-font);
     padding: 0 !important;
@@ -194,7 +193,6 @@
 .swal2-title {
     font-size: 1.2rem !important;
     font-weight: 700 !important;
-    color: var(--calendar-primary) !important;
     padding: 18px 18px 0 18px !important;
 }
 
@@ -205,7 +203,6 @@
 }
 
 .swal2-close {
-    color: var(--calendar-primary) !important;
     font-size: 1.5rem !important;
     background: transparent !important;
     border-radius: 50% !important;
@@ -213,7 +210,6 @@
 }
 
 .swal2-close:hover {
-    color: var(--calendar-secondary) !important;
     background: #ffeaea !important;
 }
 

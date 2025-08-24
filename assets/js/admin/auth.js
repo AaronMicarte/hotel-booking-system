@@ -165,6 +165,11 @@ class AdminAuth {
                 sessionStorage.setItem('admin_user', JSON.stringify(result.user)); // <-- user_id should be present here
                 sessionStorage.setItem('login_time', Date.now().toString());
 
+                // Log user id to console
+                if (result.user && result.user.user_id) {
+                    console.log("[AUTH] Logged in user_id:", result.user.user_id);
+                }
+
                 // Show success and redirect AFTER SweetAlert timer
                 Swal.fire({
                     title: 'Login Successful!',
@@ -363,7 +368,18 @@ class AdminAuth {
 
     getUser() {
         const user = sessionStorage.getItem('admin_user');
-        return user ? JSON.parse(user) : null; // <-- user_id should be present in this object
+        if (user) {
+            try {
+                const parsed = JSON.parse(user);
+                if (parsed && parsed.user_id) {
+                    console.log("[AUTH] Current session user_id:", parsed.user_id);
+                }
+                return parsed;
+            } catch (e) {
+                return null;
+            }
+        }
+        return null;
     }
 
     logout(silent = false) {
@@ -414,6 +430,14 @@ if (window.location.hostname !== 'localhost' && window.location.hostname !== '12
 
 // Initialize authentication
 window.adminAuth = new AdminAuth();
+
+// Log user id on page load if logged in
+if (window.adminAuth.isLoggedIn()) {
+    const user = window.adminAuth.getUser();
+    if (user && user.user_id) {
+        console.log("[AUTH] Page load user_id:", user.user_id);
+    }
+}
 
 // Prevent back button after logout
 window.addEventListener('pageshow', function (event) {

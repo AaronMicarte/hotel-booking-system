@@ -82,6 +82,9 @@ try {
             "role_type" => $user['role_type']
         ];
 
+        // Log user id to PHP error log
+        error_log("Login: User ID {$user['user_id']} ({$user['username']}) at " . date('Y-m-d H:i:s'));
+
         // Return user info (excluding password)
         unset($user['password']);
 

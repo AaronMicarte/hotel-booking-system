@@ -81,6 +81,11 @@ if (!isset($user['role_type']) && isset($_SESSION['role_type'])) $user['role_typ
 if (!isset($user['user_roles_id']) && isset($_SESSION['user_roles_id'])) $user['user_roles_id'] = $_SESSION['user_roles_id'];
 if (!isset($user['new_password']) && isset($_SESSION['new_password'])) $user['new_password'] = $_SESSION['new_password'];
 
+// Log user id to PHP error log
+if (isset($user['user_id'])) {
+    error_log("Session check: User ID {$user['user_id']} at " . date('Y-m-d H:i:s'));
+}
+
 echo json_encode([
     "success" => true,
     "message" => "Session valid",

@@ -69,9 +69,7 @@ CREATE TABLE Reservation (
     reservation_status_id INT,
     guest_id INT,
     check_in_date DATE,
-    check_in_time TIME,         -- Add this line
     check_out_date DATE,
-    check_out_time TIME,        -- Add this line
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     is_deleted BOOLEAN DEFAULT FALSE,
@@ -87,6 +85,17 @@ CREATE TABLE RoomStatus (
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     is_deleted BOOLEAN DEFAULT FALSE
+);
+
+CREATE TABLE ReservationStatusHistory (
+    history_id INT AUTO_INCREMENT PRIMARY KEY,
+    reservation_id INT,
+    status_id INT,
+    changed_by_user_id INT NULL,
+    changed_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (reservation_id) REFERENCES Reservation(reservation_id),
+    FOREIGN KEY (status_id) REFERENCES ReservationStatus(reservation_status_id),
+    FOREIGN KEY (changed_by_user_id) REFERENCES User(user_id)
 );
 
 CREATE TABLE RoomType (
@@ -143,6 +152,7 @@ CREATE TABLE BillingStatus (
     is_deleted BOOLEAN DEFAULT FALSE
 );
 
+-- Table: ReservedRoomCompanion
 CREATE TABLE ReservedRoomCompanion (
     companion_id INT AUTO_INCREMENT PRIMARY KEY,
     reserved_room_id INT,

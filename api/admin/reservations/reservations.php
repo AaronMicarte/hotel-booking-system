@@ -25,13 +25,18 @@ class Reservation
                        r.room_number,
                        rt.type_name,
                        r.room_id,
-                       rt.room_type_id
+                       rt.room_type_id,
+                       u.username AS created_by_username,
+                       u.user_id AS created_by_user_id,
+                       ur.role_type AS created_by_role
                 FROM Reservation res
                 LEFT JOIN Guest g ON res.guest_id = g.guest_id
                 LEFT JOIN ReservationStatus rs ON res.reservation_status_id = rs.reservation_status_id
                 LEFT JOIN ReservedRoom rr ON res.reservation_id = rr.reservation_id AND rr.is_deleted = 0
                 LEFT JOIN Room r ON rr.room_id = r.room_id
                 LEFT JOIN RoomType rt ON r.room_type_id = rt.room_type_id
+                LEFT JOIN User u ON res.user_id = u.user_id
+                LEFT JOIN UserRoles ur ON u.user_roles_id = ur.user_roles_id
                 WHERE res.is_deleted = 0";
 
         // Apply filters
@@ -101,56 +106,68 @@ class Reservation
         $db = $database->getConnection();
         $json = is_array($json) ? $json : json_decode($json, true);
 
-        // Add check_in_time and check_out_time support
-        $sql = "INSERT INTO Reservation (user_id, reservation_status_id, guest_id, check_in_date, check_in_time, check_out_date, check_out_time)
-                VALUES (:user_id, :reservation_status_id, :guest_id, :check_in_date, :check_in_time, :check_out_date, :check_out_time)";
+        $userId = isset($json['user_id']) ? $json['user_id'] : null;
+        $reservation_status_id = 1;
+
+        $sql = "INSERT INTO Reservation (user_id, reservation_status_id, guest_id, check_in_date, check_out_date)
+                VALUES (:user_id, :reservation_status_id, :guest_id, :check_in_date, :check_out_date)";
         $stmt = $db->prepare($sql);
-        $stmt->bindParam(':user_id', $json['user_id']);
-        $stmt->bindParam(':reservation_status_id', $json['reservation_status_id']);
+        $stmt->bindParam(':user_id', $userId);
+        $stmt->bindParam(':reservation_status_id', $reservation_status_id);
         $stmt->bindParam(':guest_id', $json['guest_id']);
         $stmt->bindParam(':check_in_date', $json['check_in_date']);
-        $stmt->bindParam(':check_in_time', $json['check_in_time']);
         $stmt->bindParam(':check_out_date', $json['check_out_date']);
-        $stmt->bindParam(':check_out_time', $json['check_out_time']);
         $stmt->execute();
 
         $returnValue = 0;
         if ($stmt->rowCount() > 0) {
             $returnValue = 1;
             $reservationId = $db->lastInsertId();
-            // Always insert into ReservedRoom if room_id is provided and not already reserved for this reservation
-            if (!empty($json['room_id'])) {
-                $sqlCheck = "SELECT COUNT(*) FROM ReservedRoom WHERE reservation_id = :reservation_id AND room_id = :room_id AND is_deleted = 0";
-                $stmtCheck = $db->prepare($sqlCheck);
-                $stmtCheck->bindParam(':reservation_id', $reservationId);
-                $stmtCheck->bindParam(':room_id', $json['room_id']);
-                $stmtCheck->execute();
-                $exists = $stmtCheck->fetchColumn();
-                if (!$exists) {
-                    $sql2 = "INSERT INTO ReservedRoom (reservation_id, room_id) VALUES (:reservation_id, :room_id)";
-                    $stmt2 = $db->prepare($sql2);
-                    $stmt2->bindParam(':reservation_id', $reservationId);
-                    $stmt2->bindParam(':room_id', $json['room_id']);
-                    $stmt2->execute();
+
+            // --- Single Room Booking ---
+            if (!empty($json['room_type_id']) && !empty($json['room_id'])) {
+                $sql2 = "INSERT INTO ReservedRoom (reservation_id, room_id) VALUES (:reservation_id, :room_id)";
+                $stmt2 = $db->prepare($sql2);
+                $stmt2->bindParam(':reservation_id', $reservationId);
+                $stmt2->bindParam(':room_id', $json['room_id']);
+                $stmt2->execute();
+                // Set room status to reserved
+                $this->updateRoomStatus($json['room_id'], 4);
+            }
+
+            // --- Multi-room booking: insert all ReservedRoom and companions ---
+            if (!empty($json['rooms']) && is_array($json['rooms'])) {
+                foreach ($json['rooms'] as $room) {
+                    $room_type_id = $room['room_type_id'];
+                    $quantity = intval($room['quantity']);
+                    for ($i = 0; $i < $quantity; $i++) {
+                        $room_id = isset($room['selectedRoomIds'][$i]) ? $room['selectedRoomIds'][$i] : null;
+                        $guestAssignment = isset($room['guestAssignments'][$i]) ? $room['guestAssignments'][$i] : null;
+                        if ($room_id) {
+                            $sql2 = "INSERT INTO ReservedRoom (reservation_id, room_id) VALUES (:reservation_id, :room_id)";
+                            $stmt2 = $db->prepare($sql2);
+                            $stmt2->bindParam(':reservation_id', $reservationId);
+                            $stmt2->bindParam(':room_id', $room_id);
+                            $stmt2->execute();
+
+                            $reserved_room_id = $db->lastInsertId();
+
+                            // If guestAssignment is not the main booker, save as companion
+                            if ($guestAssignment && trim($guestAssignment) !== "" && $guestAssignment !== $json['main_booker_name']) {
+                                $sqlComp = "INSERT INTO ReservedRoomCompanion (reserved_room_id, full_name) VALUES (:reserved_room_id, :full_name)";
+                                $stmtComp = $db->prepare($sqlComp);
+                                $stmtComp->bindParam(':reserved_room_id', $reserved_room_id);
+                                $stmtComp->bindParam(':full_name', $guestAssignment);
+                                $stmtComp->execute();
+                            }
+                            // Set room status to reserved
+                            $this->updateRoomStatus($room_id, 4);
+                        }
+                    }
                 }
             }
-            // Set room status based on reservation_status_id
-            // 1: pending -> available (1)
-            // 2: confirmed -> reserved (4)
-            // 3: checked-in -> occupied (2)
-            // 4: checked-out -> available (1)
-            // 5: cancelled -> available (1)
-            $roomStatusId = 1; // default to available
-            if (isset($json['reservation_status_id'])) {
-                if ($json['reservation_status_id'] == 2) {
-                    $roomStatusId = 4;
-                } else if ($json['reservation_status_id'] == 3) {
-                    $roomStatusId = 2;
-                }
-            }
-            if (!empty($json['room_id'])) {
-                $this->updateRoomStatus($json['room_id'], $roomStatusId);
-            }
+
+            $this->logStatusHistory($reservationId, $reservation_status_id, $userId);
         }
         echo json_encode($returnValue);
     }
@@ -161,6 +178,13 @@ class Reservation
         $database = new Database();
         $db = $database->getConnection();
         $json = is_array($json) ? $json : json_decode($json, true);
+
+        // --- Get previous status for comparison ---
+        $sqlPrev = "SELECT reservation_status_id FROM Reservation WHERE reservation_id = :reservation_id";
+        $stmtPrev = $db->prepare($sqlPrev);
+        $stmtPrev->bindParam(":reservation_id", $json['reservation_id']);
+        $stmtPrev->execute();
+        $prevStatusId = $stmtPrev->fetchColumn();
 
         // --- Update Guest if guest_id and guest fields are present ---
         if (!empty($json['guest_id']) && (
@@ -196,17 +220,13 @@ class Reservation
         $sql = "UPDATE Reservation 
                 SET guest_id = :guest_id, 
                     check_in_date = :check_in_date, 
-                    check_in_time = :check_in_time,
-                    check_out_date = :check_out_date, 
-                    check_out_time = :check_out_time,
+                    check_out_date = :check_out_date,
                     reservation_status_id = :reservation_status_id
                 WHERE reservation_id = :reservation_id";
         $stmt = $db->prepare($sql);
         $stmt->bindParam(":guest_id", $json['guest_id']);
         $stmt->bindParam(":check_in_date", $json['check_in_date']);
-        $stmt->bindParam(":check_in_time", $json['check_in_time']);
         $stmt->bindParam(":check_out_date", $json['check_out_date']);
-        $stmt->bindParam(":check_out_time", $json['check_out_time']);
         $stmt->bindParam(":reservation_status_id", $json['reservation_status_id']);
         $stmt->bindParam(":reservation_id", $json['reservation_id']);
         $stmt->execute();
@@ -252,6 +272,11 @@ class Reservation
         }
         $this->updateRoomStatus($json['room_id'], $roomStatusId);
 
+        // If status changed, log history
+        if ($prevStatusId != $json['reservation_status_id']) {
+            $this->logStatusHistory($json['reservation_id'], $json['reservation_status_id'], isset($json['user_id']) ? $json['user_id'] : null);
+        }
+
         // If any update happened, return 1
         if ($stmt->rowCount() > 0 || $oldRoomId != $json['room_id']) {
             $returnValue = 1;
@@ -285,6 +310,22 @@ class Reservation
         $stmt->bindParam(":room_id", $roomId);
         $stmt->bindParam(":status_id", $statusId);
         return $stmt->execute();
+    }
+
+    // --- Add this helper to log status history ---
+    private function logStatusHistory($reservationId, $statusId, $userId = null)
+    {
+        include_once '../../config/database.php';
+        $database = new Database();
+        $db = $database->getConnection();
+
+        $sql = "INSERT INTO ReservationStatusHistory (reservation_id, status_id, changed_by_user_id, changed_at)
+                VALUES (:reservation_id, :status_id, :user_id, NOW())";
+        $stmt = $db->prepare($sql);
+        $stmt->bindParam(':reservation_id', $reservationId);
+        $stmt->bindParam(':status_id', $statusId);
+        $stmt->bindParam(':user_id', $userId);
+        $stmt->execute();
     }
 
     // Method to delete a reservation (soft delete)
@@ -327,6 +368,55 @@ class Reservation
         }
         echo json_encode($returnValue);
     }
+
+    // --- API to get reservation status history ---
+    function getReservationStatusHistory($json)
+    {
+        include_once '../../config/database.php';
+        $database = new Database();
+        $db = $database->getConnection();
+        $json = is_array($json) ? $json : json_decode($json, true);
+
+        $sql = "SELECT h.*, s.reservation_status, u.username
+                FROM ReservationStatusHistory h
+                LEFT JOIN ReservationStatus s ON h.status_id = s.reservation_status_id
+                LEFT JOIN User u ON h.changed_by_user_id = u.user_id
+                WHERE h.reservation_id = :reservation_id
+                ORDER BY h.changed_at DESC";
+        $stmt = $db->prepare($sql);
+        $stmt->bindParam(':reservation_id', $json['reservation_id']);
+        $stmt->execute();
+        $history = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode($history);
+    }
+
+    // --- API to get ALL reservation status histories with guest and room info ---
+    function getAllReservationStatusHistory()
+    {
+        include_once '../../config/database.php';
+        $database = new Database();
+        $db = $database->getConnection();
+
+        $sql = "SELECT h.*, s.reservation_status, u.username, ur.role_type AS user_role,
+                       r.guest_id, CONCAT(g.first_name, ' ', g.last_name) AS guest_name,
+                       rm.room_number, rt.type_name
+                FROM ReservationStatusHistory h
+                LEFT JOIN ReservationStatus s ON h.status_id = s.reservation_status_id
+                LEFT JOIN User u ON h.changed_by_user_id = u.user_id
+                LEFT JOIN UserRoles ur ON u.user_roles_id = ur.user_roles_id
+                LEFT JOIN Reservation r ON h.reservation_id = r.reservation_id
+                LEFT JOIN Guest g ON r.guest_id = g.guest_id
+                LEFT JOIN ReservedRoom rr ON r.reservation_id = rr.reservation_id AND rr.is_deleted = 0
+                LEFT JOIN Room rm ON rr.room_id = rm.room_id
+                LEFT JOIN RoomType rt ON rm.room_type_id = rt.room_type_id
+                ORDER BY h.changed_at DESC";
+        $stmt = $db->prepare($sql);
+        $stmt->execute();
+        $history = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+        echo json_encode($history);
+    }
 }
 
 // --- Unified request handling (like SIR MAC) ---
@@ -364,5 +454,11 @@ switch ($operation) {
         break;
     case "deleteReservation":
         $reservation->deleteReservation($json);
+        break;
+    case "getReservationStatusHistory":
+        $reservation->getReservationStatusHistory($json);
+        break;
+    case "getAllReservationStatusHistory":
+        $reservation->getAllReservationStatusHistory();
         break;
 }
