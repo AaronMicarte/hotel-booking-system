@@ -43,7 +43,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             // User icon and info
             let userHtml = '';
             if (h.username) {
-                userHtml = `<i class="fas fa-user-circle me-1 text-primary"></i> <span>${h.username}</span> <span class="text-muted small">(ID: ${h.changed_by_user_id || '-'})</span>`;
+                userHtml = `<i class="fas fa-user-circle me-1 text-primary"></i> <span>${h.username}</span>`;
             } else if (h.changed_by_user_id) {
                 userHtml = `<i class="fas fa-user-circle me-1 text-secondary"></i> <span>User #${h.changed_by_user_id}</span>`;
             } else {

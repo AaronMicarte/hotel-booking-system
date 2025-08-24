@@ -113,7 +113,6 @@ document.addEventListener('DOMContentLoaded', function () {
             .swal2-title {
                 font-size: 1.1rem !important;
                 font-weight: 600 !important;
-                color: var(--primary-color, #d20707) !important;
                 padding: 18px 18px 0 18px !important;
             }
             .swal2-html-container {
@@ -122,7 +121,6 @@ document.addEventListener('DOMContentLoaded', function () {
                 padding: 12px 18px 18px 18px !important;
             }
             .swal2-close {
-                color: var(--primary-color, #d20707) !important;
                 font-size: 1.5rem !important;
                 background: transparent !important;
                 border-radius: 50% !important;
@@ -151,30 +149,39 @@ document.addEventListener('DOMContentLoaded', function () {
         document.head.appendChild(style);
 
         // Load events from API
-        axios.get('/Hotel-Reservation-Billing-System/api/admin/reservations/calendar.php')
+        axios.get('/Hotel-Reservation-Billing-System/api/admin/reservations/reservations.php', {
+            params: { operation: "getAllReservations" }
+        })
             .then(res => {
-                const events = Array.isArray(res.data) ? res.data : [];
-                // Map to FullCalendar event objects, include check_in_time, check_out_time, type_name
-                const fcEvents = events.map(ev => ({
-                    id: String(ev.id),
-                    title: ev.title,
-                    start: ev.start,
-                    end: ev.end,
+                const reservations = Array.isArray(res.data) ? res.data : [];
+                // Map reservations to FullCalendar event objects
+                const fcEvents = reservations.map(r => ({
+                    id: String(r.reservation_id),
+                    title: r.guest_name || (r.first_name && r.last_name ? `${r.first_name} ${r.last_name}` : 'No Name'),
+                    start: r.check_in_date,
+                    end: r.check_out_date ? addOneDay(r.check_out_date) : r.check_in_date,
                     allDay: true,
                     extendedProps: {
-                        guest: ev.guest,
-                        guest_id: ev.guest_id,
-                        room: ev.room,
-                        room_number: ev.room_number,
-                        type_name: ev.type_name,
-                        status: ev.status,
-                        reservation_id: ev.id,
-                        check_in_time: ev.check_in_time,
-                        check_out_time: ev.check_out_time
+                        guest: r.guest_name || (r.first_name && r.last_name ? `${r.first_name} ${r.last_name}` : ''),
+                        guest_id: r.guest_id,
+                        room: r.room_number,
+                        room_number: r.room_number,
+                        type_name: r.type_name,
+                        status: r.reservation_status || r.room_status,
+                        reservation_id: r.reservation_id,
+                        check_in_time: r.check_in_time,
+                        check_out_time: r.check_out_time
                     },
-                    color: getStatusColor(ev.status), // Use 'color' for FullCalendar v6+
-                    textColor: (ev.status && ev.status.toLowerCase() === 'pending') ? '#212529' : '#fff'
+                    color: getStatusColor(r.reservation_status || r.room_status),
+                    textColor: (r.reservation_status && r.reservation_status.toLowerCase() === 'pending') ? '#212529' : '#fff'
                 }));
+
+                // Helper to add one day to check-out date for FullCalendar's exclusive end
+                function addOneDay(dateStr) {
+                    const d = new Date(dateStr);
+                    d.setDate(d.getDate() + 1);
+                    return d.toISOString().split('T')[0];
+                }
 
                 // Initialize FullCalendar
                 const calendar = new FullCalendar.Calendar(calendarEl, {
