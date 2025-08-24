@@ -157,12 +157,12 @@ document.addEventListener('DOMContentLoaded', function () {
                 // Map reservations to FullCalendar event objects
                 const fcEvents = reservations.map(r => ({
                     id: String(r.reservation_id),
-                    title: r.guest_name || (r.first_name && r.last_name ? `${r.first_name} ${r.last_name}` : 'No Name'),
+                    title: getGuestFullName(r) || 'Unknown Guest',
                     start: r.check_in_date,
                     end: r.check_out_date ? addOneDay(r.check_out_date) : r.check_in_date,
                     allDay: true,
                     extendedProps: {
-                        guest: r.guest_name || (r.first_name && r.last_name ? `${r.first_name} ${r.last_name}` : ''),
+                        guest: getGuestFullName(r) || 'Unknown Guest',
                         guest_id: r.guest_id,
                         room: r.room_number,
                         room_number: r.room_number,
@@ -175,6 +175,17 @@ document.addEventListener('DOMContentLoaded', function () {
                     color: getStatusColor(r.reservation_status || r.room_status),
                     textColor: (r.reservation_status && r.reservation_status.toLowerCase() === 'pending') ? '#212529' : '#fff'
                 }));
+
+                // Helper to get full guest name
+                function getGuestFullName(r) {
+                    let name = '';
+                    if (r.first_name || r.last_name || r.middle_name || r.suffix) {
+                        name = [r.first_name, r.middle_name, r.last_name, r.suffix].filter(Boolean).join(' ');
+                    } else if (r.guest_name) {
+                        name = r.guest_name;
+                    }
+                    return name.trim() || '';
+                }
 
                 // Helper to add one day to check-out date for FullCalendar's exclusive end
                 function addOneDay(dateStr) {
@@ -252,17 +263,17 @@ document.addEventListener('DOMContentLoaded', function () {
                                     <div class="small text-muted mb-1">
                                         <i class="fas fa-user me-1"></i> <b>Guest:</b>
                                         <span class="guest-link-wrapper" data-guest-id="${ev.extendedProps.guest_id}" data-reservation-id="${ev.extendedProps.reservation_id}">
-                                            <a href="#" class="guest-link">${ev.extendedProps.guest || '-'}</a>
+                                            <a href="#" class="guest-link">${ev.extendedProps.guest || 'Unknown Guest'}</a>
                                         </span>
                                         <span class="mx-2">|</span>
                                         <i class="fas fa-bed me-1"></i> <b>Room:</b> ${ev.extendedProps.type_name ? `${ev.extendedProps.type_name} (${ev.extendedProps.room_number || ev.extendedProps.room || '-'})` : (ev.extendedProps.room || '-')}
                                     </div>
                                     <div class="small">
                                         <i class="fas fa-sign-in-alt me-1"></i> <b>Check-in:</b>
-                                        <span class="text-success">${formatDateTime(ev.start, ev.extendedProps.check_in_time)}</span>
+                                        <span class="text-success">${formatDate(ev.start)}</span>
                                         <span class="mx-2">|</span>
                                         <i class="fas fa-sign-out-alt me-1"></i> <b>Check-out:</b>
-                                        <span class="text-danger">${formatDateTime(checkOutDate, ev.extendedProps.check_out_time)}</span>
+                                        <span class="text-danger">${formatDate(checkOutDate)}</span>
                                     </div>
                                 </div>
                                 <div>
@@ -319,13 +330,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 // Show reservation details (single event)
                 function showReservationDetailsModal(ev) {
-                    function getTimeFromEvent(ev, key) {
-                        return ev.extendedProps && ev.extendedProps[key] ? ev.extendedProps[key] : "";
-                    }
                     // Subtract 1 day from check-out date for display
                     let checkOutDate = ev.end instanceof Date ? new Date(ev.end.getTime() - 24 * 60 * 60 * 1000) : null;
+                    // Fix guest name display: prefer ev.extendedProps.guest, fallback to ev.title, fallback to 'Unknown Guest'
+                    let guestName = ev.extendedProps.guest && ev.extendedProps.guest !== '-' ? ev.extendedProps.guest : (ev.title && ev.title !== '-' ? ev.title : 'Unknown Guest');
                     Swal.fire({
-                        title: `<i class="fas fa-calendar-check me-2"></i>${ev.title}`,
+                        title: `<i class="fas fa-calendar-check me-2"></i>${guestName}`,
                         html: `
                             <div class="mb-2">
                                 <span class="badge" style="background:${getStatusColor(ev.extendedProps.status)};color:#fff;">
@@ -334,15 +344,15 @@ document.addEventListener('DOMContentLoaded', function () {
                             </div>
                             <div class="mb-2"><i class="fas fa-user me-1"></i> <b>Guest:</b>
                                 <span class="guest-link-wrapper" data-guest-id="${ev.extendedProps.guest_id}" data-reservation-id="${ev.extendedProps.reservation_id}">
-                                    <a href="#" class="guest-link">${ev.extendedProps.guest || '-'}</a>
+                                    <a href="#" class="guest-link">${guestName}</a>
                                 </span>
                             </div>
                             <div class="mb-2"><i class="fas fa-bed me-1"></i> <b>Room:</b> ${ev.extendedProps.type_name ? `${ev.extendedProps.type_name} (${ev.extendedProps.room_number || ev.extendedProps.room || '-'})` : (ev.extendedProps.room || '-')}</div>
                             <div class="mb-2"><i class="fas fa-sign-in-alt me-1"></i> <b>Check-in:</b>
-                                <span class="text-success">${formatDateTime(ev.start, getTimeFromEvent(ev, "check_in_time"))}</span>
+                                <span class="text-success">${formatDate(ev.start)}</span>
                             </div>
                             <div class="mb-2"><i class="fas fa-sign-out-alt me-1"></i> <b>Check-out:</b>
-                                <span class="text-danger">${formatDateTime(checkOutDate, getTimeFromEvent(ev, "check_out_time"))}</span>
+                                <span class="text-danger">${formatDate(checkOutDate)}</span>
                             </div>
                         `,
                         width: 700,
@@ -360,9 +370,7 @@ document.addEventListener('DOMContentLoaded', function () {
                                             guestId,
                                             {
                                                 checkInDate: ev.start,
-                                                checkInTime: ev.extendedProps.check_in_time,
-                                                checkOutDate: checkOutDate,
-                                                checkOutTime: ev.extendedProps.check_out_time
+                                                checkOutDate: checkOutDate
                                             }
                                         );
                                     }
@@ -387,6 +395,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         let g = Array.isArray(res.data) ? res.data[0] : res.data;
                         if (!g || Object.keys(g).length === 0) {
                             showGuestInfoOnly(guestId);
+                            console.log('[DEBUG] showGuestDetailsModal called', { guestId, reservationInfo });
                             return;
                         }
                         let html = `
@@ -397,11 +406,10 @@ document.addEventListener('DOMContentLoaded', function () {
                             <div class="mb-2"><b>ID Type:</b> ${g.id_type || '-'}</div>
                             <div class="mb-2"><b>ID Number:</b> ${g.id_number || '-'}</div>
                         `;
-                        // Prefer reservationInfo from API, fallback to passed-in info
+                        console.log('[DEBUG] API response for getGuestWithLatestReservation', res.data);
+                        console.log('[DEBUG] Parsed guest object', g);
                         let checkInDate = g.check_in_date || (reservationInfo && reservationInfo.checkInDate);
-                        let checkInTime = g.check_in_time || (reservationInfo && reservationInfo.checkInTime);
                         let checkOutDate = g.check_out_date || (reservationInfo && reservationInfo.checkOutDate);
-                        let checkOutTime = g.check_out_time || (reservationInfo && reservationInfo.checkOutTime);
                         let room = g.type_name && g.room_number ? `${g.type_name} (${g.room_number})` : (g.room_number || '');
                         let status = g.reservation_status || '';
                         // If reservationInfo is still missing, try to find it from the calendar events
@@ -412,9 +420,8 @@ document.addEventListener('DOMContentLoaded', function () {
                             );
                             if (found) {
                                 checkInDate = found.start;
-                                checkInTime = found.extendedProps.check_in_time;
                                 checkOutDate = found.end;
-                                checkOutTime = found.extendedProps.check_out_time;
+                                console.log('[DEBUG] Computed guestName', guestName);
                                 room = found.extendedProps.type_name && found.extendedProps.room_number
                                     ? `${found.extendedProps.type_name} (${found.extendedProps.room_number})`
                                     : (found.extendedProps.room_number || '');
@@ -436,8 +443,8 @@ document.addEventListener('DOMContentLoaded', function () {
                                 html += `<div class="mb-2"><b>Status:</b> <span class="badge" style="background:${getStatusColor(status)};color:#fff;">${status}</span></div>`;
                             }
                             html += `
-                                <div class="mb-2"><b>Check-in:</b> <span class="text-success">${formatDateTime(checkInDate, checkInTime)}</span></div>
-                                <div class="mb-2"><b>Check-out:</b> <span class="text-danger">${formatDateTime(checkOutDate, checkOutTime)}</span></div>
+                                <div class="mb-2"><b>Check-in:</b> <span class="text-success">${formatDate(checkInDate)}</span></div>
+                                <div class="mb-2"><b>Check-out:</b> <span class="text-danger">${formatDate(checkOutDate)}</span></div>
                             `;
                         }
                         Swal.update({
@@ -456,18 +463,18 @@ document.addEventListener('DOMContentLoaded', function () {
                     axios.get(`/Hotel-Reservation-Billing-System/api/admin/guests/guests.php`, {
                         params: { operation: "getGuest", json: JSON.stringify({ guest_id: guestId }) }
                     }).then(res => {
-                        let g = Array.isArray(res.data) ? res.data[0] : res.data;
+                        let g2 = Array.isArray(res.data) ? res.data[0] : res.data;
                         let html = '';
-                        if (!g || Object.keys(g).length === 0) {
+                        if (!g2 || Object.keys(g2).length === 0) {
                             html = `<div class="text-danger">Guest not found.</div>`;
                         } else {
                             html = `
-                                <div class="mb-2"><b>Name:</b> ${g.first_name || ''} ${g.middle_name || ''} ${g.last_name || ''} ${g.suffix || ''}</div>
-                                <div class="mb-2"><b>Email:</b> ${g.email || '-'}</div>
-                                <div class="mb-2"><b>Phone:</b> ${g.phone_number || '-'}</div>
-                                <div class="mb-2"><b>Date of Birth:</b> ${formatDate(g.date_of_birth) || '-'}</div>
-                                <div class="mb-2"><b>ID Type:</b> ${g.id_type || '-'}</div>
-                                <div class="mb-2"><b>ID Number:</b> ${g.id_number || '-'}</div>
+                                <div class="mb-2"><b>Name:</b> ${g2.first_name || ''} ${g2.middle_name || ''} ${g2.last_name || ''} ${g2.suffix || ''}</div>
+                                <div class="mb-2"><b>Email:</b> ${g2.email || '-'} </div>
+                                <div class="mb-2"><b>Phone:</b> ${g2.phone_number || '-'} </div>
+                                <div class="mb-2"><b>Date of Birth:</b> ${formatDate(g2.date_of_birth) || '-'} </div>
+                                <div class="mb-2"><b>ID Type:</b> ${g2.id_type || '-'} </div>
+                                <div class="mb-2"><b>ID Number:</b> ${g2.id_number || '-'} </div>
                             `;
                         }
                         Swal.update({

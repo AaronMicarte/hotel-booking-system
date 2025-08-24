@@ -162,9 +162,7 @@ class Guest
                     t.id_type,
                     r.reservation_id,
                     r.check_in_date,
-                    r.check_in_time,
                     r.check_out_date,
-                    r.check_out_time,
                     rs.reservation_status,
                     rm.room_number,
                     rt.type_name
