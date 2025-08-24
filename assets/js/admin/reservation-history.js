@@ -43,7 +43,7 @@ document.addEventListener("DOMContentLoaded", async () => {
             // User icon and info
             let userHtml = '';
             if (h.username) {
-                userHtml = `<i class="fas fa-user-circle me-1 text-primary"></i> <span>${h.username}</span>`;
+                userHtml = `<i class="fas fa-user-circle me-1 text-primary"></i> <span>${h.username}</span> <span class="text-muted small">(ID: ${h.changed_by_user_id || '-'})</span>`;
             } else if (h.changed_by_user_id) {
                 userHtml = `<i class="fas fa-user-circle me-1 text-secondary"></i> <span>User #${h.changed_by_user_id}</span>`;
             } else {
@@ -70,8 +70,8 @@ document.addEventListener("DOMContentLoaded", async () => {
                 else if (s === 'checked-out') statusIcon = '<i class="fas fa-sign-out-alt text-primary"></i>';
                 else if (s === 'cancelled') statusIcon = '<i class="fas fa-times-circle text-danger"></i>';
             }
-            // Role
-            let role = h.user_role ? `<span class="text-muted small">${h.user_role}</span>` : '';
+            // Role (always show, even if user missing)
+            let role = h.user_role ? `<span class="text-muted small">${h.user_role}</span>` : `<span class="text-muted small">-</span>`;
             // Date (for filter)
             let changedAt = h.changed_at ? new Date(h.changed_at).toLocaleString() : '';
             tbody.innerHTML += `

@@ -274,7 +274,11 @@ class Reservation
 
         // If status changed, log history
         if ($prevStatusId != $json['reservation_status_id']) {
-            $this->logStatusHistory($json['reservation_id'], $json['reservation_status_id'], isset($json['user_id']) ? $json['user_id'] : null);
+            $this->logStatusHistory(
+                $json['reservation_id'],
+                $json['reservation_status_id'],
+                isset($json['user_id']) ? $json['user_id'] : null
+            );
         }
 
         // If any update happened, return 1
@@ -324,6 +328,7 @@ class Reservation
         $stmt = $db->prepare($sql);
         $stmt->bindParam(':reservation_id', $reservationId);
         $stmt->bindParam(':status_id', $statusId);
+        // Always bind user_id, even if null
         $stmt->bindParam(':user_id', $userId);
         $stmt->execute();
     }
@@ -399,6 +404,7 @@ class Reservation
         $db = $database->getConnection();
 
         $sql = "SELECT h.*, s.reservation_status, u.username, ur.role_type AS user_role,
+                       u.user_id AS changed_by_user_id,
                        r.guest_id, CONCAT(g.first_name, ' ', g.last_name) AS guest_name,
                        rm.room_number, rt.type_name
                 FROM ReservationStatusHistory h
@@ -436,6 +442,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 } else if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $operation = isset($_POST['operation']) ? $_POST['operation'] : '';
     $json = isset($_POST['json']) ? $_POST['json'] : '';
+    // --- Get user_id from session if available and inject into $json for logging ---
+    if (in_array($operation, ['updateReservation', 'insertReservation', 'deleteReservation'])) {
+        session_start();
+        if (!empty($_SESSION['user_id'])) {
+            $jsonArr = json_decode($json, true);
+            $jsonArr['user_id'] = $_SESSION['user_id'];
+            $json = json_encode($jsonArr);
+        }
+    }
 }
 
 $reservation = new Reservation();
