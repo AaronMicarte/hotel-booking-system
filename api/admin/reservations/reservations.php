@@ -105,6 +105,10 @@ class Reservation
         $database = new Database();
         $db = $database->getConnection();
         $json = is_array($json) ? $json : json_decode($json, true);
+        // Merge companions from POST if present (FormData sends companions as a separate field)
+        if (isset($_POST['companions']) && !isset($json['companions'])) {
+            $json['companions'] = $_POST['companions'];
+        }
 
         $userId = isset($json['user_id']) ? $json['user_id'] : null;
         $reservation_status_id = 1;
@@ -125,14 +129,38 @@ class Reservation
             $reservationId = $db->lastInsertId();
 
             // --- Single Room Booking ---
+            $reserved_room_id = null;
             if (!empty($json['room_type_id']) && !empty($json['room_id'])) {
                 $sql2 = "INSERT INTO ReservedRoom (reservation_id, room_id) VALUES (:reservation_id, :room_id)";
                 $stmt2 = $db->prepare($sql2);
                 $stmt2->bindParam(':reservation_id', $reservationId);
                 $stmt2->bindParam(':room_id', $json['room_id']);
                 $stmt2->execute();
-                // Set room status to reserved
-                $this->updateRoomStatus($json['room_id'], 4);
+                $reserved_room_id = $db->lastInsertId();
+            }
+
+            // --- Save companions for single room booking ---
+            $companions = [];
+            if (isset($json['companions'])) {
+                if (is_string($json['companions'])) {
+                    $decoded = json_decode($json['companions'], true);
+                    if (is_array($decoded)) {
+                        $companions = $decoded;
+                    }
+                } elseif (is_array($json['companions'])) {
+                    $companions = $json['companions'];
+                }
+            }
+            if (!empty($companions) && $reserved_room_id) {
+                foreach ($companions as $companionName) {
+                    if (trim($companionName) !== "") {
+                        $sqlComp = "INSERT INTO ReservedRoomCompanion (reserved_room_id, full_name) VALUES (:reserved_room_id, :full_name)";
+                        $stmtComp = $db->prepare($sqlComp);
+                        $stmtComp->bindParam(':reserved_room_id', $reserved_room_id);
+                        $stmtComp->bindParam(':full_name', $companionName);
+                        $stmtComp->execute();
+                    }
+                }
             }
 
             // --- Multi-room booking: insert all ReservedRoom and companions ---
@@ -150,13 +178,13 @@ class Reservation
                             $stmt2->bindParam(':room_id', $room_id);
                             $stmt2->execute();
 
-                            $reserved_room_id = $db->lastInsertId();
+                            $reserved_room_id_multi = $db->lastInsertId();
 
                             // If guestAssignment is not the main booker, save as companion
                             if ($guestAssignment && trim($guestAssignment) !== "" && $guestAssignment !== $json['main_booker_name']) {
                                 $sqlComp = "INSERT INTO ReservedRoomCompanion (reserved_room_id, full_name) VALUES (:reserved_room_id, :full_name)";
                                 $stmtComp = $db->prepare($sqlComp);
-                                $stmtComp->bindParam(':reserved_room_id', $reserved_room_id);
+                                $stmtComp->bindParam(':reserved_room_id', $reserved_room_id_multi);
                                 $stmtComp->bindParam(':full_name', $guestAssignment);
                                 $stmtComp->execute();
                             }
@@ -166,7 +194,6 @@ class Reservation
                     }
                 }
             }
-
 
             // --- AUTO BILLING: FULL AMOUNT, PARTIAL PAYMENT ---
             // Only insert billing if one does not already exist for this reservation

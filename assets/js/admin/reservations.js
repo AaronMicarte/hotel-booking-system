@@ -39,6 +39,85 @@ let cachedRooms = [];
 // ==========================
 document.addEventListener("DOMContentLoaded", () => {
     // --- Live update for room price and partial payment ---
+    // --- Companion UI logic for Add Reservation Modal ---
+    // Helper to get max capacity for selected room type
+    function getSelectedRoomTypeMaxCapacity() {
+        const roomTypeSelectEl = document.getElementById("roomTypeSelect");
+        if (!roomTypeSelectEl || !roomTypeSelectEl.value) return null;
+        const type = cachedRoomTypes.find(t => t.room_type_id == roomTypeSelectEl.value);
+        return type && type.max_capacity ? parseInt(type.max_capacity) : null;
+    }
+
+    // Render companion fields in Add Reservation Modal
+    function renderCompanionFields_AddModal() {
+        const container = document.getElementById("addCompanionFieldsContainer");
+        const maxCapDiv = document.getElementById("addMaxCapacityDisplay");
+        const numCompanionSelect = document.getElementById("addNumCompanionsSelect");
+        const roomTypeSelectEl = document.getElementById("roomTypeSelect");
+        if (!container || !maxCapDiv || !numCompanionSelect || !roomTypeSelectEl) return;
+        // Get max capacity for selected room type
+        const maxCapacity = getSelectedRoomTypeMaxCapacity();
+        if (!maxCapacity) {
+            maxCapDiv.textContent = "Max Capacity: N/A";
+            numCompanionSelect.innerHTML = '<option value="0">0</option>';
+            container.innerHTML = "";
+            return;
+        }
+        maxCapDiv.textContent = `Max Capacity: ${maxCapacity}`;
+        // Populate number of companions (maxCapacity - 1, since 1 slot is for main guest)
+        const maxCompanions = Math.max(0, maxCapacity - 1);
+        let options = '';
+        for (let i = 0; i <= maxCompanions; i++) {
+            options += `<option value="${i}">${i}</option>`;
+        }
+        // Save current value to restore after re-render
+        const prevValue = numCompanionSelect.value || "0";
+        numCompanionSelect.innerHTML = options;
+        // Restore previous value if possible, else default to 0
+        if ([...numCompanionSelect.options].some(opt => opt.value === prevValue)) {
+            numCompanionSelect.value = prevValue;
+        } else {
+            numCompanionSelect.value = "0";
+        }
+        // Render fields for current value
+        const num = parseInt(numCompanionSelect.value) || 0;
+        let fields = "";
+        for (let i = 1; i <= num; i++) {
+            fields += `<div class="mb-2"><label><i class='fas fa-user-friends me-1'></i>Companion #${i} Full Name</label><input type="text" class="form-control companion-name-input" name="companionName[]" placeholder="Full Name" required autocomplete="off"></div>`;
+        }
+        container.innerHTML = fields;
+    }
+
+    // Attach listeners for companion UI in Add Modal
+    function setupCompanionUI_AddModal() {
+        const roomTypeSelectEl = document.getElementById("roomTypeSelect");
+        const numCompanionSelect = document.getElementById("addNumCompanionsSelect");
+        if (roomTypeSelectEl) {
+            roomTypeSelectEl.addEventListener("change", () => {
+                renderCompanionFields_AddModal();
+                // Re-attach event after options update
+                const numCompanionSelect2 = document.getElementById("addNumCompanionsSelect");
+                if (numCompanionSelect2) {
+                    numCompanionSelect2.addEventListener("change", renderCompanionFields_AddModal);
+                }
+            });
+        }
+        if (numCompanionSelect) {
+            numCompanionSelect.addEventListener("change", renderCompanionFields_AddModal);
+        }
+    }
+
+    // Call setup on DOMContentLoaded
+    setupCompanionUI_AddModal();
+    // Always render fields on load if room type is preselected
+    setTimeout(() => {
+        renderCompanionFields_AddModal();
+        // Attach event in case options are present on load
+        const numCompanionSelect = document.getElementById("addNumCompanionsSelect");
+        if (numCompanionSelect) {
+            numCompanionSelect.addEventListener("change", renderCompanionFields_AddModal);
+        }
+    }, 0);
     function updateRoomPriceAndPartial() {
         const roomTypeSelectEl = document.getElementById("roomTypeSelect");
         const roomPriceDiv = document.getElementById("roomPrice");
@@ -490,6 +569,13 @@ function clearReservationForm() {
     }
 
     updateCheckoutDate();
+    // Reset companion UI in Add Modal
+    const maxCapDiv = document.getElementById("addMaxCapacityDisplay");
+    const numCompanionSelect = document.getElementById("addNumCompanionsSelect");
+    const container = document.getElementById("addCompanionFieldsContainer");
+    if (maxCapDiv) maxCapDiv.textContent = "Max Capacity: N/A";
+    if (numCompanionSelect) numCompanionSelect.innerHTML = '<option value="0">0</option>';
+    if (container) container.innerHTML = "";
 
     const roomSelect = document.getElementById("roomSelect");
     if (roomSelect) {
@@ -863,6 +949,9 @@ async function saveReservation() {
         const el = document.getElementById(id);
         return el ? el.value : "";
     }
+    // Get companion names from Add Modal
+    const companionInputs = document.querySelectorAll("#addCompanionFieldsContainer .companion-name-input");
+    const companionNames = Array.from(companionInputs).map(input => input.value.trim()).filter(Boolean);
 
     // Get selected payment method for partial payment
     const subMethodId = getVal("paymentMethodSelect");
@@ -1005,10 +1094,15 @@ async function saveReservation() {
         operation = "updateReservation";
     }
 
+
     // Save reservation
     const formData = new FormData();
     formData.append("operation", operation);
     formData.append("json", JSON.stringify(jsonData));
+    // Add companions to formData if any
+    if (companionNames.length > 0) {
+        formData.append("companions", JSON.stringify(companionNames));
+    }
 
     try {
         const response = await axios.post(`${BASE_URL}/reservations/reservations.php`, formData);

@@ -1,12 +1,17 @@
-// Reservation Update & Delete Module (Admin) - Correct guest/time handling
+// Reservation Update & Delete Module (Admin) - Fixed modal display issues
 
 export const updateReservationModal = async (reservation, roomTypes, statuses, refreshDisplay) => {
     try {
+        console.log("[DEBUG] Starting updateReservationModal with reservation:", reservation);
+
         const modalElement = document.getElementById("blank-modal");
         if (!modalElement) {
             console.error("Modal element not found");
             return;
         }
+
+        // Store current reservation globally for reference
+        window.currentReservation = reservation;
 
         // Fetch guest info from API (always use guest_id from reservation)
         let guest = {};
@@ -21,7 +26,9 @@ export const updateReservationModal = async (reservation, roomTypes, statuses, r
                 } else if (guestRes.data && typeof guestRes.data === "object") {
                     guest = guestRes.data;
                 }
+                console.log("[DEBUG] Fetched guest data:", guest);
             } catch (e) {
+                console.error("[DEBUG] Error fetching guest:", e);
                 guest = {};
             }
         }
@@ -36,7 +43,9 @@ export const updateReservationModal = async (reservation, roomTypes, statuses, r
             if (Array.isArray(idTypeRes.data)) {
                 idTypes = idTypeRes.data;
             }
+            console.log("[DEBUG] Fetched ID types:", idTypes);
         } catch (e) {
+            console.error("[DEBUG] Error fetching ID types:", e);
             idTypes = [];
         }
 
@@ -66,26 +75,39 @@ export const updateReservationModal = async (reservation, roomTypes, statuses, r
                         type_name: reservation.type_name
                     });
                 }
+                console.log("[DEBUG] Fetched available rooms:", availableRooms);
             } catch (e) {
+                console.error("[DEBUG] Error fetching rooms:", e);
                 availableRooms = [];
             }
         }
 
-        const myModal = new bootstrap.Modal(modalElement, {
+        // Defensive: Remove any stuck modal backdrops and forcibly hide modal before showing
+        document.querySelectorAll('.modal-backdrop').forEach(bd => bd.parentNode && bd.parentNode.removeChild(bd));
+        modalElement.classList.remove('show');
+        modalElement.style.display = 'none';
+        document.body.classList.remove('modal-open');
+
+        // Use getOrCreateInstance to avoid duplicate modals/backdrops
+        const myModal = bootstrap.Modal.getOrCreateInstance(modalElement, {
             keyboard: true,
             backdrop: "static",
         });
 
-        document.getElementById("blank-modal-title").innerText = "Update Reservation";
+        // Set modal title
+        const modalTitle = document.getElementById("blank-modal-title");
+        if (modalTitle) {
+            modalTitle.innerText = "Update Reservation";
+        }
 
         // Use guest info if available, fallback to reservation fields
         const g = (field) => guest && guest[field] !== undefined && guest[field] !== null
             ? guest[field]
             : (reservation[field] || "");
 
-
+        // Generate modal HTML
         let myHtml = `
-            <form id="updateReservationForm">
+            <form id="updateReservationForm" class="needs-validation" novalidate>
                 <input type="hidden" id="update-reservation-id" value="${reservation.reservation_id || ''}">
                 <div class="mb-4">
                     <h6 class="border-bottom pb-2"><i class="fas fa-user"></i> Guest Information</h6>
@@ -93,10 +115,12 @@ export const updateReservationModal = async (reservation, roomTypes, statuses, r
                         <div class="col-md-6">
                             <label for="update-firstName" class="form-label">First Name</label>
                             <input type="text" id="update-firstName" class="form-control" value="${g('first_name')}" required>
+                            <div class="invalid-feedback">Please provide a first name.</div>
                         </div>
                         <div class="col-md-6">
                             <label for="update-lastName" class="form-label">Last Name</label>
                             <input type="text" id="update-lastName" class="form-control" value="${g('last_name')}" required>
+                            <div class="invalid-feedback">Please provide a last name.</div>
                         </div>
                         <div class="col-md-6">
                             <label for="update-middleName" class="form-label">Middle Name</label>
@@ -109,14 +133,17 @@ export const updateReservationModal = async (reservation, roomTypes, statuses, r
                         <div class="col-md-3">
                             <label for="update-dateOfBirth" class="form-label">Date of Birth</label>
                             <input type="date" id="update-dateOfBirth" class="form-control" value="${g('date_of_birth') || ''}" required>
+                            <div class="invalid-feedback">Please provide a date of birth.</div>
                         </div>
                         <div class="col-md-6">
                             <label for="update-email" class="form-label">Email</label>
                             <input type="email" id="update-email" class="form-control" value="${g('email')}" required>
+                            <div class="invalid-feedback">Please provide a valid email.</div>
                         </div>
                         <div class="col-md-6">
                             <label for="update-phone" class="form-label">Phone</label>
                             <input type="tel" id="update-phone" class="form-control" value="${g('phone_number')}" required>
+                            <div class="invalid-feedback">Please provide a phone number.</div>
                         </div>
                         <div class="col-md-6">
                             <label for="update-idType" class="form-label">ID Type</label>
@@ -124,10 +151,12 @@ export const updateReservationModal = async (reservation, roomTypes, statuses, r
                                 <option value="">-- Select ID Type --</option>
                                 ${idTypes.map(type => `<option value="${type.id_type}" ${g('id_type') == type.id_type ? 'selected' : ''}>${type.id_type}</option>`).join('')}
                             </select>
+                            <div class="invalid-feedback">Please select an ID type.</div>
                         </div>
                         <div class="col-md-6">
                             <label for="update-idNumber" class="form-label">ID Number</label>
                             <input type="text" id="update-idNumber" class="form-control" value="${g('id_number') || ''}" required>
+                            <div class="invalid-feedback">Please provide an ID number.</div>
                         </div>
                     </div>
                 </div>
@@ -137,10 +166,12 @@ export const updateReservationModal = async (reservation, roomTypes, statuses, r
                         <div class="col-md-6">
                             <label for="update-checkInDate" class="form-label">Check-in Date</label>
                             <input type="date" id="update-checkInDate" class="form-control" value="${reservation.check_in_date || ''}" required>
+                            <div class="invalid-feedback">Please provide a check-in date.</div>
                         </div>
                         <div class="col-md-6">
                             <label for="update-checkOutDate" class="form-label">Check-out Date</label>
                             <input type="date" id="update-checkOutDate" class="form-control" value="${reservation.check_out_date || ''}" required readonly>
+                            <div class="invalid-feedback">Please provide a check-out date.</div>
                         </div>
                     </div>
                 </div>
@@ -153,6 +184,7 @@ export const updateReservationModal = async (reservation, roomTypes, statuses, r
                                 <option value="">-- Select Room Type --</option>
                                 ${roomTypes.map(type => `<option value="${type.room_type_id}" ${type.room_type_id == selectedRoomTypeId ? 'selected' : ''}>${type.type_name}</option>`).join('')}
                             </select>
+                            <div class="invalid-feedback">Please select a room type.</div>
                         </div>
                         <div class="col-md-6">
                             <label for="update-roomSelect" class="form-label">Available Rooms</label>
@@ -160,6 +192,7 @@ export const updateReservationModal = async (reservation, roomTypes, statuses, r
                                 <option value="">-- Select Room --</option>
                                 ${availableRooms.map(room => `<option value="${room.room_id}" ${room.room_id == selectedRoomId ? 'selected' : ''}>${room.room_number} (${room.type_name || ''})</option>`).join('')}
                             </select>
+                            <div class="invalid-feedback">Please select a room.</div>
                         </div>
                     </div>
                 </div>
@@ -171,30 +204,67 @@ export const updateReservationModal = async (reservation, roomTypes, statuses, r
                             <select id="update-statusSelect" class="form-select" required>
                                 ${statuses.map(status => `<option value="${status.reservation_status_id}" ${status.reservation_status_id == reservation.reservation_status_id ? 'selected' : ''}>${status.reservation_status}</option>`).join('')}
                             </select>
+                            <div class="invalid-feedback">Please select a status.</div>
                         </div>
                     </div>
                 </div>
             </form>
         `;
-        document.getElementById("blank-main-div").innerHTML = myHtml;
+
+        // Extra debug: log all key data
+        console.log('[DEBUG] updateReservationModal data:', {
+            reservation,
+            roomTypes,
+            statuses
+        });
+
+        // Set modal content with fallback and extra debug
+        const modalBody = document.getElementById("blank-main-div");
+        if (modalBody) {
+            let errorMsg = '';
+            if (!reservation || typeof reservation !== 'object') {
+                errorMsg += '<div>Reservation data is missing or invalid.</div>';
+            }
+            if (!Array.isArray(roomTypes) || roomTypes.length === 0) {
+                errorMsg += '<div>Room types data is missing or empty.</div>';
+            }
+            if (!Array.isArray(statuses) || statuses.length === 0) {
+                errorMsg += '<div>Status data is missing or empty.</div>';
+            }
+            if (errorMsg) {
+                modalBody.innerHTML = `<div class='alert alert-danger'><b>Modal Error:</b><br>${errorMsg}</div>`;
+                console.error('[DEBUG] Modal error:', errorMsg);
+            } else if (!myHtml || !myHtml.trim()) {
+                modalBody.innerHTML = '<div class="alert alert-danger">Failed to load reservation data. Please check the console for errors.</div>';
+                console.error("[DEBUG] Modal HTML is empty or invalid");
+            } else {
+                modalBody.innerHTML = myHtml;
+                console.log("[DEBUG] Modal HTML content set");
+            }
+        } else {
+            console.error("[DEBUG] Modal body element 'blank-main-div' not found");
+            return;
+        }
 
         // --- Dynamic update of available rooms when room type or date changes ---
         const updateRoomTypeSelect = document.getElementById("update-roomTypeSelect");
         const updateCheckInDate = document.getElementById("update-checkInDate");
         const updateCheckOutDate = document.getElementById("update-checkOutDate");
         const updateRoomSelect = document.getElementById("update-roomSelect");
-        const updateCheckInTime = document.getElementById("update-checkInTime");
-        const updateCheckOutTime = document.getElementById("update-checkOutTime");
 
         async function updateAvailableRoomsInModal() {
             const typeId = updateRoomTypeSelect.value;
             const checkInDate = updateCheckInDate.value;
             const checkOutDate = updateCheckOutDate.value;
             const reservationId = reservation.reservation_id;
+
+            console.log("[DEBUG] Updating rooms for:", { typeId, checkInDate, checkOutDate, reservationId });
+
             if (!typeId || !checkInDate || !checkOutDate) {
                 updateRoomSelect.innerHTML = `<option value="">-- Select Room --</option>`;
                 return;
             }
+
             try {
                 const params = {
                     operation: "getAvailableRooms",
@@ -205,6 +275,7 @@ export const updateReservationModal = async (reservation, roomTypes, statuses, r
                 };
                 const resp = await axios.get(`/Hotel-Reservation-Billing-System/api/admin/rooms/rooms.php`, { params });
                 let rooms = Array.isArray(resp.data) ? resp.data : [];
+
                 // Add current room if not in availableRooms (for editing)
                 if (reservation.room_id && !rooms.some(r => r.room_id == reservation.room_id)) {
                     rooms.push({
@@ -213,79 +284,134 @@ export const updateReservationModal = async (reservation, roomTypes, statuses, r
                         type_name: reservation.type_name
                     });
                 }
+
+                const currentSelection = updateRoomSelect.value;
                 updateRoomSelect.innerHTML = `<option value="">-- Select Room --</option>` +
-                    rooms.map(room => `<option value="${room.room_id}" ${room.room_id == updateRoomSelect.value ? 'selected' : ''}>${room.room_number} (${room.type_name || ''})</option>`).join('');
+                    rooms.map(room => `<option value="${room.room_id}" ${room.room_id == currentSelection ? 'selected' : ''}>${room.room_number} (${room.type_name || ''})</option>`).join('');
+
+                console.log("[DEBUG] Updated room options:", rooms);
             } catch (e) {
+                console.error("[DEBUG] Error updating rooms:", e);
                 updateRoomSelect.innerHTML = `<option value="">No available rooms</option>`;
             }
         }
 
-        // Auto-calculate checkout date/time when check-in date/time changes
-        function updateCheckoutFields() {
-            const checkInDate = updateCheckInDate.value;
-            const checkInTime = updateCheckInTime.value || "14:00";
-            if (checkInDate && checkInTime) {
-                const dt = new Date(`${checkInDate}T${checkInTime}:00+08:00`);
-                dt.setHours(dt.getHours() + 24);
-                const manilaDate = dt.toLocaleDateString('en-CA', { timeZone: 'Asia/Manila' });
-                const manilaTime = dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Manila' });
-                updateCheckOutDate.value = manilaDate;
-                updateCheckOutTime.value = manilaTime;
-            }
+        // Add event listeners
+        if (updateRoomTypeSelect) {
+            updateRoomTypeSelect.addEventListener("change", async () => {
+                await updateAvailableRoomsInModal();
+            });
         }
 
-        updateRoomTypeSelect.addEventListener("change", async () => {
-            await updateAvailableRoomsInModal();
-        });
-        updateCheckInDate.addEventListener("change", () => {
-            updateCheckoutFields();
-            updateAvailableRoomsInModal();
-        });
-        updateCheckInTime.addEventListener("change", () => {
-            updateCheckoutFields();
-        });
+        if (updateCheckInDate) {
+            updateCheckInDate.addEventListener("change", () => {
+                updateAvailableRoomsInModal();
+            });
+        }
 
         // Modal footer with update button
         const modalFooter = document.getElementById("blank-modal-footer");
-        modalFooter.innerHTML = `
-          <button type="button" class="btn btn-primary btn-sm w-100 btn-update-reservation">UPDATE</button>
-          <button type="button" class="btn btn-secondary btn-sm w-100" data-bs-dismiss="modal">Close</button>
-        `;
+        if (modalFooter) {
+            modalFooter.innerHTML = `
+              <button type="button" class="btn btn-primary btn-sm w-100 btn-update-reservation">
+                <i class="fas fa-save"></i> UPDATE
+              </button>
+              <button type="button" class="btn btn-secondary btn-sm w-100" data-bs-dismiss="modal">
+                <i class="fas fa-times"></i> Close
+              </button>
+            `;
 
-        // Update button logic
-        modalFooter.querySelector(".btn-update-reservation").addEventListener("click", async () => {
-            const result = await updateReservationFromModal();
-            if (result == 1) {
-                refreshDisplay();
-                if (window.Swal) {
-                    Swal.fire({
-                        toast: true,
-                        position: 'top-end',
-                        icon: 'success',
-                        title: 'Reservation record has been successfully updated!',
-                        showConfirmButton: false,
-                        timer: 1800
-                    });
-                }
-                myModal.hide();
-            } else {
-                if (window.Swal) {
-                    Swal.fire({
-                        toast: true,
-                        position: 'top-end',
-                        icon: 'error',
-                        title: 'Failed to update reservation!',
-                        showConfirmButton: false,
-                        timer: 1800
-                    });
-                }
+            // Update button logic
+            const updateBtn = modalFooter.querySelector(".btn-update-reservation");
+            if (updateBtn) {
+                updateBtn.addEventListener("click", async () => {
+                    console.log("[DEBUG] Update button clicked");
+
+                    // Validate form
+                    const form = document.getElementById("updateReservationForm");
+                    if (form && !form.checkValidity()) {
+                        form.classList.add('was-validated');
+                        return;
+                    }
+
+                    // Disable button and show loading
+                    updateBtn.disabled = true;
+                    updateBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Updating...';
+
+                    try {
+                        const result = await updateReservationFromModal();
+                        if (result == 1) {
+                            refreshDisplay();
+                            if (window.Swal) {
+                                Swal.fire({
+                                    toast: true,
+                                    position: 'top-end',
+                                    icon: 'success',
+                                    title: 'Reservation record has been successfully updated!',
+                                    showConfirmButton: false,
+                                    timer: 1800
+                                });
+                            }
+                            myModal.hide();
+                        } else {
+                            if (window.Swal) {
+                                Swal.fire({
+                                    toast: true,
+                                    position: 'top-end',
+                                    icon: 'error',
+                                    title: 'Failed to update reservation!',
+                                    showConfirmButton: false,
+                                    timer: 1800
+                                });
+                            }
+                        }
+                    } catch (error) {
+                        console.error("[DEBUG] Error in update process:", error);
+                        if (window.Swal) {
+                            Swal.fire({
+                                toast: true,
+                                position: 'top-end',
+                                icon: 'error',
+                                title: 'An error occurred while updating!',
+                                showConfirmButton: false,
+                                timer: 1800
+                            });
+                        }
+                    } finally {
+                        // Re-enable button
+                        updateBtn.disabled = false;
+                        updateBtn.innerHTML = '<i class="fas fa-save"></i> UPDATE';
+                    }
+                });
             }
+        }
+
+        // Add modal event listeners for debugging
+        modalElement.addEventListener('show.bs.modal', () => {
+            console.log("[DEBUG] Modal show event triggered");
         });
 
+        modalElement.addEventListener('shown.bs.modal', () => {
+            console.log("[DEBUG] Modal shown event triggered");
+        });
+
+        modalElement.addEventListener('hide.bs.modal', () => {
+            console.log("[DEBUG] Modal hide event triggered");
+        });
+
+        // Show the modal
+        console.log("[DEBUG] About to show modal");
         myModal.show();
+
+        // Defensive: Ensure modal is visible and body has modal-open
+        setTimeout(() => {
+            modalElement.style.display = 'block';
+            document.body.classList.add('modal-open');
+        }, 10);
+
     } catch (error) {
         console.error("Error showing reservation modal:", error);
-        alert("Error showing reservation modal");
+        alert("Error showing reservation modal: " + error.message);
     }
 };
 
