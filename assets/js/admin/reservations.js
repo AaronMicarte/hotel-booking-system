@@ -481,6 +481,7 @@ function displayReservationsTable(reservations) {
         totalReservationsEl.textContent = filteredReservations.length;
     }
 
+
     filteredReservations.forEach((res, index) => {
         // Format check-in and check-out time to 12-hour format with AM/PM
         function format12Hour(timeStr) {
@@ -506,11 +507,99 @@ function displayReservationsTable(reservations) {
         <td>${res.check_out_date || 'N/A'}${checkOutTime12 ? " " + checkOutTime12 : ""}</td>
         <td>${getStatusBadge(res.reservation_status || res.room_status || 'pending')}</td>
         <td>
+            <i class="fas fa-eye action-icon text-info" data-action="view" data-id="${res.reservation_id}" title="View Details" style="cursor:pointer;"></i>
             <i class="fas fa-edit action-icon text-primary" data-action="edit" data-id="${res.reservation_id}" title="Edit" style="cursor:pointer;"></i>
             <i class="fas fa-trash action-icon text-danger" data-action="delete" data-id="${res.reservation_id}" title="Delete" style="cursor:pointer;"></i>
         </td>
         `;
         tbody.appendChild(tr);
+
+        // View (SweetAlert, improved UI/UX, no exclamation icon)
+        const viewIcon = tr.querySelector('.fa-eye[data-action="view"]');
+        if (viewIcon) {
+            viewIcon.addEventListener("click", async () => {
+                try {
+                    let companions = [];
+                    let reservedRoomId = null;
+                    if (res.reservation_id) {
+                        const rrRes = await axios.get(`${BASE_URL}/reservations/reserved_rooms.php`, {
+                            params: { operation: "getAllReservedRooms" }
+                        });
+                        if (Array.isArray(rrRes.data)) {
+                            const rr = rrRes.data.find(r => r.reservation_id == res.reservation_id && r.is_deleted == 0);
+                            if (rr) reservedRoomId = rr.reserved_room_id;
+                        }
+                    }
+                    if (reservedRoomId) {
+                        const compRes = await axios.get(`${BASE_URL}/reservations/companions.php`, {
+                            params: { operation: "getAllCompanions" }
+                        });
+                        if (Array.isArray(compRes.data)) {
+                            companions = compRes.data.filter(c => c.reserved_room_id == reservedRoomId && c.is_deleted == 0);
+                        }
+                    }
+                    // Modern, visually appealing SweetAlert content
+                    let html = `<div style='text-align:left;font-size:1.08em;'>`;
+                    html += `<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px #0001;padding:1.2em 1.5em 1.2em 1.5em;">`;
+                    html += `<div style='display:flex;align-items:center;gap:12px;margin-bottom:18px;'>`;
+                    html += `<div style='background:#0d6efd1a;border-radius:50%;padding:10px;display:flex;align-items:center;justify-content:center;'><i class='fas fa-calendar-check text-primary' style='font-size:2em;'></i></div>`;
+                    html += `<span style='font-size:1.35em;font-weight:700;letter-spacing:0.5px;'>Reservation #${res.reservation_id || ''}</span>`;
+                    html += `</div>`;
+                    html += `<div style='display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;margin-bottom:18px;'>`;
+                    html += `<div><i class='fas fa-user text-secondary'></i> <span class='label'>Guest</span><br><span class='value'>${res.guest_name || ''}</span></div>`;
+                    html += `<div><i class='fas fa-door-open text-info'></i> <span class='label'>Room</span><br><span class='value'>${res.type_name ? `${res.type_name} (${res.room_number || ''})` : (res.room_number || 'No Room')}</span></div>`;
+                    html += `<div><i class='fas fa-sign-in-alt text-success'></i> <span class='label'>Check-in</span><br><span class='value'>${res.check_in_date || ''} ${checkInTime12}</span></div>`;
+                    html += `<div><i class='fas fa-sign-out-alt text-danger'></i> <span class='label'>Check-out</span><br><span class='value'>${res.check_out_date || ''} ${checkOutTime12}</span></div>`;
+                    html += `<div><i class='fas fa-info-circle text-warning'></i> <span class='label'>Status</span><br><span class='value'>${res.reservation_status || ''}</span></div>`;
+                    html += `</div>`;
+                    html += `<div style='margin-top:10px;'><i class='fas fa-users text-info'></i> <span class='label'>Companions</span><br>`;
+                    if (companions.length > 0) {
+                        html += `<div style='display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:6px;'>`;
+                        companions.forEach((c, i) => {
+                            html += `<div style='background:#f1f3f6;border-radius:8px;padding:9px 18px 9px 12px;display:flex;align-items:center;min-width:0;max-width:calc(50% - 18px);flex:1 1 45%;margin-bottom:6px;font-size:1.05em;box-shadow:0 1px 2px #0001;'>`;
+                            html += `<i class='fas fa-user-friends text-secondary me-2' style='margin-right:9px;'></i> <span style='white-space:normal;text-overflow:ellipsis;overflow:hidden;max-width:220px;display:inline-block;font-weight:500;'>${c.full_name}</span>`;
+                            html += `</div>`;
+                        });
+                        html += `</div>`;
+                    } else {
+                        html += `<span class='text-muted'>No companions listed.</span>`;
+                    }
+                    html += `</div>`;
+                    html += `</div>`;
+                    html += `</div>`;
+                    Swal.fire({
+                        title: '',
+                        html: html,
+                        showConfirmButton: true,
+                        confirmButtonText: '<i class="fas fa-times"></i> Close',
+                        customClass: {
+                            popup: 'swal2-reservation-details',
+                            htmlContainer: 'swal2-reservation-details-html'
+                        },
+                        background: '#f8f9fa',
+                        width: 860,
+                        didOpen: () => {
+                            // Ensure FontAwesome icons are loaded
+                            if (!document.getElementById('swal-fa-link')) {
+                                const link = document.createElement('link');
+                                link.rel = 'stylesheet';
+                                link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css';
+                                link.id = 'swal-fa-link';
+                                document.head.appendChild(link);
+                            }
+                        }
+                    });
+                } catch (err) {
+                    Swal.fire({
+                        title: 'Error',
+                        html: `<span style='color:#dc3545;font-weight:500;'>Failed to load reservation details.</span>`,
+                        icon: 'error',
+                        confirmButtonText: 'Close',
+                        background: '#fff3f3'
+                    });
+                }
+            });
+        }
 
         // Edit
         const editIcon = tr.querySelector('.fa-edit[data-action="edit"]');

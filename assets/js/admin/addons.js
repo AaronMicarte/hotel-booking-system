@@ -295,9 +295,9 @@ function displayAddons(addons) {
                 <td>₱${parseFloat(addon.price).toFixed(2)}</td>
                 <td><span class="badge ${addon.is_available == 1 ? 'bg-success' : 'bg-secondary'}">${addon.is_available == 1 ? 'Available' : 'Unavailable'}</span></td>
                 <td>
-                    <i class='fas fa-eye text-info me-1' data-addon-id="${addon.addon_id}" title="View" style="cursor:pointer;"></i>
-                    <i class='fas fa-edit text-primary me-1' data-addon-id="${addon.addon_id}" title="Edit" style="cursor:pointer;"></i>
-                    <i class='fas fa-trash text-danger' data-addon-id="${addon.addon_id}" title="Delete" style="cursor:pointer;"></i>
+                    <i class='fas fa-eye text-info me-1' data-addon-id="${addon.addon_id}" title="View" style="cursor:pointer; margin-right:10px;"></i>
+                    <i class='fas fa-edit text-primary me-1' data-addon-id="${addon.addon_id}" title="Edit" style="cursor:pointer; margin-right:10px;"></i>
+                    <i class='fas fa-trash text-danger' data-addon-id="${addon.addon_id}" title="Delete" style="cursor:pointer; margin-right:10px;"></i>
                 </td>
             </tr>`;
         });
