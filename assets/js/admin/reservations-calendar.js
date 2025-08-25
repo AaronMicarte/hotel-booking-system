@@ -332,52 +332,94 @@ document.addEventListener('DOMContentLoaded', function () {
                 function showReservationDetailsModal(ev) {
                     // Subtract 1 day from check-out date for display
                     let checkOutDate = ev.end instanceof Date ? new Date(ev.end.getTime() - 24 * 60 * 60 * 1000) : null;
-                    // Fix guest name display: prefer ev.extendedProps.guest, fallback to ev.title, fallback to 'Unknown Guest'
                     let guestName = ev.extendedProps.guest && ev.extendedProps.guest !== '-' ? ev.extendedProps.guest : (ev.title && ev.title !== '-' ? ev.title : 'Unknown Guest');
+                    // Show loading SweetAlert first
                     Swal.fire({
                         title: `<i class="fas fa-calendar-check me-2"></i>${guestName}`,
-                        html: `
-                            <div class="mb-2">
-                                <span class="badge" style="background:${getStatusColor(ev.extendedProps.status)};color:#fff;">
-                                    ${ev.extendedProps.status || '-'}
-                                </span>
-                            </div>
-                            <div class="mb-2"><i class="fas fa-user me-1"></i> <b>Guest:</b>
-                                <span class="guest-link-wrapper" data-guest-id="${ev.extendedProps.guest_id}" data-reservation-id="${ev.extendedProps.reservation_id}">
-                                    <a href="#" class="guest-link">${guestName}</a>
-                                </span>
-                            </div>
-                            <div class="mb-2"><i class="fas fa-bed me-1"></i> <b>Room:</b> ${ev.extendedProps.type_name ? `${ev.extendedProps.type_name} (${ev.extendedProps.room_number || ev.extendedProps.room || '-'})` : (ev.extendedProps.room || '-')}</div>
-                            <div class="mb-2"><i class="fas fa-sign-in-alt me-1"></i> <b>Check-in:</b>
-                                <span class="text-success">${formatDate(ev.start)}</span>
-                            </div>
-                            <div class="mb-2"><i class="fas fa-sign-out-alt me-1"></i> <b>Check-out:</b>
-                                <span class="text-danger">${formatDate(checkOutDate)}</span>
-                            </div>
-                        `,
-                        width: 700,
+                        html: `<div class="text-center py-4"><div class="spinner-border text-primary"></div></div>`,
+                        width: 800,
                         customClass: { popup: 'text-start' },
                         showCloseButton: true,
-                        showConfirmButton: false,
-                        didOpen: () => {
-                            document.querySelectorAll('.guest-link-wrapper').forEach(wrapper => {
-                                wrapper.addEventListener('click', function (e) {
-                                    if (e.target.classList.contains('guest-link')) {
-                                        e.preventDefault();
-                                        const guestId = this.getAttribute('data-guest-id');
-                                        const reservationId = this.getAttribute('data-reservation-id');
-                                        showGuestDetailsModal(
-                                            guestId,
-                                            {
-                                                checkInDate: ev.start,
-                                                checkOutDate: checkOutDate
-                                            }
-                                        );
-                                    }
-                                });
-                            });
-                        }
+                        showConfirmButton: false
                     });
+                    // Fetch reserved room and companions, then update SweetAlert
+                    (async () => {
+                        let reservedRoomId = null;
+                        let companions = [];
+                        try {
+                            // 1. Get reserved room for this reservation
+                            const rrRes = await axios.get('/Hotel-Reservation-Billing-System/api/admin/reservations/reserved_rooms.php', {
+                                params: { operation: 'getAllReservedRooms' }
+                            });
+                            if (Array.isArray(rrRes.data)) {
+                                const rr = rrRes.data.find(r => String(r.reservation_id) === String(ev.extendedProps.reservation_id) && r.is_deleted == 0);
+                                if (rr) reservedRoomId = rr.reserved_room_id;
+                            }
+                            // 2. Get companions for this reserved room
+                            if (reservedRoomId) {
+                                const compRes = await axios.get('/Hotel-Reservation-Billing-System/api/admin/reservations/companions.php', {
+                                    params: { operation: 'getAllCompanions' }
+                                });
+                                if (Array.isArray(compRes.data)) {
+                                    companions = compRes.data.filter(c => String(c.reserved_room_id) === String(reservedRoomId) && c.is_deleted == 0);
+                                }
+                            }
+                        } catch (err) {
+                            // fallback: no companions
+                        }
+                        // Build modern card-style SweetAlert content
+                        let html = `<div style='text-align:left;font-size:1.08em;'>`;
+                        html += `<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px #0001;padding:1.2em 1.5em 1.2em 1.5em;">`;
+                        html += `<div style='display:flex;align-items:center;gap:12px;margin-bottom:18px;'>`;
+                        html += `<div style='background:#0d6efd1a;border-radius:50%;padding:10px;display:flex;align-items:center;justify-content:center;'><i class='fas fa-calendar-check text-primary' style='font-size:2em;'></i></div>`;
+                        html += `<span style='font-size:1.35em;font-weight:700;letter-spacing:0.5px;'>Reservation #${ev.extendedProps.reservation_id || ''}</span>`;
+                        html += `</div>`;
+                        html += `<div style='display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;margin-bottom:18px;'>`;
+                        html += `<div><i class='fas fa-user text-secondary'></i> <span class='label'>Guest</span><br><span class='value'>${guestName}</span></div>`;
+                        html += `<div><i class='fas fa-door-open text-info'></i> <span class='label'>Room</span><br><span class='value'>${ev.extendedProps.type_name ? `${ev.extendedProps.type_name} (${ev.extendedProps.room_number || ''})` : (ev.extendedProps.room_number || ev.extendedProps.room || 'No Room')}</span></div>`;
+                        html += `<div><i class='fas fa-sign-in-alt text-success'></i> <span class='label'>Check-in</span><br><span class='value'>${formatDate(ev.start)}</span></div>`;
+                        html += `<div><i class='fas fa-sign-out-alt text-danger'></i> <span class='label'>Check-out</span><br><span class='value'>${formatDate(checkOutDate)}</span></div>`;
+                        html += `<div><i class='fas fa-info-circle text-warning'></i> <span class='label'>Status</span><br><span class='value'>${ev.extendedProps.status || ''}</span></div>`;
+                        html += `</div>`;
+                        html += `<div style='margin-top:10px;'><i class='fas fa-users text-info'></i> <span class='label'>Companions</span><br>`;
+                        if (companions.length > 0) {
+                            html += `<div style='display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:6px;'>`;
+                            companions.forEach((c, i) => {
+                                html += `<div style='background:#f1f3f6;border-radius:8px;padding:9px 18px 9px 12px;display:flex;align-items:center;min-width:0;max-width:calc(50% - 18px);flex:1 1 45%;margin-bottom:6px;font-size:1.05em;box-shadow:0 1px 2px #0001;'>`;
+                                html += `<i class='fas fa-user-friends text-secondary me-2' style='margin-right:9px;'></i> <span style='white-space:normal;text-overflow:ellipsis;overflow:hidden;max-width:220px;display:inline-block;font-weight:500;'>${c.full_name}</span>`;
+                                html += `</div>`;
+                            });
+                            html += `</div>`;
+                        } else {
+                            html += `<span class='text-muted'>No companions listed.</span>`;
+                        }
+                        html += `</div>`;
+                        html += `</div>`;
+                        html += `</div>`;
+                        Swal.update({
+                            title: '',
+                            html: html,
+                            showConfirmButton: true,
+                            confirmButtonText: '<i class="fas fa-times"></i> Close',
+                            customClass: {
+                                popup: 'swal2-reservation-details',
+                                htmlContainer: 'swal2-reservation-details-html'
+                            },
+                            background: '#f8f9fa',
+                            width: 860,
+                            showCloseButton: true,
+                            didOpen: () => {
+                                // Ensure FontAwesome icons are loaded
+                                if (!document.getElementById('swal-fa-link')) {
+                                    const link = document.createElement('link');
+                                    link.rel = 'stylesheet';
+                                    link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css';
+                                    link.id = 'swal-fa-link';
+                                    document.head.appendChild(link);
+                                }
+                            }
+                        });
+                    })();
                 }
 
                 // Show guest details modal, always show check-in/out if possible
