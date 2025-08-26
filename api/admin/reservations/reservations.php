@@ -18,26 +18,25 @@ class Reservation
 
 
         $sql = "SELECT res.*, 
-                       CONCAT(g.first_name, ' ', g.last_name) AS guest_name,
-                       g.guest_id,
-                       rs.reservation_status AS reservation_status,
-                       rs.reservation_status_id,
-                       r.room_number,
-                       rt.type_name,
-                       r.room_id,
-                       rt.room_type_id,
-                       u.username AS created_by_username,
-                       u.user_id AS created_by_user_id,
-                       ur.role_type AS created_by_role
-                FROM Reservation res
-                LEFT JOIN Guest g ON res.guest_id = g.guest_id
-                LEFT JOIN ReservationStatus rs ON res.reservation_status_id = rs.reservation_status_id
-                LEFT JOIN ReservedRoom rr ON res.reservation_id = rr.reservation_id AND rr.is_deleted = 0
-                LEFT JOIN Room r ON rr.room_id = r.room_id
-                LEFT JOIN RoomType rt ON r.room_type_id = rt.room_type_id
-                LEFT JOIN User u ON res.user_id = u.user_id
-                LEFT JOIN UserRoles ur ON u.user_roles_id = ur.user_roles_id
-                WHERE res.is_deleted = 0";
+               CONCAT(g.first_name, ' ', g.last_name) AS guest_name,
+               g.guest_id,
+               rs.reservation_status AS reservation_status,
+               rs.reservation_status_id,
+               GROUP_CONCAT(CONCAT(rt.type_name, ' (', r.room_number, ')') ORDER BY rr.reserved_room_id SEPARATOR ', ') AS rooms_summary,
+               GROUP_CONCAT(r.room_number ORDER BY rr.reserved_room_id SEPARATOR ', ') AS all_room_numbers,
+               GROUP_CONCAT(rt.type_name ORDER BY rr.reserved_room_id SEPARATOR ', ') AS all_type_names,
+               u.username AS created_by_username,
+               u.user_id AS created_by_user_id,
+               ur.role_type AS created_by_role
+        FROM Reservation res
+        LEFT JOIN Guest g ON res.guest_id = g.guest_id
+        LEFT JOIN ReservationStatus rs ON res.reservation_status_id = rs.reservation_status_id
+        LEFT JOIN ReservedRoom rr ON res.reservation_id = rr.reservation_id AND rr.is_deleted = 0
+        LEFT JOIN Room r ON rr.room_id = r.room_id
+        LEFT JOIN RoomType rt ON r.room_type_id = rt.room_type_id
+        LEFT JOIN User u ON res.user_id = u.user_id
+        LEFT JOIN UserRoles ur ON u.user_roles_id = ur.user_roles_id
+        WHERE res.is_deleted = 0";
 
         // Apply filters
         $params = array();
@@ -60,7 +59,7 @@ class Reservation
             $params[':search'] = "%$search%";
         }
 
-        $sql .= " ORDER BY res.reservation_id DESC";
+        $sql .= " GROUP BY res.reservation_id ORDER BY res.reservation_id DESC";
 
         $stmt = $db->prepare($sql);
         foreach ($params as $key => $value) {

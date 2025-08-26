@@ -102,9 +102,11 @@ document.addEventListener("DOMContentLoaded", () => {
             // Room section
             const section = document.createElement("div");
             section.className = "mb-4 p-3 border rounded position-relative bg-light";
+            // For the first room, companions max is (maxCapacity-1), for others it's maxCapacity
+            const companionsMax = i === 0 ? Math.max(0, maxCapacity - 1) : maxCapacity;
             section.innerHTML = `
                 <div class="d-flex justify-content-between align-items-center mb-2">
-                    <div><b>Room #${i + 1}</b> ${typeObj ? `- <span class='text-primary'>${typeObj.type_name}</span>` : ''}</div>
+                    <div><b>Room #${i + 1}</b> ${typeObj ? `<span class='text-primary'>${typeObj.type_name}</span>` : ''}</div>
                     ${i > 0 ? `<button type="button" class="btn btn-danger btn-sm remove-room-btn" data-index="${i}"><i class="fas fa-trash"></i> Remove</button>` : ''}
                 </div>
                 <div class="row g-3 align-items-end">
@@ -125,9 +127,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     <div class="col-md-4">
                         <label class="form-label">Companions</label>
                         <select class="form-select num-companions-select" data-index="${i}" ${maxCapacity ? '' : 'disabled'}>
-                            ${[...Array(maxCapacity ? maxCapacity : 1).keys()].map(n => `<option value="${n}" ${room.num_companions == n ? 'selected' : ''}>${n}</option>`).join('')}
+                            ${Array.from({ length: companionsMax + 1 }, (_, n) => `<option value="${n}" ${room.num_companions == n ? 'selected' : ''}>${n}</option>`).join('')}
                         </select>
-                        <div class="form-text">Max: ${maxCapacity}</div>
+                        <div class="form-text">Max: ${companionsMax}</div>
                     </div>
                 </div>
                 <div class="row mt-2">
@@ -146,11 +148,11 @@ document.addEventListener("DOMContentLoaded", () => {
     function renderCompanionInputs(roomIdx, num, isFirstRoom) {
         let html = "";
         if (isFirstRoom) {
-            // Main guest assigned to first slot, disabled
+            // Main guest assigned to first slot, disabled (not counted in companions)
             html += `<div class="mb-2"><label><i class='fas fa-user me-1'></i>Main Guest (auto-assigned)</label><input type="text" class="form-control" value="(Main Guest)" disabled></div>`;
         }
-        for (let i = 1; i <= num; i++) {
-            html += `<div class="mb-2"><label><i class='fas fa-user-friends me-1'></i>Companion #${i} Full Name</label><input type="text" class="form-control companion-name-input" data-room-index="${roomIdx}" name="companionName_${roomIdx}[]" placeholder="Full Name" required autocomplete="off" value="${multiRoomData[roomIdx].companions[i - 1] || ''}"></div>`;
+        for (let i = 0; i < num; i++) {
+            html += `<div class="mb-2"><label><i class='fas fa-user-friends me-1'></i>Companion #${i + 1} Full Name</label><input type="text" class="form-control companion-name-input" data-room-index="${roomIdx}" name="companionName_${roomIdx}[]" placeholder="Full Name" required autocomplete="off" value="${multiRoomData[roomIdx].companions[i] || ''}"></div>`;
         }
         return html;
     }
@@ -618,10 +620,20 @@ function displayReservationsTable(reservations) {
         const checkOutTime12 = res.check_out_time ? format12Hour(res.check_out_time) : "";
 
         const tr = document.createElement("tr");
+        // Find which room the main guest was assigned to
+        let mainGuestRoom = '';
+        if (res.reservation_id && res.guest_id) {
+            // Try to find from reserved_rooms API
+            mainGuestRoom = '';
+            if (window.cachedReservedRooms && Array.isArray(window.cachedReservedRooms)) {
+                const mainRoom = window.cachedReservedRooms.find(r => String(r.reservation_id) === String(res.reservation_id) && String(r.guest_id) === String(res.guest_id));
+                if (mainRoom) mainGuestRoom = `${mainRoom.type_name || ''}${mainRoom.type_name && mainRoom.room_number ? ' ' : ''}${mainRoom.room_number || ''}`;
+            }
+        }
         tr.innerHTML = `
         <td>${res.reservation_id || 'N/A'}</td>
         <td>${res.guest_name || (res.first_name && res.last_name ? res.first_name + ' ' + res.last_name : 'No Name')}</td>
-        <td>${res.type_name ? `${res.type_name} (${res.room_number || ''})` : (res.room_number || 'No Room')}</td>
+        <td>${res.rooms_summary || 'No Room'}${mainGuestRoom ? `<br><span class='badge bg-success mt-1'>Main Guest: ${mainGuestRoom}</span>` : ''}</td>
         <td>${res.check_in_date || 'N/A'}${checkInTime12 ? " " + checkInTime12 : ""}</td>
         <td>${res.check_out_date || 'N/A'}${checkOutTime12 ? " " + checkOutTime12 : ""}</td>
         <td>${getStatusBadge(res.reservation_status || res.room_status || 'pending')}</td>
@@ -802,45 +814,39 @@ function displayReservationsTable(reservations) {
             });
         }
 
-        // View (SweetAlert, improved UI/UX, no exclamation icon)
+        // View (SweetAlert, simplified: only show companions for each assigned room, no details, no room selection)
         const viewIcon = tr.querySelector('.fa-eye[data-action="view"]');
         if (viewIcon) {
-            viewIcon.addEventListener("click", async () => {
+            viewIcon.addEventListener('click', async () => {
+                // Fetch reserved rooms for this reservation
+                const rrRes = await axios.get('/Hotel-Reservation-Billing-System/api/admin/reservations/reserved_rooms.php', {
+                    params: { operation: 'getAllReservedRooms' }
+                });
+                const reservedRooms = Array.isArray(rrRes.data) ? rrRes.data.filter(r => String(r.reservation_id) === String(res.reservation_id) && r.is_deleted == 0) : [];
+                if (reservedRooms.length === 0) {
+                    Swal.fire('No reserved rooms found for this reservation.');
+                    return;
+                }
+                // Fetch all companions for all reserved rooms in this reservation
+                let allCompanions = [];
                 try {
-                    let companions = [];
-                    let reservedRoomId = null;
-                    if (res.reservation_id) {
-                        const rrRes = await axios.get(`${BASE_URL}/reservations/reserved_rooms.php`, {
-                            params: { operation: "getAllReservedRooms" }
-                        });
-                        if (Array.isArray(rrRes.data)) {
-                            const rr = rrRes.data.find(r => r.reservation_id == res.reservation_id && r.is_deleted == 0);
-                            if (rr) reservedRoomId = rr.reserved_room_id;
-                        }
+                    const compRes = await axios.get('/Hotel-Reservation-Billing-System/api/admin/reservations/companions.php', {
+                        params: { operation: 'getAllCompanions' }
+                    });
+                    if (Array.isArray(compRes.data)) {
+                        allCompanions = compRes.data;
                     }
-                    if (reservedRoomId) {
-                        const compRes = await axios.get(`${BASE_URL}/reservations/companions.php`, {
-                            params: { operation: "getAllCompanions" }
-                        });
-                        if (Array.isArray(compRes.data)) {
-                            companions = compRes.data.filter(c => c.reserved_room_id == reservedRoomId && c.is_deleted == 0);
-                        }
-                    }
-                    // Modern, visually appealing SweetAlert content
-                    let html = `<div style='text-align:left;font-size:1.08em;'>`;
-                    html += `<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px #0001;padding:1.2em 1.5em 1.2em 1.5em;">`;
+                } catch (err) { }
+                // Build HTML for all rooms
+                let html = `<div style='text-align:left;font-size:1.08em;'>`;
+                reservedRooms.forEach((reservedRoom) => {
+                    let companions = allCompanions.filter(c => String(c.reserved_room_id) === String(reservedRoom.reserved_room_id) && c.is_deleted == 0);
+                    html += `<div style=\"background:#fff;border-radius:12px;box-shadow:0 2px 8px #0001;padding:1.2em 1.5em 1.2em 1.5em;margin-bottom:18px;\">`;
                     html += `<div style='display:flex;align-items:center;gap:12px;margin-bottom:18px;'>`;
-                    html += `<div style='background:#0d6efd1a;border-radius:50%;padding:10px;display:flex;align-items:center;justify-content:center;'><i class='fas fa-calendar-check text-primary' style='font-size:2em;'></i></div>`;
-                    html += `<span style='font-size:1.35em;font-weight:700;letter-spacing:0.5px;'>Reservation #${res.reservation_id || ''}</span>`;
+                    html += `<div style='background:#0d6efd1a;border-radius:50%;padding:10px;display:flex;align-items:center;justify-content:center;'><i class='fas fa-bed text-primary' style='font-size:2em;'></i></div>`;
+                    html += `<span style='font-size:1.35em;font-weight:700;letter-spacing:0.5px;'>Room: ${reservedRoom.type_name ? reservedRoom.type_name : ''}${reservedRoom.type_name && reservedRoom.room_number ? ' ' : ''}${reservedRoom.room_number ? reservedRoom.room_number : ''}</span>`;
                     html += `</div>`;
-                    html += `<div style='display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;margin-bottom:18px;'>`;
-                    html += `<div><i class='fas fa-user text-secondary'></i> <span class='label'>Guest</span><br><span class='value'>${res.guest_name || ''}</span></div>`;
-                    html += `<div><i class='fas fa-door-open text-info'></i> <span class='label'>Room</span><br><span class='value'>${res.type_name ? `${res.type_name} (${res.room_number || ''})` : (res.room_number || 'No Room')}</span></div>`;
-                    html += `<div><i class='fas fa-sign-in-alt text-success'></i> <span class='label'>Check-in</span><br><span class='value'>${res.check_in_date || ''} ${checkInTime12}</span></div>`;
-                    html += `<div><i class='fas fa-sign-out-alt text-danger'></i> <span class='label'>Check-out</span><br><span class='value'>${res.check_out_date || ''} ${checkOutTime12}</span></div>`;
-                    html += `<div><i class='fas fa-info-circle text-warning'></i> <span class='label'>Status</span><br><span class='value'>${res.reservation_status || ''}</span></div>`;
-                    html += `</div>`;
-                    html += `<div style='margin-top:10px;'><i class='fas fa-users text-info'></i> <span class='label'>Companions</span><br>`;
+                    html += `<div style='margin-top:18px;margin-bottom:6px;'><i class='fas fa-users text-info'></i> <span class='label'>Assigned People</span><br>`;
                     if (companions.length > 0) {
                         html += `<div style='display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:6px;'>`;
                         companions.forEach((c, i) => {
@@ -854,38 +860,21 @@ function displayReservationsTable(reservations) {
                     }
                     html += `</div>`;
                     html += `</div>`;
-                    html += `</div>`;
-                    Swal.fire({
-                        title: '',
-                        html: html,
-                        showConfirmButton: true,
-                        confirmButtonText: '<i class="fas fa-times"></i> Close',
-                        customClass: {
-                            popup: 'swal2-reservation-details',
-                            htmlContainer: 'swal2-reservation-details-html'
-                        },
-                        background: '#f8f9fa',
-                        width: 860,
-                        didOpen: () => {
-                            // Ensure FontAwesome icons are loaded
-                            if (!document.getElementById('swal-fa-link')) {
-                                const link = document.createElement('link');
-                                link.rel = 'stylesheet';
-                                link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css';
-                                link.id = 'swal-fa-link';
-                                document.head.appendChild(link);
-                            }
-                        }
-                    });
-                } catch (err) {
-                    Swal.fire({
-                        title: 'Error',
-                        html: `<span style='color:#dc3545;font-weight:500;'>Failed to load reservation details.</span>`,
-                        icon: 'error',
-                        confirmButtonText: 'Close',
-                        background: '#fff3f3'
-                    });
-                }
+                });
+                html += `</div>`;
+                Swal.fire({
+                    title: '',
+                    html: html,
+                    showConfirmButton: true,
+                    confirmButtonText: '<i class=\"fas fa-times\"></i> Close',
+                    customClass: {
+                        popup: 'swal2-reservation-details',
+                        htmlContainer: 'swal2-reservation-details-html'
+                    },
+                    background: '#f8f9fa',
+                    width: 600,
+                    showCloseButton: true
+                });
             });
         }
 
@@ -1417,12 +1406,23 @@ async function saveReservation() {
     }
 
     // Build rooms array for API
-    const roomsPayload = window.multiRoomData.map((room, idx) => ({
-        room_type_id: room.room_type_id,
-        room_id: room.room_id,
-        companions: room.companions,
-        is_main_guest: idx === 0 // main guest assigned to first room
-    }));
+    const roomsPayload = window.multiRoomData.map((room, idx) => {
+        let companions = [...room.companions];
+        if (idx === 0) {
+            // Only for the first room, add the main guest as the first companion
+            companions = [
+                `${firstName} ${middleName ? middleName + ' ' : ''}${lastName}${suffix ? ' ' + suffix : ''}`,
+                ...companions
+            ];
+        }
+        // For other rooms, do not add the main guest
+        return {
+            room_type_id: room.room_type_id,
+            room_id: room.room_id,
+            companions: companions,
+            is_main_guest: idx === 0
+        };
+    });
 
     const jsonData = {
         guest_id: guestId,

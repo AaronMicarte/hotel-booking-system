@@ -157,7 +157,9 @@ document.addEventListener('DOMContentLoaded', function () {
                 // Map reservations to FullCalendar event objects
                 const fcEvents = reservations.map(r => ({
                     id: String(r.reservation_id),
-                    title: getGuestFullName(r) || 'Unknown Guest',
+                    // Add room type and number as a badge in the title
+                    title: `${getGuestFullName(r) || 'Unknown Guest'}\n` +
+                        (r.type_name || r.room_number ? `[` + (r.type_name ? r.type_name : '') + (r.type_name && r.room_number ? ' ' : '') + (r.room_number ? r.room_number : '') + `]` : ''),
                     start: r.check_in_date,
                     end: r.check_out_date ? addOneDay(r.check_out_date) : r.check_in_date,
                     allDay: true,
@@ -259,7 +261,10 @@ document.addEventListener('DOMContentLoaded', function () {
                             let checkOutDate = ev.end instanceof Date ? new Date(ev.end.getTime() - 24 * 60 * 60 * 1000) : null;
                             html += `<li class="list-group-item d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-2" style="border-left: 4px solid ${getStatusColor(ev.extendedProps.status)};">
                                 <div>
-                                    <b>${ev.title}</b>
+                                    <b>${ev.extendedProps.guest || 'Unknown Guest'}</b>
+                                    <span class="badge ms-2" style="background:#0dcaf0;color:#222;font-size:0.92em;vertical-align:middle;">
+                                        <i class="fas fa-bed me-1"></i> ${ev.extendedProps.type_name ? ev.extendedProps.type_name : ''}${ev.extendedProps.type_name && ev.extendedProps.room_number ? ' ' : ''}${ev.extendedProps.room_number ? ev.extendedProps.room_number : ''}
+                                    </span>
                                     <div class="small text-muted mb-1">
                                         <i class="fas fa-user me-1"></i> <b>Guest:</b>
                                         <span class="guest-link-wrapper" data-guest-id="${ev.extendedProps.guest_id}" data-reservation-id="${ev.extendedProps.reservation_id}">
@@ -342,26 +347,27 @@ document.addEventListener('DOMContentLoaded', function () {
                         showCloseButton: true,
                         showConfirmButton: false
                     });
-                    // Fetch reserved room and companions, then update SweetAlert
+                    // Fetch all reserved rooms for this reservation, and show companions per room
                     (async () => {
-                        let reservedRoomId = null;
-                        let companions = [];
+                        let reservedRooms = [];
+                        let companionsByRoom = {};
                         try {
-                            // 1. Get reserved room for this reservation
+                            // 1. Get all reserved rooms for this reservation
                             const rrRes = await axios.get('/Hotel-Reservation-Billing-System/api/admin/reservations/reserved_rooms.php', {
                                 params: { operation: 'getAllReservedRooms' }
                             });
                             if (Array.isArray(rrRes.data)) {
-                                const rr = rrRes.data.find(r => String(r.reservation_id) === String(ev.extendedProps.reservation_id) && r.is_deleted == 0);
-                                if (rr) reservedRoomId = rr.reserved_room_id;
+                                reservedRooms = rrRes.data.filter(r => String(r.reservation_id) === String(ev.extendedProps.reservation_id) && r.is_deleted == 0);
                             }
-                            // 2. Get companions for this reserved room
-                            if (reservedRoomId) {
+                            // 2. Get all companions for these reserved rooms
+                            if (reservedRooms.length > 0) {
                                 const compRes = await axios.get('/Hotel-Reservation-Billing-System/api/admin/reservations/companions.php', {
                                     params: { operation: 'getAllCompanions' }
                                 });
                                 if (Array.isArray(compRes.data)) {
-                                    companions = compRes.data.filter(c => String(c.reserved_room_id) === String(reservedRoomId) && c.is_deleted == 0);
+                                    reservedRooms.forEach(room => {
+                                        companionsByRoom[room.reserved_room_id] = compRes.data.filter(c => String(c.reserved_room_id) === String(room.reserved_room_id) && c.is_deleted == 0);
+                                    });
                                 }
                             }
                         } catch (err) {
@@ -376,24 +382,28 @@ document.addEventListener('DOMContentLoaded', function () {
                         html += `</div>`;
                         html += `<div style='display:grid;grid-template-columns:1fr 1fr;gap:10px 24px;margin-bottom:18px;'>`;
                         html += `<div><i class='fas fa-user text-secondary'></i> <span class='label'>Guest</span><br><span class='value'>${guestName}</span></div>`;
-                        html += `<div><i class='fas fa-door-open text-info'></i> <span class='label'>Room</span><br><span class='value'>${ev.extendedProps.type_name ? `${ev.extendedProps.type_name} (${ev.extendedProps.room_number || ''})` : (ev.extendedProps.room_number || ev.extendedProps.room || 'No Room')}</span></div>`;
+                        html += `<div><i class='fas fa-info-circle text-warning'></i> <span class='label'>Status</span><br><span class='value'>${ev.extendedProps.status || ''}</span></div>`;
                         html += `<div><i class='fas fa-sign-in-alt text-success'></i> <span class='label'>Check-in</span><br><span class='value'>${formatDate(ev.start)}</span></div>`;
                         html += `<div><i class='fas fa-sign-out-alt text-danger'></i> <span class='label'>Check-out</span><br><span class='value'>${formatDate(checkOutDate)}</span></div>`;
-                        html += `<div><i class='fas fa-info-circle text-warning'></i> <span class='label'>Status</span><br><span class='value'>${ev.extendedProps.status || ''}</span></div>`;
                         html += `</div>`;
-                        html += `<div style='margin-top:10px;'><i class='fas fa-users text-info'></i> <span class='label'>Companions</span><br>`;
-                        if (companions.length > 0) {
-                            html += `<div style='display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:6px;'>`;
-                            companions.forEach((c, i) => {
-                                html += `<div style='background:#f1f3f6;border-radius:8px;padding:9px 18px 9px 12px;display:flex;align-items:center;min-width:0;max-width:calc(50% - 18px);flex:1 1 45%;margin-bottom:6px;font-size:1.05em;box-shadow:0 1px 2px #0001;'>`;
-                                html += `<i class='fas fa-user-friends text-secondary me-2' style='margin-right:9px;'></i> <span style='white-space:normal;text-overflow:ellipsis;overflow:hidden;max-width:220px;display:inline-block;font-weight:500;'>${c.full_name}</span>`;
+                        // Show each room and its companions
+                        reservedRooms.forEach(room => {
+                            html += `<div style='margin-top:18px;margin-bottom:6px;'><span class='text-dark' style='font-size:1em;'><i class='fas fa-bed me-1'></i> ${room.type_name ? room.type_name : ''}${room.type_name && room.room_number ? ' ' : ''}${room.room_number ? room.room_number : ''}</span></div>`;
+                            html += `<div style='margin-left:10px;margin-bottom:10px;'><i class='fas fa-users text-info'></i> <span class='label'>Companions</span><br>`;
+                            const companions = companionsByRoom[room.reserved_room_id] || [];
+                            if (companions.length > 0) {
+                                html += `<div style='display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:6px;'>`;
+                                companions.forEach((c, i) => {
+                                    html += `<div style='background:#f1f3f6;border-radius:8px;padding:9px 18px 9px 12px;display:flex;align-items:center;min-width:0;max-width:calc(50% - 18px);flex:1 1 45%;margin-bottom:6px;font-size:1.05em;box-shadow:0 1px 2px #0001;'>`;
+                                    html += `<i class='fas fa-user-friends text-secondary me-2' style='margin-right:9px;'></i> <span style='white-space:normal;text-overflow:ellipsis;overflow:hidden;max-width:220px;display:inline-block;font-weight:500;'>${c.full_name}</span>`;
+                                    html += `</div>`;
+                                });
                                 html += `</div>`;
-                            });
+                            } else {
+                                html += `<span class='text-muted'>No companions listed.</span>`;
+                            }
                             html += `</div>`;
-                        } else {
-                            html += `<span class='text-muted'>No companions listed.</span>`;
-                        }
-                        html += `</div>`;
+                        });
                         html += `</div>`;
                         html += `</div>`;
                         Swal.update({

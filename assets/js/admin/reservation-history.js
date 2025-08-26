@@ -17,72 +17,66 @@ document.addEventListener("DOMContentLoaded", async () => {
     const infoDiv = document.getElementById("historyInfo");
     const searchInput = document.getElementById("historySearchInput");
 
-    let allHistory = [];
+    let allReservations = [];
+    let cachedReservedRooms = [];
 
     async function fetchAllHistory() {
         try {
-            // Fetch all reservation status histories with reservation, guest, and room info
-            const resp = await axios.get("/Hotel-Reservation-Billing-System/api/admin/reservations/reservations.php", {
-                params: { operation: "getAllReservationStatusHistory" }
-            });
-            console.log("[RESERVATION HISTORY] API response:", resp.data);
-            allHistory = Array.isArray(resp.data) ? resp.data : [];
-            renderTable(allHistory);
+            // Fetch grouped reservations (one row per reservation)
+            const [resp, reservedRoomsRes] = await Promise.all([
+                axios.get("/Hotel-Reservation-Billing-System/api/admin/reservations/reservations.php", {
+                    params: { operation: "getAllReservations" }
+                }),
+                axios.get("/Hotel-Reservation-Billing-System/api/admin/reservations/reserved_rooms.php", {
+                    params: { operation: "getAllReservedRooms" }
+                })
+            ]);
+            allReservations = Array.isArray(resp.data) ? resp.data : [];
+            cachedReservedRooms = Array.isArray(reservedRoomsRes.data) ? reservedRoomsRes.data : [];
+            renderTable(allReservations);
         } catch (err) {
-            tbody.innerHTML = `<tr><td colspan="5" class="text-center text-danger">Failed to load history.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Failed to load reservation history.</td></tr>`;
         }
     }
 
     function renderTable(data) {
         if (!data.length) {
-            tbody.innerHTML = `<tr><td colspan="7" class="text-center">No status history found.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center">No reservation history found.</td></tr>`;
             return;
         }
         tbody.innerHTML = "";
-        data.forEach(h => {
-            // User icon and info
-            let userHtml = '';
-            if (h.username) {
-                userHtml = `<i class="fas fa-user-circle me-1 text-primary"></i> <span>${h.username}</span>`;
-            } else if (h.changed_by_user_id) {
-                userHtml = `<i class="fas fa-user-circle me-1 text-secondary"></i> <span>User #${h.changed_by_user_id}</span>`;
-            } else {
-                userHtml = `<i class="fas fa-robot me-1 text-muted"></i> <span>System</span>`;
+        data.forEach(res => {
+            // Find which room the main guest was assigned to
+            let mainGuestRoom = '';
+            if (res.reservation_id && res.guest_id) {
+                if (cachedReservedRooms && Array.isArray(cachedReservedRooms)) {
+                    const mainRoom = cachedReservedRooms.find(r => String(r.reservation_id) === String(res.reservation_id) && String(r.guest_id) === String(res.guest_id));
+                    if (mainRoom) mainGuestRoom = `${mainRoom.type_name || ''}${mainRoom.type_name && mainRoom.room_number ? ' ' : ''}${mainRoom.room_number || ''}`;
+                }
             }
-            // Room info (type + number)
-            let roomInfo = '';
-            if (h.type_name && h.room_number) {
-                roomInfo = `${h.type_name} (${h.room_number})`;
-            } else if (h.room_number) {
-                roomInfo = h.room_number;
-            } else {
-                roomInfo = '-';
-            }
-            // Status icon (refer to dashboard-stats.js)
-            let status = (h.reservation_status || h.status_id || '').toString();
+            // Status icon
+            let status = (res.reservation_status || '').toLowerCase();
             let statusIcon = '<i class="fas fa-question-circle text-secondary"></i>';
-            let statusText = status;
-            if (status) {
-                const s = status.toLowerCase();
-                if (s === 'confirmed') statusIcon = '<i class="fas fa-check-circle text-info"></i>';
-                else if (s === 'pending') statusIcon = '<i class="fas fa-hourglass-half text-warning"></i>';
-                else if (s === 'checked-in') statusIcon = '<i class="fas fa-door-open text-success"></i>';
-                else if (s === 'checked-out') statusIcon = '<i class="fas fa-sign-out-alt text-primary"></i>';
-                else if (s === 'cancelled') statusIcon = '<i class="fas fa-times-circle text-danger"></i>';
-            }
-            // Role (always show, even if user missing)
-            let role = h.user_role ? `<span class="text-muted small">${h.user_role}</span>` : `<span class="text-muted small">-</span>`;
-            // Date (for filter)
-            let changedAt = h.changed_at ? new Date(h.changed_at).toLocaleString() : '';
+            if (status === 'confirmed') statusIcon = '<i class="fas fa-check-circle text-info"></i>';
+            else if (status === 'pending') statusIcon = '<i class="fas fa-hourglass-half text-warning"></i>';
+            else if (status === 'checked-in') statusIcon = '<i class="fas fa-door-open text-success"></i>';
+            else if (status === 'checked-out') statusIcon = '<i class="fas fa-sign-out-alt text-primary"></i>';
+            else if (status === 'cancelled') statusIcon = '<i class="fas fa-times-circle text-danger"></i>';
+
+            // Changed by user icon
+            let userIcon = '<i class="fas fa-robot me-1 text-muted"></i>';
+            if (res.created_by_username) userIcon = '<i class="fas fa-user-circle me-1 text-primary"></i>';
+            else if (res.created_by_user_id) userIcon = '<i class="fas fa-user-circle me-1 text-secondary"></i>';
+
             tbody.innerHTML += `
                 <tr>
-                    <td>${h.reservation_id || ''}</td>
-                    <td>${h.guest_name || ''}</td>
-                    <td>${roomInfo}</td>
-                    <td>${changedAt}</td>
-                    <td>${statusIcon} ${statusText}</td>
-                    <td>${userHtml}</td>
-                    <td>${role}</td>
+                    <td>${res.reservation_id || 'N/A'}</td>
+                    <td>${res.guest_name || (res.first_name && res.last_name ? res.first_name + ' ' + res.last_name : 'No Name')}</td>
+                    <td>${res.rooms_summary || 'No Room'}${mainGuestRoom ? `<br><span class='badge bg-success mt-1'>Main Guest: ${mainGuestRoom}</span>` : ''}</td>
+                    <td>${res.check_in_date || 'N/A'}${res.check_in_time ? ' ' + res.check_in_time : ''} - ${res.check_out_date || 'N/A'}${res.check_out_time ? ' ' + res.check_out_time : ''}</td>
+                    <td>${statusIcon} ${res.reservation_status || '-'}</td>
+                    <td>${userIcon} ${res.created_by_username || '-'}</td>
+                    <td>${res.created_by_role || '-'}</td>
                 </tr>
             `;
         });
@@ -135,18 +129,18 @@ document.addEventListener("DOMContentLoaded", async () => {
         const q = (document.getElementById("historySearchInput")?.value || "").toLowerCase();
         const dateFrom = document.getElementById("dateFrom")?.value;
         const dateTo = document.getElementById("dateTo")?.value;
-        let filtered = allHistory;
+        let filtered = allReservations;
         if (q) {
-            filtered = filtered.filter(h =>
-                (h.reservation_id && h.reservation_id.toString().includes(q)) ||
-                (h.guest_name && h.guest_name.toLowerCase().includes(q))
+            filtered = filtered.filter(r =>
+                (r.reservation_id && r.reservation_id.toString().includes(q)) ||
+                (r.guest_name && r.guest_name.toLowerCase().includes(q))
             );
         }
         if (dateFrom) {
-            filtered = filtered.filter(h => h.changed_at && h.changed_at.slice(0, 10) >= dateFrom);
+            filtered = filtered.filter(r => r.check_in_date && r.check_in_date >= dateFrom);
         }
         if (dateTo) {
-            filtered = filtered.filter(h => h.changed_at && h.changed_at.slice(0, 10) <= dateTo);
+            filtered = filtered.filter(r => r.check_out_date && r.check_out_date <= dateTo);
         }
         renderTable(filtered);
     }
