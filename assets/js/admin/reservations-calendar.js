@@ -1,5 +1,35 @@
 document.addEventListener('DOMContentLoaded', function () {
     // Helper to (re)initialize the calendar
+    // Helper to preserve and restore scroll position for SweetAlert modals
+    let lastScrollY = 0;
+    function preserveScrollOnSwal() {
+        // Save scroll position before opening
+        lastScrollY = window.scrollY;
+        // Listen for modal close to restore
+        const handler = () => {
+            window.scrollTo({ top: lastScrollY, behavior: 'auto' });
+            document.removeEventListener('keydown', escHandler, true);
+            document.removeEventListener('click', clickHandler, true);
+        };
+        // Handle ESC and close button
+        function escHandler(e) {
+            if (e.key === 'Escape') setTimeout(handler, 10);
+        }
+        function clickHandler(e) {
+            if (e.target.classList && e.target.classList.contains('swal2-close')) setTimeout(handler, 10);
+        }
+        document.addEventListener('keydown', escHandler, true);
+        document.addEventListener('click', clickHandler, true);
+        // Also handle programmatic close
+        if (window.Swal) {
+            const origClose = Swal.close;
+            Swal.close = function () {
+                setTimeout(handler, 10);
+                return origClose.apply(this, arguments);
+            };
+        }
+    }
+
     function renderReservationCalendar() {
         const calendarEl = document.getElementById('reservationCalendar');
         if (!calendarEl) {
@@ -259,19 +289,17 @@ document.addEventListener('DOMContentLoaded', function () {
                         events.forEach(ev => {
                             // Subtract 1 day from check-out date for display
                             let checkOutDate = ev.end instanceof Date ? new Date(ev.end.getTime() - 24 * 60 * 60 * 1000) : null;
-                            html += `<li class="list-group-item d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-2" style="border-left: 4px solid ${getStatusColor(ev.extendedProps.status)};">
+                            html += `<li class="list-group-item d-flex flex-column flex-md-row align-items-md-center justify-content-between mb-2" style="border-left: 4px solid;">
                                 <div>
                                     <b>${ev.extendedProps.guest || 'Unknown Guest'}</b>
-                                    <span class="badge ms-2" style="background:#0dcaf0;color:#222;font-size:0.92em;vertical-align:middle;">
-                                        <i class="fas fa-bed me-1"></i> ${ev.extendedProps.type_name ? ev.extendedProps.type_name : ''}${ev.extendedProps.type_name && ev.extendedProps.room_number ? ' ' : ''}${ev.extendedProps.room_number ? ev.extendedProps.room_number : ''}
+                                    <span class="badge ms-2">
                                     </span>
                                     <div class="small text-muted mb-1">
                                         <i class="fas fa-user me-1"></i> <b>Guest:</b>
                                         <span class="guest-link-wrapper" data-guest-id="${ev.extendedProps.guest_id}" data-reservation-id="${ev.extendedProps.reservation_id}">
                                             <a href="#" class="guest-link">${ev.extendedProps.guest || 'Unknown Guest'}</a>
                                         </span>
-                                        <span class="mx-2">|</span>
-                                        <i class="fas fa-bed me-1"></i> <b>Room:</b> ${ev.extendedProps.type_name ? `${ev.extendedProps.type_name} (${ev.extendedProps.room_number || ev.extendedProps.room || '-'})` : (ev.extendedProps.room || '-')}
+                                        <span class="mx-2"></span>
                                     </div>
                                     <div class="small">
                                         <i class="fas fa-sign-in-alt me-1"></i> <b>Check-in:</b>
@@ -298,6 +326,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         </div>
                     `;
 
+                    preserveScrollOnSwal();
                     Swal.fire({
                         html: html,
                         width: 900,
@@ -375,7 +404,7 @@ document.addEventListener('DOMContentLoaded', function () {
                         }
                         // Build modern card-style SweetAlert content
                         let html = `<div style='text-align:left;font-size:1.08em;'>`;
-                        html += `<div style="background:#fff;border-radius:12px;box-shadow:0 2px 8px #0001;padding:1.2em 1.5em 1.2em 1.5em;">`;
+                        html += `<div style=\"background:#fff;border-radius:12px;box-shadow:0 2px 8px #0001;padding:1.2em 1.5em 1.2em 1.5em;\">`;
                         html += `<div style='display:flex;align-items:center;gap:12px;margin-bottom:18px;'>`;
                         html += `<div style='background:#0d6efd1a;border-radius:50%;padding:10px;display:flex;align-items:center;justify-content:center;'><i class='fas fa-calendar-check text-primary' style='font-size:2em;'></i></div>`;
                         html += `<span style='font-size:1.35em;font-weight:700;letter-spacing:0.5px;'>Reservation #${ev.extendedProps.reservation_id || ''}</span>`;
@@ -386,24 +415,28 @@ document.addEventListener('DOMContentLoaded', function () {
                         html += `<div><i class='fas fa-sign-in-alt text-success'></i> <span class='label'>Check-in</span><br><span class='value'>${formatDate(ev.start)}</span></div>`;
                         html += `<div><i class='fas fa-sign-out-alt text-danger'></i> <span class='label'>Check-out</span><br><span class='value'>${formatDate(checkOutDate)}</span></div>`;
                         html += `</div>`;
-                        // Show each room and its companions
-                        reservedRooms.forEach(room => {
-                            html += `<div style='margin-top:18px;margin-bottom:6px;'><span class='text-dark' style='font-size:1em;'><i class='fas fa-bed me-1'></i> ${room.type_name ? room.type_name : ''}${room.type_name && room.room_number ? ' ' : ''}${room.room_number ? room.room_number : ''}</span></div>`;
-                            html += `<div style='margin-left:10px;margin-bottom:10px;'><i class='fas fa-users text-info'></i> <span class='label'>Companions</span><br>`;
-                            const companions = companionsByRoom[room.reserved_room_id] || [];
-                            if (companions.length > 0) {
-                                html += `<div style='display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:6px;'>`;
-                                companions.forEach((c, i) => {
-                                    html += `<div style='background:#f1f3f6;border-radius:8px;padding:9px 18px 9px 12px;display:flex;align-items:center;min-width:0;max-width:calc(50% - 18px);flex:1 1 45%;margin-bottom:6px;font-size:1.05em;box-shadow:0 1px 2px #0001;'>`;
-                                    html += `<i class='fas fa-user-friends text-secondary me-2' style='margin-right:9px;'></i> <span style='white-space:normal;text-overflow:ellipsis;overflow:hidden;max-width:220px;display:inline-block;font-weight:500;'>${c.full_name}</span>`;
+                        // Show all rooms booked for this reservation
+                        if (reservedRooms.length > 0) {
+                            reservedRooms.forEach(room => {
+                                html += `<div style='margin-top:18px;margin-bottom:6px;'><span class='text-dark' style='font-size:1em;'><i class='fas fa-bed me-1'></i> ${room.type_name ? room.type_name : ''}${room.type_name && room.room_number ? ' ' : ''}${room.room_number ? room.room_number : ''}</span></div>`;
+                                html += `<div style='margin-left:10px;margin-bottom:10px;'><i class='fas fa-users text-info'></i> <span class='label'>People assigned in room</span><br>`;
+                                const companions = companionsByRoom[room.reserved_room_id] || [];
+                                if (companions.length > 0) {
+                                    html += `<div style='display:flex;flex-wrap:wrap;gap:10px 18px;margin-top:6px;'>`;
+                                    companions.forEach((c, i) => {
+                                        html += `<div style='background:#f1f3f6;border-radius:8px;padding:9px 18px 9px 12px;display:flex;align-items:center;min-width:0;max-width:calc(50% - 18px);flex:1 1 45%;margin-bottom:6px;font-size:1.05em;box-shadow:0 1px 2px #0001;'>`;
+                                        html += `<i class='fas fa-user-friends text-secondary me-2' style='margin-right:9px;'></i> <span style='white-space:normal;text-overflow:ellipsis;overflow:hidden;max-width:220px;display:inline-block;font-weight:500;'>${c.full_name}</span>`;
+                                        html += `</div>`;
+                                    });
                                     html += `</div>`;
-                                });
+                                } else {
+                                    html += `<span class='text-muted'>No people listed.</span>`;
+                                }
                                 html += `</div>`;
-                            } else {
-                                html += `<span class='text-muted'>No companions listed.</span>`;
-                            }
-                            html += `</div>`;
-                        });
+                            });
+                        } else {
+                            html += `<div class='text-muted'>No rooms found for this reservation.</div>`;
+                        }
                         html += `</div>`;
                         html += `</div>`;
                         Swal.update({

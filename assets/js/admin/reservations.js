@@ -1551,7 +1551,9 @@ async function loadIDTypes() {
         const response = await axios.get(`${BASE_URL}/guests/id_types.php`, {
             params: { operation: "getAllIDTypes" }
         });
-        const idTypes = Array.isArray(response.data) ? response.data : [];
+        let idTypes = Array.isArray(response.data) ? response.data : [];
+        // Sort alphabetically by id_type
+        idTypes = idTypes.sort((a, b) => (a.id_type || '').localeCompare(b.id_type || ''));
         idTypes.forEach(type => {
             const option = document.createElement("option");
             option.value = type.id_type;
