@@ -163,34 +163,31 @@ class Reservation
                 }
             }
 
-            // --- Multi-room booking: insert all ReservedRoom and companions ---
+            // --- Multi-room booking: insert all ReservedRoom and companions (frontend payload support) ---
             if (!empty($json['rooms']) && is_array($json['rooms'])) {
                 foreach ($json['rooms'] as $room) {
-                    $room_type_id = $room['room_type_id'];
-                    $quantity = intval($room['quantity']);
-                    for ($i = 0; $i < $quantity; $i++) {
-                        $room_id = isset($room['selectedRoomIds'][$i]) ? $room['selectedRoomIds'][$i] : null;
-                        $guestAssignment = isset($room['guestAssignments'][$i]) ? $room['guestAssignments'][$i] : null;
-                        if ($room_id) {
-                            $sql2 = "INSERT INTO ReservedRoom (reservation_id, room_id) VALUES (:reservation_id, :room_id)";
-                            $stmt2 = $db->prepare($sql2);
-                            $stmt2->bindParam(':reservation_id', $reservationId);
-                            $stmt2->bindParam(':room_id', $room_id);
-                            $stmt2->execute();
-
-                            $reserved_room_id_multi = $db->lastInsertId();
-
-                            // If guestAssignment is not the main booker, save as companion
-                            if ($guestAssignment && trim($guestAssignment) !== "" && $guestAssignment !== $json['main_booker_name']) {
-                                $sqlComp = "INSERT INTO ReservedRoomCompanion (reserved_room_id, full_name) VALUES (:reserved_room_id, :full_name)";
-                                $stmtComp = $db->prepare($sqlComp);
-                                $stmtComp->bindParam(':reserved_room_id', $reserved_room_id_multi);
-                                $stmtComp->bindParam(':full_name', $guestAssignment);
-                                $stmtComp->execute();
+                    $room_id = isset($room['room_id']) ? $room['room_id'] : null;
+                    if ($room_id) {
+                        $sql2 = "INSERT INTO ReservedRoom (reservation_id, room_id) VALUES (:reservation_id, :room_id)";
+                        $stmt2 = $db->prepare($sql2);
+                        $stmt2->bindParam(':reservation_id', $reservationId);
+                        $stmt2->bindParam(':room_id', $room_id);
+                        $stmt2->execute();
+                        $reserved_room_id_multi = $db->lastInsertId();
+                        // Save companions for this room
+                        if (!empty($room['companions']) && is_array($room['companions'])) {
+                            foreach ($room['companions'] as $companionName) {
+                                if (trim($companionName) !== "") {
+                                    $sqlComp = "INSERT INTO ReservedRoomCompanion (reserved_room_id, full_name) VALUES (:reserved_room_id, :full_name)";
+                                    $stmtComp = $db->prepare($sqlComp);
+                                    $stmtComp->bindParam(':reserved_room_id', $reserved_room_id_multi);
+                                    $stmtComp->bindParam(':full_name', $companionName);
+                                    $stmtComp->execute();
+                                }
                             }
-                            // Set room status to reserved
-                            $this->updateRoomStatus($room_id, 4);
                         }
+                        // Set room status to reserved
+                        $this->updateRoomStatus($room_id, 4);
                     }
                 }
             }
@@ -203,21 +200,21 @@ class Reservation
             $stmtCheckBill->execute();
             $billingExists = $stmtCheckBill->fetchColumn();
             if (!$billingExists) {
-                // Get room price for this reservation (first room only for single booking)
-                $sqlRoom = "SELECT rt.price_per_stay\n                FROM Reservation res\n                LEFT JOIN ReservedRoom rr ON res.reservation_id = rr.reservation_id AND rr.is_deleted = 0\n                LEFT JOIN Room r ON rr.room_id = r.room_id\n                LEFT JOIN RoomType rt ON r.room_type_id = rt.room_type_id\n                WHERE res.reservation_id = :reservation_id\n                LIMIT 1";
-                $stmtRoom = $db->prepare($sqlRoom);
-                $stmtRoom->bindParam(":reservation_id", $reservationId);
-                $stmtRoom->execute();
-                $rowRoom = $stmtRoom->fetch(PDO::FETCH_ASSOC);
-                $room_price = ($rowRoom && isset($rowRoom['price_per_stay'])) ? floatval($rowRoom['price_per_stay']) : 0;
-                $partial_amount = $room_price * 0.5;
+                // Get total price for all rooms in this reservation
+                $sqlRooms = "SELECT SUM(rt.price_per_stay) AS total_price\n                FROM Reservation res\n                LEFT JOIN ReservedRoom rr ON res.reservation_id = rr.reservation_id AND rr.is_deleted = 0\n                LEFT JOIN Room r ON rr.room_id = r.room_id\n                LEFT JOIN RoomType rt ON r.room_type_id = rt.room_type_id\n                WHERE res.reservation_id = :reservation_id";
+                $stmtRooms = $db->prepare($sqlRooms);
+                $stmtRooms->bindParam(":reservation_id", $reservationId);
+                $stmtRooms->execute();
+                $rowRooms = $stmtRooms->fetch(PDO::FETCH_ASSOC);
+                $total_price = ($rowRooms && isset($rowRooms['total_price'])) ? floatval($rowRooms['total_price']) : 0;
+                $partial_amount = $total_price * 0.5;
                 // Insert billing with FULL price, PARTIAL status (id=3)
                 $sqlBill = "INSERT INTO Billing (reservation_id, billing_status_id, total_amount, billing_date) VALUES (:reservation_id, :billing_status_id, :total_amount, NOW())";
                 $stmtBill = $db->prepare($sqlBill);
                 $billing_status_id = 3; // PARTIAL
                 $stmtBill->bindParam(":reservation_id", $reservationId);
                 $stmtBill->bindParam(":billing_status_id", $billing_status_id);
-                $stmtBill->bindParam(":total_amount", $room_price);
+                $stmtBill->bindParam(":total_amount", $total_price);
                 $stmtBill->execute();
 
                 // Get the billing_id just created

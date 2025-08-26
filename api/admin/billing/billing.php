@@ -15,16 +15,10 @@ class Billing
                        res.reservation_id,
                        res.check_in_date,
                        res.check_out_date,
-                       r.room_number,
-                       rt.type_name,
-                       rt.price_per_stay,
                        bs.billing_status
                 FROM Billing b
                 LEFT JOIN Reservation res ON b.reservation_id = res.reservation_id
                 LEFT JOIN Guest g ON res.guest_id = g.guest_id
-                LEFT JOIN ReservedRoom rr ON res.reservation_id = rr.reservation_id AND rr.is_deleted = 0
-                LEFT JOIN Room r ON rr.room_id = r.room_id
-                LEFT JOIN RoomType rt ON r.room_type_id = rt.room_type_id
                 LEFT JOIN BillingStatus bs ON b.billing_status_id = bs.billing_status_id
                 WHERE b.is_deleted = 0
                 ORDER BY b.billing_id DESC";
@@ -38,15 +32,36 @@ class Billing
         }
 
         foreach ($billings as &$billing) {
+            // Get all reserved rooms for this reservation
+            $sqlRooms = "SELECT r.room_number, rt.type_name, rt.price_per_stay
+                        FROM ReservedRoom rr
+                        LEFT JOIN Room r ON rr.room_id = r.room_id
+                        LEFT JOIN RoomType rt ON r.room_type_id = rt.room_type_id
+                        WHERE rr.reservation_id = :reservation_id AND rr.is_deleted = 0";
+            $stmtRooms = $db->prepare($sqlRooms);
+            $stmtRooms->bindParam(":reservation_id", $billing['reservation_id']);
+            $stmtRooms->execute();
+            $rooms = $stmtRooms->fetchAll(PDO::FETCH_ASSOC);
+            $billing['rooms'] = $rooms;
+            // List all room numbers/types as comma-separated
+            $billing['room_numbers'] = implode(', ', array_map(function ($r) {
+                return $r['room_number'];
+            }, $rooms));
+            $billing['room_types'] = implode(', ', array_map(function ($r) {
+                return $r['type_name'];
+            }, $rooms));
+            // Sum all room prices
+            $room_price = 0;
+            foreach ($rooms as $room) {
+                $room_price += floatval($room['price_per_stay']);
+            }
             // Get total paid
             $stmt2 = $db->prepare("SELECT SUM(amount_paid) as paid FROM Payment WHERE billing_id = :billing_id AND is_deleted = 0");
             $stmt2->bindParam(":billing_id", $billing['billing_id']);
             $stmt2->execute();
             $row = $stmt2->fetch(PDO::FETCH_ASSOC);
             $billing['amount_paid'] = $row && $row['paid'] ? $row['paid'] : 0;
-
             // Calculate total_bill (room + addons)
-            $room_price = isset($billing['price_per_stay']) ? floatval($billing['price_per_stay']) : 0;
             $addons_total = 0;
             $stmt3 = $db->prepare("SELECT unit_price, quantity FROM BillingAddon WHERE billing_id = :billing_id AND is_deleted = 0");
             $stmt3->bindParam(":billing_id", $billing['billing_id']);
@@ -56,7 +71,8 @@ class Billing
                 $addons_total += floatval($addon['unit_price']) * intval($addon['quantity']);
             }
             $billing['total_bill'] = $room_price + $addons_total;
-
+            $billing['room_price'] = $room_price;
+            $billing['addons_total'] = $addons_total;
             // Set billing_date to reservation's check_out_date if available
             if (!empty($billing['check_out_date'])) {
                 $billing['billing_date'] = $billing['check_out_date'];
@@ -74,15 +90,10 @@ class Billing
         $db = $database->getConnection();
         $json = is_array($json) ? $json : json_decode($json, true);
 
-        $sql = "SELECT b.*, 
-                       CONCAT(g.first_name, ' ', g.last_name) AS guest_name,
-                       r.room_id, r.room_number, rt.type_name, rt.price_per_stay
+        $sql = "SELECT b.*, CONCAT(g.first_name, ' ', g.last_name) AS guest_name
                 FROM Billing b
                 LEFT JOIN Reservation res ON b.reservation_id = res.reservation_id
                 LEFT JOIN Guest g ON res.guest_id = g.guest_id
-                LEFT JOIN ReservedRoom rr ON res.reservation_id = rr.reservation_id AND rr.is_deleted = 0
-                LEFT JOIN Room r ON rr.room_id = r.room_id
-                LEFT JOIN RoomType rt ON r.room_type_id = rt.room_type_id
                 WHERE b.reservation_id = :reservation_id AND b.is_deleted = 0
                 LIMIT 1";
         $stmt = $db->prepare($sql);
@@ -94,6 +105,27 @@ class Billing
             echo json_encode([]);
             exit;
         }
+
+        // Get all reserved rooms for this reservation
+        $sqlRooms = "SELECT rr.reserved_room_id, r.room_id, r.room_number, rt.type_name, rt.price_per_stay
+                    FROM ReservedRoom rr
+                    LEFT JOIN Room r ON rr.room_id = r.room_id
+                    LEFT JOIN RoomType rt ON r.room_type_id = rt.room_type_id
+                    WHERE rr.reservation_id = :reservation_id AND rr.is_deleted = 0";
+        $stmtRooms = $db->prepare($sqlRooms);
+        $stmtRooms->bindParam(":reservation_id", $json['reservation_id']);
+        $stmtRooms->execute();
+        $rooms = $stmtRooms->fetchAll(PDO::FETCH_ASSOC);
+
+        // For each room, get companions
+        foreach ($rooms as &$room) {
+            $sqlComps = "SELECT full_name FROM ReservedRoomCompanion WHERE reserved_room_id = :reserved_room_id AND is_deleted = 0";
+            $stmtComps = $db->prepare($sqlComps);
+            $stmtComps->bindParam(":reserved_room_id", $room['reserved_room_id']);
+            $stmtComps->execute();
+            $room['companions'] = $stmtComps->fetchAll(PDO::FETCH_COLUMN);
+        }
+        $billing['rooms'] = $rooms;
 
         // Get addons for this billing
         $sql2 = "SELECT ba.*, a.name AS addon_name
@@ -112,7 +144,11 @@ class Billing
             $addons_total += $addon['subtotal'];
         }
 
-        $room_price = floatval($billing['price_per_stay']);
+        // Sum all room prices
+        $room_price = 0;
+        foreach ($rooms as $room) {
+            $room_price += floatval($room['price_per_stay']);
+        }
         $total_bill = $room_price + $addons_total;
 
         // Get payments
@@ -151,20 +187,12 @@ class Billing
         $db = $database->getConnection();
         $json = is_array($json) ? $json : json_decode($json, true);
 
-        // Use LEFT JOIN for all related tables
-        $sql = "SELECT b.*, 
-                   CONCAT(g.first_name, ' ', g.last_name) AS guest_name,
-                   r.room_id, r.room_number, rt.type_name, rt.price_per_stay,
-                   bs.billing_status
-            FROM Billing b
-            LEFT JOIN Reservation res ON b.reservation_id = res.reservation_id
-            LEFT JOIN Guest g ON res.guest_id = g.guest_id
-            LEFT JOIN ReservedRoom rr ON res.reservation_id = rr.reservation_id AND rr.is_deleted = 0
-            LEFT JOIN Room r ON rr.room_id = r.room_id
-            LEFT JOIN RoomType rt ON r.room_type_id = rt.room_type_id
-            LEFT JOIN BillingStatus bs ON b.billing_status_id = bs.billing_status_id
-            WHERE b.billing_id = :billing_id AND b.is_deleted = 0
-            LIMIT 1";
+        $sql = "SELECT b.*, CONCAT(g.first_name, ' ', g.last_name) AS guest_name
+                FROM Billing b
+                LEFT JOIN Reservation res ON b.reservation_id = res.reservation_id
+                LEFT JOIN Guest g ON res.guest_id = g.guest_id
+                WHERE b.billing_id = :billing_id AND b.is_deleted = 0
+                LIMIT 1";
         $stmt = $db->prepare($sql);
         $stmt->bindParam(":billing_id", $json['billing_id']);
         $stmt->execute();
@@ -174,6 +202,27 @@ class Billing
             echo json_encode([]);
             exit;
         }
+
+        // Get all reserved rooms for this reservation
+        $sqlRooms = "SELECT rr.reserved_room_id, r.room_id, r.room_number, rt.type_name, rt.price_per_stay
+                    FROM ReservedRoom rr
+                    LEFT JOIN Room r ON rr.room_id = r.room_id
+                    LEFT JOIN RoomType rt ON r.room_type_id = rt.room_type_id
+                    WHERE rr.reservation_id = (SELECT reservation_id FROM Billing WHERE billing_id = :billing_id) AND rr.is_deleted = 0";
+        $stmtRooms = $db->prepare($sqlRooms);
+        $stmtRooms->bindParam(":billing_id", $json['billing_id']);
+        $stmtRooms->execute();
+        $rooms = $stmtRooms->fetchAll(PDO::FETCH_ASSOC);
+
+        // For each room, get companions
+        foreach ($rooms as &$room) {
+            $sqlComps = "SELECT full_name FROM ReservedRoomCompanion WHERE reserved_room_id = :reserved_room_id AND is_deleted = 0";
+            $stmtComps = $db->prepare($sqlComps);
+            $stmtComps->bindParam(":reserved_room_id", $room['reserved_room_id']);
+            $stmtComps->execute();
+            $room['companions'] = $stmtComps->fetchAll(PDO::FETCH_COLUMN);
+        }
+        $billing['rooms'] = $rooms;
 
         // Get addons for this billing
         $sql2 = "SELECT ba.*, a.name AS addon_name
@@ -192,14 +241,18 @@ class Billing
             $addons_total += $addon['subtotal'];
         }
 
-        $room_price = isset($billing['price_per_stay']) ? floatval($billing['price_per_stay']) : 0;
+        // Sum all room prices
+        $room_price = 0;
+        foreach ($rooms as $room) {
+            $room_price += floatval($room['price_per_stay']);
+        }
         $total_bill = $room_price + $addons_total;
 
         // Get payments
         $sql3 = "SELECT p.*, p.amount_paid, p.payment_date, ps.name AS method_name, p.notes
-             FROM Payment p
-             LEFT JOIN PaymentSubMethod ps ON p.sub_method_id = ps.sub_method_id
-             WHERE p.billing_id = :billing_id AND p.is_deleted = 0";
+                 FROM Payment p
+                 LEFT JOIN PaymentSubMethod ps ON p.sub_method_id = ps.sub_method_id
+                 WHERE p.billing_id = :billing_id AND p.is_deleted = 0";
         $stmt3 = $db->prepare($sql3);
         $stmt3->bindParam(":billing_id", $billing['billing_id']);
         $stmt3->execute();
@@ -219,11 +272,6 @@ class Billing
         $billing['payments'] = $payments;
         $billing['amount_paid'] = $amount_paid;
         $billing['remaining_amount'] = $remaining_amount;
-
-        // Always include type_name, room_number, billing_status, etc.
-        if (!isset($billing['type_name'])) $billing['type_name'] = '';
-        if (!isset($billing['room_number'])) $billing['room_number'] = '';
-        if (!isset($billing['billing_status'])) $billing['billing_status'] = '';
 
         echo json_encode($billing);
     }

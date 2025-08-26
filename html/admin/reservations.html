@@ -198,7 +198,7 @@
                                                 <thead>
                                                     <tr>
                                                         <th>ID</th>
-                                                        <th>Guest Name</th>
+                                                        <th>Main Booker</th>
                                                         <th>Room</th>
                                                         <th>Check-in</th>
                                                         <th>Check-out</th>
@@ -279,7 +279,7 @@
                                     </div>
                                     <div class="card-body">
                                         <div class="row g-3">
-                                            <div class="col-12">
+                                            <div class="col-md-6">
                                                 <label for="guestSearchInput" class="form-label">Search Existing
                                                     Guest</label>
                                                 <input type="text" id="guestSearchInput" class="form-control"
@@ -287,41 +287,41 @@
                                                 <div id="guestSearchDropdown" class="list-group position-absolute w-100"
                                                     style="z-index: 10; display: none;"></div>
                                             </div>
-                                            <div class="col-6">
+                                            <div class="col-md-6">
                                                 <label for="firstName" class="form-label">First Name</label>
                                                 <input type="text" id="firstName" class="form-control" required>
                                             </div>
-                                            <div class="col-6">
+                                            <div class="col-md-6">
                                                 <label for="lastName" class="form-label">Last Name</label>
                                                 <input type="text" id="lastName" class="form-control" required>
                                             </div>
-                                            <div class="col-6">
+                                            <div class="col-md-6">
                                                 <label for="middleName" class="form-label">Middle Name</label>
                                                 <input type="text" id="middleName" class="form-control">
                                             </div>
-                                            <div class="col-3">
+                                            <div class="col-md-6">
                                                 <label for="dateOfBirth" class="form-label">Date of Birth</label>
                                                 <input type="date" id="dateOfBirth" class="form-control" required>
                                             </div>
-                                            <div class="col-3">
+                                            <div class="col-md-6">
                                                 <label for="suffix" class="form-label">Suffix</label>
                                                 <input type="text" id="suffix" class="form-control">
                                             </div>
-                                            <div class="col-6">
+                                            <div class="col-md-6">
                                                 <label for="email" class="form-label">Email</label>
                                                 <input type="email" id="email" class="form-control" required>
                                             </div>
-                                            <div class="col-6">
+                                            <div class="col-md-6">
                                                 <label for="phone" class="form-label">Phone</label>
                                                 <input type="tel" id="phone" class="form-control" required>
                                             </div>
-                                            <div class="col-6">
+                                            <div class="col-md-6">
                                                 <label for="idType" class="form-label">ID Type</label>
                                                 <select id="idType" class="form-select" required>
                                                     <option value="">-- Select ID Type --</option>
                                                 </select>
                                             </div>
-                                            <div class="col-6">
+                                            <div class="col-md-6">
                                                 <label for="idNumber" class="form-label">ID Number</label>
                                                 <input type="text" id="idNumber" class="form-control" required>
                                             </div>
@@ -350,27 +350,6 @@
                                 </div>
                                 <div class="card mb-4 shadow-sm border-0">
                                     <div class="card-header bg-light border-bottom-0">
-                                        <h6 class="mb-0"><i class="fas fa-door-open me-2"></i>Room Selection</h6>
-                                    </div>
-                                    <div class="card-body">
-                                        <div class="row g-3">
-                                            <div class="col-6">
-                                                <label for="roomTypeSelect" class="form-label">Room Type</label>
-                                                <select id="roomTypeSelect" class="form-select" required>
-                                                    <option value="">-- Select Room Type --</option>
-                                                </select>
-                                            </div>
-                                            <div class="col-6">
-                                                <label for="roomSelect" class="form-label">Available Rooms</label>
-                                                <select id="roomSelect" class="form-select" required>
-                                                    <option value="">-- Select Room --</option>
-                                                </select>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                                <div class="card mb-4 shadow-sm border-0">
-                                    <div class="card-header bg-light border-bottom-0">
                                         <h6 class="mb-0"><i class="fas fa-tasks me-2"></i>Reservation Status</h6>
                                     </div>
                                     <div class="card-body">
@@ -387,82 +366,68 @@
                             </div>
                         </div>
                         <!-- Companion UI: Max Capacity, Number of Companions, Companion Names -->
+                        <!-- Dynamic Room Booking Section -->
                         <div class="row g-0">
                             <div class="col-12">
-                                <div class="card mb-4 shadow-sm border-0">
-                                    <div class="card-header bg-light border-bottom-0 d-flex align-items-center">
-                                        <i class="fas fa-users fa-lg me-2 text-info"></i>
-                                        <h6 class="mb-0">Companions <span class="badge bg-info ms-2"><i
-                                                    class="fas fa-user-friends"></i></span></h6>
-                                    </div>
-                                    <div class="card-body py-4">
-                                        <div class="row g-3 align-items-center mb-2">
-                                            <div class="col-md-4 mb-2 d-flex align-items-center">
-                                                <i class="fas fa-users text-secondary me-2"></i>
-                                                <span id="addMaxCapacityDisplay" class="fw-bold">Max Capacity:
-                                                    N/A</span>
-                                            </div>
-                                            <div class="col-md-4 mb-2 d-flex align-items-center">
-                                                <i class="fas fa-user-plus text-primary me-2"></i>
-                                                <label for="addNumCompanionsSelect" class="form-label mb-0 me-2">Number
-                                                    of Companions</label>
-                                                <select id="addNumCompanionsSelect"
-                                                    class="form-select form-select-sm w-auto">
-                                                    <option value="0">0</option>
-                                                </select>
-                                            </div>
+                                <div class="card mb-4 border-0 shadow-lg animate__animated animate__fadeIn">
+                                    <div class="card-header bg-gradient-primary border-bottom-0 d-flex align-items-center justify-content-between"
+                                        style="background: linear-gradient(90deg, #3b0101 0%, #D20707 100%); color: #fff;">
+                                        <div>
+                                            <i class="fas fa-bed fa-lg me-2"></i>
+                                            <h6 class="mb-0 d-inline">Rooms &amp; Companions</h6>
                                         </div>
-                                        <div id="addCompanionFieldsContainer" class="mt-3">
-                                            <!-- Companion name fields will be injected here -->
-                                        </div>
-                                        <div class="form-text text-muted mt-2"><i
-                                                class="fas fa-info-circle me-1"></i>Each companion must present a valid
-                                            ID upon check-in.</div>
+                                        <button type="button" class="btn btn-light btn-sm fw-bold shadow-sm"
+                                            id="addRoomBtn" title="Add Room"><i class="fas fa-plus"></i> Add
+                                            Room</button>
                                     </div>
+                                    <div class="card-body py-4" id="multiRoomContainer" style="background: #f8fafd;">
+                                        <!-- Dynamic room sections will be injected here by JS -->
+                                    </div>
+                                    <div class="form-text text-muted mt-2 ms-3"><i
+                                            class="fas fa-info-circle me-1"></i>Each companion must present a valid ID
+                                        upon check-in. <span class="fw-semibold">The main guest is auto-assigned to the
+                                            first room.</span></div>
                                 </div>
                             </div>
                         </div>
+                        <!-- Room Summary Section -->
                         <div class="row g-0">
                             <div class="col-12">
                                 <div class="card mb-4 shadow-sm border-0">
                                     <div class="card-header bg-light border-bottom-0">
-                                        <h6 class="mb-0"><i class="fas fa-money-bill-wave me-2 text-success"></i>Room
-                                            Price & Billing</h6>
+                                        <h6 class="mb-0"><i class="fas fa-list-ul me-2 text-primary"></i>Booking Summary
+                                        </h6>
+                                    </div>
+                                    <div class="card-body" id="multiRoomSummary">
+                                        <!-- Room summary and total bill will be shown here -->
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Payment Method and Partial Payment in Booking Summary -->
+                        <div class="row g-0">
+                            <div class="col-12">
+                                <div class="card mb-4 shadow-sm border-0">
+                                    <div class="card-header bg-light border-bottom-0">
+                                        <h6 class="mb-0"><i class="fas fa-credit-card me-2 text-info"></i>Payment Method
+                                            & Partial Payment</h6>
                                     </div>
                                     <div class="card-body">
-                                        <div class="row g-3 align-items-stretch">
+                                        <div class="row g-3 align-items-center">
                                             <div class="col-md-6">
-                                                <div class="p-3 h-100 rounded bg-light border border-success">
-                                                    <div class="d-flex align-items-center mb-2">
-                                                        <i class="fas fa-bed fa-lg text-primary me-2"></i>
-                                                        <span class="fw-bold">Room Price</span>
-                                                    </div>
-                                                    <div class="fs-4 fw-bold text-success" id="roomPrice">₱0.00</div>
-                                                </div>
+                                                <label for="paymentMethodSelect" class="form-label mb-1"><i
+                                                        class="fas fa-credit-card fa-sm text-info me-1"></i>Payment
+                                                    Method</label>
+                                                <select id="paymentMethodSelect" class="form-select form-select-sm">
+                                                    <option value="">Loading...</option>
+                                                </select>
                                             </div>
                                             <div class="col-md-6">
-                                                <div class="p-3 h-100 rounded bg-light border border-warning">
-                                                    <div class="d-flex align-items-center mb-2">
-                                                        <i class="fas fa-receipt fa-lg text-warning me-2"></i>
-                                                        <span class="fw-bold">Billing Summary</span>
-                                                    </div>
-                                                    <div class="mb-1">
-                                                        <span class="badge bg-warning text-dark"><i
-                                                                class="fas fa-hourglass-half me-1"></i>Partial</span>
-                                                    </div>
-                                                    <div class="small text-muted">Partial Payment (50%):</div>
-                                                    <div class="fs-5 fw-bold text-warning" id="partialPayment">₱0.00
-                                                    </div>
-                                                    <div class="mt-3">
-                                                        <label for="paymentMethodSelect" class="form-label mb-1"><i
-                                                                class="fas fa-credit-card fa-sm text-info me-1"></i>Payment
-                                                            Method</label>
-                                                        <select id="paymentMethodSelect"
-                                                            class="form-select form-select-sm">
-                                                            <option value="">Loading...</option>
-                                                        </select>
-                                                    </div>
-                                                </div>
+                                                <div class="fs-5 fw-bold text-warning">Partial Payment (50%): <span
+                                                        id="partialPayment">₱0.00</span></div>
+                                                <div class="small text-muted">This is 50% of the total for all rooms
+                                                    booked.</div>
                                             </div>
                                         </div>
                                     </div>

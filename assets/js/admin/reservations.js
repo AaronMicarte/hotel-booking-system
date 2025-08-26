@@ -38,117 +38,238 @@ let cachedRooms = [];
 // === INITIALIZATION =======
 // ==========================
 document.addEventListener("DOMContentLoaded", () => {
-    // --- Live update for room price and partial payment ---
-    // --- Companion UI logic for Add Reservation Modal ---
-    // Helper to get max capacity for selected room type
-    function getSelectedRoomTypeMaxCapacity() {
-        const roomTypeSelectEl = document.getElementById("roomTypeSelect");
-        if (!roomTypeSelectEl || !roomTypeSelectEl.value) return null;
-        const type = cachedRoomTypes.find(t => t.room_type_id == roomTypeSelectEl.value);
-        return type && type.max_capacity ? parseInt(type.max_capacity) : null;
+    // --- MULTI-ROOM BOOKING LOGIC ---
+    let multiRoomData = [];
+    // Always keep window.multiRoomData in sync for validation and saving
+    window.multiRoomData = multiRoomData;
+    const multiRoomContainer = document.getElementById("multiRoomContainer");
+    const multiRoomSummary = document.getElementById("multiRoomSummary");
+    const addRoomBtn = document.getElementById("addRoomBtn");
+
+    // Helper: Get room type object by id
+    function getRoomTypeById(id) {
+        return cachedRoomTypes.find(t => t.room_type_id == id);
     }
 
-    // Render companion fields in Add Reservation Modal
-    function renderCompanionFields_AddModal() {
-        const container = document.getElementById("addCompanionFieldsContainer");
-        const maxCapDiv = document.getElementById("addMaxCapacityDisplay");
-        const numCompanionSelect = document.getElementById("addNumCompanionsSelect");
-        const roomTypeSelectEl = document.getElementById("roomTypeSelect");
-        if (!container || !maxCapDiv || !numCompanionSelect || !roomTypeSelectEl) return;
-        // Get max capacity for selected room type
-        const maxCapacity = getSelectedRoomTypeMaxCapacity();
-        if (!maxCapacity) {
-            maxCapDiv.textContent = "Max Capacity: N/A";
-            numCompanionSelect.innerHTML = '<option value="0">0</option>';
-            container.innerHTML = "";
-            return;
-        }
-        maxCapDiv.textContent = `Max Capacity: ${maxCapacity}`;
-        // Populate number of companions (maxCapacity - 1, since 1 slot is for main guest)
-        const maxCompanions = Math.max(0, maxCapacity - 1);
-        let options = '';
-        for (let i = 0; i <= maxCompanions; i++) {
-            options += `<option value="${i}">${i}</option>`;
-        }
-        // Save current value to restore after re-render
-        const prevValue = numCompanionSelect.value || "0";
-        numCompanionSelect.innerHTML = options;
-        // Restore previous value if possible, else default to 0
-        if ([...numCompanionSelect.options].some(opt => opt.value === prevValue)) {
-            numCompanionSelect.value = prevValue;
-        } else {
-            numCompanionSelect.value = "0";
-        }
-        // Render fields for current value
-        const num = parseInt(numCompanionSelect.value) || 0;
-        let fields = "";
-        for (let i = 1; i <= num; i++) {
-            fields += `<div class="mb-2"><label><i class='fas fa-user-friends me-1'></i>Companion #${i} Full Name</label><input type="text" class="form-control companion-name-input" name="companionName[]" placeholder="Full Name" required autocomplete="off"></div>`;
-        }
-        container.innerHTML = fields;
-    }
-
-    // Attach listeners for companion UI in Add Modal
-    function setupCompanionUI_AddModal() {
-        const roomTypeSelectEl = document.getElementById("roomTypeSelect");
-        const numCompanionSelect = document.getElementById("addNumCompanionsSelect");
-        if (roomTypeSelectEl) {
-            roomTypeSelectEl.addEventListener("change", () => {
-                renderCompanionFields_AddModal();
-                // Re-attach event after options update
-                const numCompanionSelect2 = document.getElementById("addNumCompanionsSelect");
-                if (numCompanionSelect2) {
-                    numCompanionSelect2.addEventListener("change", renderCompanionFields_AddModal);
-                }
-            });
-        }
-        if (numCompanionSelect) {
-            numCompanionSelect.addEventListener("change", renderCompanionFields_AddModal);
+    // Helper: Get available rooms for a type and date
+    async function getAvailableRooms(roomTypeId, checkIn, checkOut) {
+        try {
+            const params = {
+                operation: "getAvailableRooms",
+                room_type_id: roomTypeId,
+                check_in_date: checkIn,
+                check_out_date: checkOut
+            };
+            const response = await axios.get(`${BASE_URL}/rooms/rooms.php`, { params });
+            if (Array.isArray(response.data)) return response.data;
+            if (response.data && typeof response.data === 'object') return Object.values(response.data);
+            return [];
+        } catch {
+            return [];
         }
     }
 
-    // Call setup on DOMContentLoaded
-    setupCompanionUI_AddModal();
-    // Always render fields on load if room type is preselected
-    setTimeout(() => {
-        renderCompanionFields_AddModal();
-        // Attach event in case options are present on load
-        const numCompanionSelect = document.getElementById("addNumCompanionsSelect");
-        if (numCompanionSelect) {
-            numCompanionSelect.addEventListener("change", renderCompanionFields_AddModal);
-        }
-    }, 0);
-    function updateRoomPriceAndPartial() {
-        const roomTypeSelectEl = document.getElementById("roomTypeSelect");
-        const roomPriceDiv = document.getElementById("roomPrice");
-        const partialPaymentDiv = document.getElementById("partialPayment");
-        let price = 0;
-        if (roomTypeSelectEl && roomTypeSelectEl.value) {
-            const type = cachedRoomTypes.find(t => t.room_type_id == roomTypeSelectEl.value);
-            if (type && type.price_per_stay) {
-                price = parseFloat(type.price_per_stay);
+    // Helper: Render all room sections
+    async function renderMultiRoomSections() {
+        // Always keep window.multiRoomData in sync for validation and saving
+        window.multiRoomData = multiRoomData;
+        // Sync selected room_id from DOM to multiRoomData before rendering
+        document.querySelectorAll('.room-select').forEach(sel => {
+            const idx = parseInt(sel.getAttribute('data-index'));
+            if (!isNaN(idx) && multiRoomData[idx]) {
+                multiRoomData[idx].room_id = sel.value;
             }
+        });
+        if (!multiRoomContainer) return;
+        multiRoomContainer.innerHTML = "";
+        const checkIn = document.getElementById("checkInDate")?.value;
+        const checkOut = document.getElementById("checkOutDate")?.value;
+        // Gather all selected room_ids (as strings, across all sections)
+        const allSelectedRoomIds = multiRoomData.map(r => r.room_id ? String(r.room_id) : null).filter(id => !!id);
+        for (let i = 0; i < multiRoomData.length; i++) {
+            const room = multiRoomData[i];
+            // Fetch available rooms for this type
+            let availableRooms = room.room_type_id && checkIn && checkOut ? await getAvailableRooms(room.room_type_id, checkIn, checkOut) : [];
+            // Exclude already-selected room_ids in other sections (across all types, strict string compare)
+            const selectedRoomIds = allSelectedRoomIds.filter((id, idx) => idx !== i);
+            availableRooms = availableRooms.filter(r => !selectedRoomIds.includes(String(r.room_id)));
+            // If the selected room is no longer available, reset it
+            if (room.room_id && !availableRooms.some(r => String(r.room_id) === String(room.room_id))) {
+                room.room_id = "";
+            }
+            const typeObj = getRoomTypeById(room.room_type_id);
+            const maxCapacity = typeObj ? parseInt(typeObj.max_capacity) : 1;
+            // Room section
+            const section = document.createElement("div");
+            section.className = "mb-4 p-3 border rounded position-relative bg-light";
+            section.innerHTML = `
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <div><b>Room #${i + 1}</b> ${typeObj ? `- <span class='text-primary'>${typeObj.type_name}</span>` : ''}</div>
+                    ${i > 0 ? `<button type="button" class="btn btn-danger btn-sm remove-room-btn" data-index="${i}"><i class="fas fa-trash"></i> Remove</button>` : ''}
+                </div>
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-4">
+                        <label class="form-label">Room Type</label>
+                        <select class="form-select room-type-select" data-index="${i}" required>
+                            <option value="">-- Select Room Type --</option>
+                            ${cachedRoomTypes.map(rt => `<option value="${rt.room_type_id}" ${room.room_type_id == rt.room_type_id ? 'selected' : ''}>${rt.type_name}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Available Room</label>
+                        <select class="form-select room-select" data-index="${i}" required>
+                            <option value="">-- Select Room --</option>
+                            ${availableRooms.map(r => `<option value="${r.room_id}" ${room.room_id == r.room_id ? 'selected' : ''}>${r.room_number} (${typeObj ? typeObj.type_name : ''})</option>`).join('')}
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label">Companions</label>
+                        <select class="form-select num-companions-select" data-index="${i}" ${maxCapacity ? '' : 'disabled'}>
+                            ${[...Array(maxCapacity ? maxCapacity : 1).keys()].map(n => `<option value="${n}" ${room.num_companions == n ? 'selected' : ''}>${n}</option>`).join('')}
+                        </select>
+                        <div class="form-text">Max: ${maxCapacity}</div>
+                    </div>
+                </div>
+                <div class="row mt-2">
+                    <div class="col-12 companion-fields" data-index="${i}">
+                        ${renderCompanionInputs(i, room.num_companions, i === 0)}
+                    </div>
+                </div>
+            `;
+            multiRoomContainer.appendChild(section);
         }
-        // Format as PHP peso
-        const formatPeso = v => `₱${v.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-        if (roomPriceDiv) {
-            roomPriceDiv.textContent = formatPeso(price);
+        attachRoomSectionEvents();
+        updateMultiRoomSummary();
+    }
+
+    // Render companion input fields for a room
+    function renderCompanionInputs(roomIdx, num, isFirstRoom) {
+        let html = "";
+        if (isFirstRoom) {
+            // Main guest assigned to first slot, disabled
+            html += `<div class="mb-2"><label><i class='fas fa-user me-1'></i>Main Guest (auto-assigned)</label><input type="text" class="form-control" value="(Main Guest)" disabled></div>`;
         }
-        if (partialPaymentDiv) {
-            partialPaymentDiv.textContent = formatPeso(price * 0.5);
+        for (let i = 1; i <= num; i++) {
+            html += `<div class="mb-2"><label><i class='fas fa-user-friends me-1'></i>Companion #${i} Full Name</label><input type="text" class="form-control companion-name-input" data-room-index="${roomIdx}" name="companionName_${roomIdx}[]" placeholder="Full Name" required autocomplete="off" value="${multiRoomData[roomIdx].companions[i - 1] || ''}"></div>`;
         }
+        return html;
+    }
+
+    // Attach events to dynamic room sections
+    function attachRoomSectionEvents() {
+        // Room type change
+        multiRoomContainer.querySelectorAll('.room-type-select').forEach(sel => {
+            sel.addEventListener('change', async function () {
+                const idx = parseInt(this.getAttribute('data-index'));
+                multiRoomData[idx].room_type_id = this.value;
+                multiRoomData[idx].room_id = "";
+                await renderMultiRoomSections();
+            });
+        });
+        // Room select change
+        multiRoomContainer.querySelectorAll('.room-select').forEach(sel => {
+            sel.addEventListener('change', function () {
+                const idx = parseInt(this.getAttribute('data-index'));
+                multiRoomData[idx].room_id = this.value;
+                renderMultiRoomSections();
+            });
+        });
+        // Num companions change
+        multiRoomContainer.querySelectorAll('.num-companions-select').forEach(sel => {
+            sel.addEventListener('change', function () {
+                const idx = parseInt(this.getAttribute('data-index'));
+                multiRoomData[idx].num_companions = parseInt(this.value);
+                multiRoomData[idx].companions = Array(multiRoomData[idx].num_companions).fill("");
+                renderMultiRoomSections();
+            });
+        });
+        // Remove room
+        multiRoomContainer.querySelectorAll('.remove-room-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                const idx = parseInt(this.getAttribute('data-index'));
+                multiRoomData.splice(idx, 1);
+                renderMultiRoomSections();
+            });
+        });
+        // Companion name input
+        multiRoomContainer.querySelectorAll('.companion-name-input').forEach(input => {
+            input.addEventListener('input', function () {
+                const roomIdx = parseInt(this.getAttribute('data-room-index'));
+                const compIdx = Array.from(this.parentNode.parentNode.querySelectorAll('.companion-name-input')).indexOf(this);
+                multiRoomData[roomIdx].companions[compIdx] = this.value;
+            });
+        });
+    }
+
+    // Add new room section
+    function addRoomSection() {
+        multiRoomData.push({
+            room_type_id: "",
+            room_id: "",
+            num_companions: 0,
+            companions: []
+        });
+        renderMultiRoomSections();
+    }
+
+    // Update summary and total bill, show payment method and 50% partial
+    function updateMultiRoomSummary() {
+        if (!multiRoomSummary) return;
+        let summary = {};
+        let total = 0;
+        multiRoomData.forEach(room => {
+            const typeObj = getRoomTypeById(room.room_type_id);
+            if (!typeObj) return;
+            if (!summary[typeObj.type_name]) summary[typeObj.type_name] = { count: 0, price: 0 };
+            summary[typeObj.type_name].count++;
+            summary[typeObj.type_name].price += parseFloat(typeObj.price_per_stay || 0);
+            total += parseFloat(typeObj.price_per_stay || 0);
+        });
+        let html = '<ul class="list-group mb-2">';
+        Object.entries(summary).forEach(([type, val]) => {
+            html += `<li class="list-group-item d-flex justify-content-between align-items-center">${val.count} x ${type}<span>₱${val.price.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></li>`;
+        });
+        html += '</ul>';
+        html += `<div class="fs-5 fw-bold text-end">Total: <span class="text-success">₱${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>`;
+        // Payment method and partial payment
+        const paymentMethodSelect = document.getElementById("paymentMethodSelect");
+        let paymentMethod = paymentMethodSelect ? paymentMethodSelect.options[paymentMethodSelect.selectedIndex]?.text : '';
+        let partial = total * 0.5;
+        html += `<div class="mt-3"><b>Payment Method:</b> <span class="text-info">${paymentMethod || 'N/A'}</span></div>`;
+        html += `<div class="mt-1"><b>Partial Payment (50%):</b> <span class="text-warning">₱${partial.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>`;
+        // Also update the partialPayment span in the payment section
+        const partialPaymentSpan = document.getElementById("partialPayment");
+        if (partialPaymentSpan) partialPaymentSpan.textContent = `₱${partial.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+        multiRoomSummary.innerHTML = html;
+    }
+
+    // Initialize with one room section on modal open
+    const reservationModal = document.getElementById("reservationModal");
+    if (reservationModal) {
+        reservationModal.addEventListener("show.bs.modal", async () => {
+            multiRoomData = [{ room_type_id: "", room_id: "", num_companions: 0, companions: [] }];
+            window.multiRoomData = multiRoomData;
+            // Always load room types before rendering sections
+            await loadRoomTypes();
+            await renderMultiRoomSections();
+            // Always render payment methods dropdown on modal open
+            await loadPaymentMethodsDropdown();
+        });
+    }
+    if (addRoomBtn) {
+        addRoomBtn.addEventListener('click', addRoomSection);
+    }
+
+    // ...existing code...
+    // Remove old room price/partial logic, now handled in summary
+    function updateRoomPriceAndPartial() {
+        // No-op: handled by updateMultiRoomSummary
+        updateMultiRoomSummary();
     }
 
     // Attach listeners for live update
-    const roomTypeSelectEl = document.getElementById("roomTypeSelect");
-    if (roomTypeSelectEl) {
-        roomTypeSelectEl.addEventListener("change", updateRoomPriceAndPartial);
-    }
-    const roomSelectEl = document.getElementById("roomSelect");
-    if (roomSelectEl) {
-        roomSelectEl.addEventListener("change", updateRoomPriceAndPartial);
-    }
-    // Also update on modal open
+    // Remove old single-room listeners
+    // Always update summary on modal open
     updateRoomPriceAndPartial();
     // --- Guest search logic ---
     let allGuests = [];
@@ -712,23 +833,14 @@ function updateCheckoutDate() {
 // === ROOMS & ROOM TYPES ====
 // ==========================
 async function loadRoomTypes() {
-    const select = document.getElementById("roomTypeSelect");
-    if (!select) return;
-
-    select.innerHTML = `<option value="">-- Select Room Type --</option>`;
+    // Multi-room: fetch and cache room types for all dynamic sections
     try {
         const response = await axios.get(`${BASE_URL}/rooms/room-type.php`);
-        // Ensure array and filter out deleted types
         cachedRoomTypes = Array.isArray(response.data)
             ? response.data.filter(t => !t.is_deleted || t.is_deleted === 0 || t.is_deleted === "0" || t.is_deleted === "FALSE" || t.is_deleted === "false")
             : [];
-        cachedRoomTypes.forEach(type => {
-            const option = document.createElement("option");
-            option.value = type.room_type_id;
-            option.textContent = type.type_name;
-            select.appendChild(option);
-        });
     } catch (error) {
+        cachedRoomTypes = [];
         console.error("Failed to load room types:", error);
         showError("Failed to load room types.");
     }
@@ -1033,23 +1145,14 @@ async function saveReservation() {
     // Disable save button to prevent multiple submissions
     const saveBtn = document.getElementById("saveReservationBtn");
     if (saveBtn) saveBtn.disabled = true;
-    // Defensive get value
     function getVal(id) {
         const el = document.getElementById(id);
         return el ? el.value : "";
     }
-    // Get companion names from Add Modal
-    const companionInputs = document.querySelectorAll("#addCompanionFieldsContainer .companion-name-input");
-    const companionNames = Array.from(companionInputs).map(input => input.value.trim()).filter(Boolean);
-
     // Get selected payment method for partial payment
     const subMethodId = getVal("paymentMethodSelect");
-
-    // Use hidden guestSelectId if present
     let guestId = document.getElementById("guestSelectId")?.value || getVal("guestSelect");
-
     const reservationId = getVal("reservationId");
-
     // Guest fields
     const firstName = getVal("firstName");
     const lastName = getVal("lastName");
@@ -1062,15 +1165,28 @@ async function saveReservation() {
     const idNumber = getVal("idNumber");
     const checkInDate = getVal("checkInDate");
     const checkOutDate = getVal("checkOutDate");
-    const roomTypeId = getVal("roomTypeSelect");
-    const roomId = getVal("roomSelect");
     const statusId = getVal("statusSelect");
 
-    // Validation
-    if (!firstName || !lastName || !dateOfBirth || !email || !phone || !idType || !idNumber || !checkInDate || !roomTypeId || !roomId || !statusId) {
+    // Validation (for guest and stay info only)
+    if (!firstName || !lastName || !dateOfBirth || !email || !phone || !idType || !idNumber || !checkInDate || !statusId) {
         showError("Please fill in all required fields.");
         if (saveBtn) saveBtn.disabled = false;
         return;
+    }
+
+    // Validate at least one room
+    if (!window.multiRoomData || !Array.isArray(window.multiRoomData) || window.multiRoomData.length === 0) {
+        showError("Please add at least one room to the booking.");
+        if (saveBtn) saveBtn.disabled = false;
+        return;
+    }
+    // Validate all rooms have type and room selected
+    for (const room of window.multiRoomData) {
+        if (!room.room_type_id || !room.room_id) {
+            showError("Please select a room type and available room for each room.");
+            if (saveBtn) saveBtn.disabled = false;
+            return;
+        }
     }
 
     // Check-in date must be today or future
@@ -1082,32 +1198,6 @@ async function saveReservation() {
         showError("Check-in date cannot be before today.");
         if (saveBtn) saveBtn.disabled = false;
         return;
-    }
-
-    // --- Prevent double booking for the same guest in the same check-in/check-out date/time ---
-    try {
-        const resList = await axios.get(`${BASE_URL}/reservations/reservations.php`, {
-            params: { operation: "getAllReservations" }
-        });
-        if (Array.isArray(resList.data)) {
-            const overlap = resList.data.find(r =>
-                r.guest_id == guestId &&
-                r.reservation_id != reservationId && // allow update of self
-                r.is_deleted != 1 &&
-                // Overlap logic: (existing.check_in < new.check_out && existing.check_out > new.check_in)
-                (
-                    (r.check_in_date < checkOutDate && r.check_out_date > checkInDate) ||
-                    (r.check_in_date === checkInDate && r.check_in_time === checkInTime)
-                )
-            );
-            if (overlap) {
-                showError("This guest already has a reservation that overlaps with the selected check-in/check-out date and time.");
-                if (saveBtn) saveBtn.disabled = false;
-                return;
-            }
-        }
-    } catch (err) {
-        // If API fails, allow reservation (fail open)
     }
 
     // Map id_type to guest_idtype_id
@@ -1135,18 +1225,14 @@ async function saveReservation() {
             id_number: idNumber,
             guest_idtype_id: guest_idtype_id
         };
-
         const guestForm = new FormData();
         guestForm.append("operation", "insertGuest");
         guestForm.append("json", JSON.stringify(guestData));
-
         try {
             const guestRes = await axios.post(`${BASE_URL}/guests/guests.php`, guestForm);
-            // Accept both {guest_id: ...} and numeric guest_id
             if (guestRes.data && typeof guestRes.data === 'object' && guestRes.data.guest_id) {
                 guestId = guestRes.data.guest_id;
             } else if (guestRes.data && !isNaN(guestRes.data) && Number(guestRes.data) > 0) {
-                // fallback: fetch latest guest by email
                 const guestsList = await axios.get(`${BASE_URL}/guests/guests.php`, { params: { operation: "getAllGuests" } });
                 if (Array.isArray(guestsList.data)) {
                     const found = guestsList.data.find(g => g.email === email);
@@ -1165,116 +1251,41 @@ async function saveReservation() {
             return;
         }
     }
-    // If guestId is selected, do NOT add a new guest, just use the selected guestId
+
+    // Build rooms array for API
+    const roomsPayload = window.multiRoomData.map((room, idx) => ({
+        room_type_id: room.room_type_id,
+        room_id: room.room_id,
+        companions: room.companions,
+        is_main_guest: idx === 0 // main guest assigned to first room
+    }));
 
     const jsonData = {
         guest_id: guestId,
         check_in_date: checkInDate,
         check_out_date: checkOutDate,
-        room_type_id: roomTypeId,
-        room_id: roomId,
         reservation_status_id: statusId,
-        sub_method_id: subMethodId // Pass payment method to backend
+        sub_method_id: subMethodId,
+        rooms: roomsPayload
     };
-
     let operation = "insertReservation";
     if (reservationId) {
         jsonData.reservation_id = reservationId;
         operation = "updateReservation";
     }
-
-
     // Save reservation
     const formData = new FormData();
     formData.append("operation", operation);
     formData.append("json", JSON.stringify(jsonData));
-    // Add companions to formData if any
-    if (companionNames.length > 0) {
-        formData.append("companions", JSON.stringify(companionNames));
-    }
-
     try {
         const response = await axios.post(`${BASE_URL}/reservations/reservations.php`, formData);
-        let newReservationId = reservationId;
-
         if (response.data == 1) {
-            // If new, fetch the latest reservation_id for this guest
-            if (!reservationId) {
-                try {
-                    const resList = await axios.get(`${BASE_URL}/reservations/reservations.php`, {
-                        params: { operation: "getAllReservations" }
-                    });
-                    if (Array.isArray(resList.data)) {
-                        const found = resList.data.filter(r => r.guest_id == guestId).sort((a, b) => b.reservation_id - a.reservation_id)[0];
-                        newReservationId = found ? found.reservation_id : null;
-                    }
-                } catch (error) {
-                    console.error("[Billing Debug] Error fetching new reservation ID:", error);
-                }
-            }
-
-            // Always update ReservedRoom for this reservation
-            await upsertReservedRoom(newReservationId, roomId);
-
-            // --- AUTO-CREATE BILLING AFTER RESERVATION INSERT ---
-            if (!reservationId && newReservationId) {
-                try {
-                    console.log("[Billing Debug] Checking for existing billing for reservation_id:", newReservationId);
-                    const billingRes = await axios.get(`${BASE_URL}/billing/billing.php`, {
-                        params: { operation: "getBillingByReservation", reservation_id: newReservationId }
-                    });
-                    console.log("[Billing Debug] Billing API getBillingByReservation response:", billingRes.data);
-
-                    let billingExists = false;
-                    if (billingRes.data && typeof billingRes.data === "object") {
-                        // If object with keys, treat as exists
-                        if (Array.isArray(billingRes.data)) {
-                            billingExists = billingRes.data.length > 0;
-                        } else {
-                            billingExists = Object.keys(billingRes.data).length > 0;
-                        }
-                    }
-
-                    if (!billingExists) {
-                        // No billing exists, create one
-                        // Default billing_status_id: 1 (unpaid), total_amount: 0, billing_date: use checkOutDate or today
-                        const billingData = {
-                            reservation_id: newReservationId,
-                            billing_status_id: 1, // unpaid
-                            total_amount: 0,
-                            billing_date: checkOutDate || (new Date().toISOString().split("T")[0])
-                        };
-                        console.log("[Billing Debug] Inserting billing with data:", billingData);
-
-                        const billingForm = new FormData();
-                        billingForm.append("operation", "insertBilling");
-                        billingForm.append("json", JSON.stringify(billingData));
-                        const billingInsertRes = await axios.post(`${BASE_URL}/billing/billing.php`, billingForm);
-
-                        console.log("[Billing Debug] Billing insert response:", billingInsertRes.data);
-
-                        if (billingInsertRes.data != 1) {
-                            console.error("[Billing Debug] Billing insert failed, API response:", billingInsertRes.data);
-                            showError("Failed to auto-create billing for reservation. Please check the Billing API.");
-                        }
-                    } else {
-                        console.log("[Billing Debug] Billing already exists for reservation_id:", newReservationId);
-                    }
-                } catch (err) {
-                    console.error("[Billing Debug] Failed to auto-create billing for reservation:", err);
-                    showError("Failed to auto-create billing for reservation. See console for details.");
-                }
-            }
-            // --- END AUTO-CREATE BILLING ---
-
             displayReservations();
-
             const modal = document.getElementById("reservationModal");
             if (modal) {
                 const modalInstance = bootstrap.Modal.getInstance(modal);
                 if (modalInstance) modalInstance.hide();
             }
-
             showSuccess("Reservation saved!");
         } else {
             showError("Failed to save reservation.");
