@@ -233,9 +233,9 @@ document.addEventListener("DOMContentLoaded", () => {
         html += `<div class="fs-5 fw-bold text-end">Total: <span class="text-success">₱${total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>`;
         // Payment method and partial payment
         const paymentMethodSelect = document.getElementById("paymentMethodSelect");
-        let paymentMethod = paymentMethodSelect ? paymentMethodSelect.options[paymentMethodSelect.selectedIndex]?.text : '';
+        // let paymentMethod = paymentMethodSelect ? paymentMethodSelect.options[paymentMethodSelect.selectedIndex]?.text : '';
         let partial = total * 0.5;
-        html += `<div class="mt-3"><b>Payment Method:</b> <span class="text-info">${paymentMethod || 'N/A'}</span></div>`;
+        // html += `<div class="mt-3"><b>Payment Method:</b> <span class="text-info">${paymentMethod || 'N/A'}</span></div>`;
         html += `<div class="mt-1"><b>Partial Payment (50%):</b> <span class="text-warning">₱${partial.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>`;
         // Also update the partialPayment span in the payment section
         const partialPaymentSpan = document.getElementById("partialPayment");
@@ -249,10 +249,8 @@ document.addEventListener("DOMContentLoaded", () => {
         reservationModal.addEventListener("show.bs.modal", async () => {
             multiRoomData = [{ room_type_id: "", room_id: "", num_companions: 0, companions: [] }];
             window.multiRoomData = multiRoomData;
-            // Always load room types before rendering sections
             await loadRoomTypes();
             await renderMultiRoomSections();
-            // Always render payment methods dropdown on modal open
             await loadPaymentMethodsDropdown();
         });
     }
@@ -628,12 +626,181 @@ function displayReservationsTable(reservations) {
         <td>${res.check_out_date || 'N/A'}${checkOutTime12 ? " " + checkOutTime12 : ""}</td>
         <td>${getStatusBadge(res.reservation_status || res.room_status || 'pending')}</td>
         <td>
-            <i class="fas fa-eye action-icon text-info" data-action="view" data-id="${res.reservation_id}" title="View Details" style="cursor:pointer;"></i>
-            <i class="fas fa-edit action-icon text-primary" data-action="edit" data-id="${res.reservation_id}" title="Edit" style="cursor:pointer;"></i>
+            <i class="fas fa-user-edit action-icon" style="color: purple; cursor:pointer; margin-right:10px" data-action="change-booker" data-id="${res.reservation_id}" title="Change Booker"></i>
+            <i class="fas fa-eye action-icon text-info" data-action="view" data-id="${res.reservation_id}" title="View Details" style="cursor:pointer; margin-right:10px"></i>
+            <i class="fas fa-edit action-icon text-primary" data-action="edit" data-id="${res.reservation_id}" title="Edit" style="cursor:pointer; margin-right:10px"></i>
             <i class="fas fa-trash action-icon text-danger" data-action="delete" data-id="${res.reservation_id}" title="Delete" style="cursor:pointer;"></i>
         </td>
         `;
         tbody.appendChild(tr);
+
+        // Change Booker
+        const changeBookerIcon = tr.querySelector('.fa-user-edit[data-action="change-booker"]');
+        if (changeBookerIcon) {
+            changeBookerIcon.addEventListener("click", async () => {
+                // Fetch companions and main guest for this reservation
+                let people = [];
+                try {
+                    const resPeople = await axios.get(`${BASE_URL}/reservations/companions_for_reservation.php?reservation_id=${res.reservation_id}`);
+                    people = Array.isArray(resPeople.data) ? resPeople.data : [];
+                } catch {
+                    people = [];
+                }
+                // Build select dropdown
+                const options = people.map(p => {
+                    if (p.type === 'main_guest') {
+                        return `<option value=\"guest_${p.guest_id}\" ${p.guest_id == res.guest_id ? 'selected' : ''}>${p.full_name} (Main Guest)${p.email ? ' (' + p.email + ')' : ''}</option>`;
+                    } else {
+                        return `<option value=\"companion_${p.companion_id}\">${p.full_name} (Companion)</option>`;
+                    }
+                }).join("");
+                const html = `<div class='mb-2'>Select new booker for reservation #${res.reservation_id}:</div><select id='swalChangeBookerSelect' class='form-select'>${options}</select>`;
+                const { value: confirmed } = await Swal.fire({
+                    title: 'Change Main Booker',
+                    html: html,
+                    showCancelButton: true,
+                    confirmButtonText: 'Change Booker',
+                    cancelButtonText: 'Cancel',
+                    preConfirm: () => {
+                        const select = document.getElementById('swalChangeBookerSelect');
+                        return select ? select.value : null;
+                    }
+                });
+                if (confirmed) {
+                    if (confirmed.startsWith('guest_')) {
+                        // Main guest selected
+                        const new_guest_id = confirmed.replace('guest_', '');
+                        if (new_guest_id != res.guest_id) {
+                            try {
+                                const payload = { reservation_id: res.reservation_id, new_guest_id: new_guest_id };
+                                const apiRes = await axios.post(`${BASE_URL}/reservations/change_booker.php`, payload);
+                                if (apiRes.data && apiRes.data.success) {
+                                    showSuccess('Booker changed successfully!');
+                                    displayReservations();
+                                } else {
+                                    showError(apiRes.data && apiRes.data.message ? apiRes.data.message : 'Failed to change booker.');
+                                }
+                            } catch (err) {
+                                showError('Failed to change booker.');
+                            }
+                        }
+                    } else if (confirmed.startsWith('companion_')) {
+                        // Companion selected: prompt for guest info
+                        const companion_id = confirmed.replace('companion_', '');
+                        const companion = people.find(p => p.type === 'companion' && p.companion_id == companion_id);
+                        if (!companion) return;
+                        // Fetch ID types (alphabetically)
+                        let idTypes = [];
+                        try {
+                            const idTypesRes = await axios.get(`${BASE_URL}/guests/id_types.php`, { params: { operation: "getAllIDTypes" } });
+                            idTypes = Array.isArray(idTypesRes.data) ? idTypesRes.data : [];
+                            idTypes.sort((a, b) => a.id_type.localeCompare(b.id_type));
+                        } catch { }
+                        const idTypeOptions = idTypes.map(t => `<option value="${t.id_type}">${t.id_type}</option>`).join('');
+                        // Show modal for guest info (no ID pic)
+                        const { value: guestData } = await Swal.fire({
+                            title: 'Register Companion as Guest',
+                            html: `
+                                <div class='mb-2'><i class='fas fa-user-friends text-info me-1'></i> Fill in required info for <b>${companion.full_name}</b>:</div>
+                                <div class='swal2-input-group' style='display:flex;align-items:center;gap:8px;'>
+                                    <i class='fas fa-user text-primary'></i>
+                                    <input id='swalFirstName' class='swal2-input' placeholder='First Name' value='${companion.full_name.split(' ')[0] || ''}' style='width:100%;'>
+                                </div>
+                                <div class='swal2-input-group' style='display:flex;align-items:center;gap:8px;'>
+                                    <i class='fas fa-user text-primary'></i>
+                                    <input id='swalLastName' class='swal2-input' placeholder='Last Name' value='${companion.full_name.split(' ').slice(1).join(' ')}' style='width:100%;'>
+                                </div>
+                                <div class='swal2-input-group' style='display:flex;align-items:center;gap:8px;'>
+                                    <i class='fas fa-envelope text-info'></i>
+                                    <input id='swalEmail' class='swal2-input' placeholder='Email' style='width:100%;'>
+                                </div>
+                                <div class='swal2-input-group' style='display:flex;align-items:center;gap:8px;'>
+                                    <i class='fas fa-phone text-success'></i>
+                                    <input id='swalPhone' class='swal2-input' placeholder='Phone' style='width:100%;'>
+                                </div>
+                                <div class='swal2-input-group' style='display:flex;align-items:center;gap:8px;'>
+                                    <i class='fas fa-calendar-alt text-warning'></i>
+                                    <input id='swalDOB' class='swal2-input' type='date' placeholder='Date of Birth' style='width:100%;'>
+                                </div>
+                                <div class='swal2-input-group' style='display:flex;align-items:center;gap:8px;'>
+                                    <i class='fas fa-id-card text-secondary'></i>
+                                    <input id='swalIDNumber' class='swal2-input' placeholder='ID Number' style='width:100%;'>
+                                </div>
+                                <div class='swal2-input-group' style='display:flex;align-items:center;gap:8px;'>
+                                    <i class='fas fa-id-badge text-secondary'></i>
+                                    <select id='swalIDType' class='swal2-input' style='width:100%;'>
+                                        <option value=''>-- Select ID Type --</option>
+                                        ${idTypeOptions}
+                                    </select>
+                                </div>
+                            `,
+                            focusConfirm: false,
+                            showCancelButton: true,
+                            confirmButtonText: 'Register & Assign',
+                            cancelButtonText: 'Cancel',
+                            preConfirm: () => {
+                                // Map id_type to guest_idtype_id for backend
+                                const id_type = document.getElementById('swalIDType').value;
+                                let guest_idtype_id = null;
+                                if (id_type && Array.isArray(idTypes)) {
+                                    const found = idTypes.find(t => t.id_type === id_type);
+                                    guest_idtype_id = found ? found.guest_idtype_id : null;
+                                }
+                                return {
+                                    first_name: document.getElementById('swalFirstName').value.trim(),
+                                    last_name: document.getElementById('swalLastName').value.trim(),
+                                    email: document.getElementById('swalEmail').value.trim(),
+                                    phone_number: document.getElementById('swalPhone').value.trim(),
+                                    date_of_birth: document.getElementById('swalDOB').value,
+                                    id_number: document.getElementById('swalIDNumber').value.trim(),
+                                    id_type: id_type,
+                                    guest_idtype_id: guest_idtype_id
+                                };
+                            }
+                        });
+                        if (guestData && guestData.first_name && guestData.last_name && guestData.email && guestData.phone_number && guestData.date_of_birth && guestData.id_number && guestData.id_type) {
+                            // Register guest
+                            try {
+                                const formData = new FormData();
+                                formData.append('operation', 'insertGuest');
+                                formData.append('json', JSON.stringify(guestData));
+                                const guestRes = await axios.post(`${BASE_URL}/guests/guests.php`, formData);
+                                let new_guest_id = null;
+                                if (guestRes.data && typeof guestRes.data === 'object' && guestRes.data.guest_id) {
+                                    new_guest_id = guestRes.data.guest_id;
+                                } else if (guestRes.data && !isNaN(guestRes.data) && Number(guestRes.data) > 0) {
+                                    new_guest_id = guestRes.data;
+                                }
+                                if (new_guest_id) {
+                                    // Mark the companion as deleted in ReservedRoomCompanion
+                                    try {
+                                        await axios.post(`${BASE_URL}/reservations/companions.php`, {
+                                            operation: 'deleteCompanion',
+                                            companion_id: companion_id
+                                        });
+                                    } catch (e) { /* ignore error, just try to hide companion */ }
+                                    // Assign as booker
+                                    const payload = { reservation_id: res.reservation_id, new_guest_id: new_guest_id };
+                                    const apiRes = await axios.post(`${BASE_URL}/reservations/change_booker.php`, payload);
+                                    if (apiRes.data && apiRes.data.success) {
+                                        showSuccess('Booker changed successfully!');
+                                        displayReservations(); // This will refresh the row and dropdown
+                                    } else {
+                                        showError(apiRes.data && apiRes.data.message ? apiRes.data.message : 'Failed to change booker.');
+                                    }
+                                } else {
+                                    showError('Failed to register companion as guest.');
+                                }
+                            } catch (err) {
+                                showError('Failed to register companion as guest.');
+                            }
+                        } else if (guestData) {
+                            showError('Please fill in all required fields.');
+                        }
+                    }
+                }
+            });
+        }
 
         // View (SweetAlert, improved UI/UX, no exclamation icon)
         const viewIcon = tr.querySelector('.fa-eye[data-action="view"]');
@@ -746,17 +913,14 @@ function displayReservationsTable(reservations) {
 
 function getStatusBadge(status) {
     status = (status || '').toLowerCase();
-    if (status === 'checked-in')
-        return `<span class="badge" style="background:#28a745;color:#fff;">${status}</span>`;
-    if (status === 'checked-out')
-        return `<span class="badge" style="background:#6c757d;color:#fff;">${status}</span>`;
-    if (status === 'reserved' || status === 'confirmed')
-        return `<span class="badge" style="background:#0dcaf0;color:#fff;">${status}</span>`;
-    if (status === 'pending')
-        return `<span class="badge" style="background:#ffc107;color:#212529;border:1px solid #ffc107;">${status}</span>`;
-    if (status === 'cancelled')
-        return `<span class="badge" style="background:#dc3545;color:#fff;">${status}</span>`;
-    return `<span class="badge bg-info">${status}</span>`;
+    let icon = '<i class="fas fa-question-circle text-secondary"></i>';
+    let label = status.charAt(0).toUpperCase() + status.slice(1);
+    if (status === 'confirmed') icon = '<i class="fas fa-check-circle text-info"></i>';
+    else if (status === 'pending') icon = '<i class="fas fa-hourglass-half text-warning"></i>';
+    else if (status === 'checked-in') icon = '<i class="fas fa-door-open text-success"></i>';
+    else if (status === 'checked-out') icon = '<i class="fas fa-sign-out-alt text-primary"></i>';
+    else if (status === 'cancelled') icon = '<i class="fas fa-times-circle text-danger"></i>';
+    return `${icon} ${label}`;
 }
 
 // ==========================
