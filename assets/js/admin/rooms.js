@@ -144,35 +144,36 @@ function displayRooms(rooms) {
         return;
     }
 
+
     rooms.forEach(room => {
+        // Features column: plain text, comma separated, no badge
         let featuresHtml = "-";
         if (Array.isArray(room.features) && room.features.length) {
             featuresHtml = room.features
                 .filter(f => !f.is_deleted || f.is_deleted === 0 || f.is_deleted === false || f.is_deleted === "0")
-                .map(f => `<span class="badge bg-secondary me-1 mb-1">${f.feature_name}</span>`).join('');
+                .map(f => f.feature_name).join(', ');
         } else if (room.key_features) {
             featuresHtml = room.key_features
                 .split(',')
                 .filter(f => !!f.trim())
-                .map(f => `<span class="badge bg-secondary me-1 mb-1">${f.trim()}</span>`).join('');
+                .map(f => f.trim()).join(', ');
         }
 
         tableBody.innerHTML += `
             <tr>
-            <td>${room.room_number || '-'}</td>
-            <td>${room.type_name || '-'}</td>
-            <td>${featuresHtml}</td>
+            <td>${room.room_number || ''}</td>
+            <td>${room.type_name || ''}</td>
+            <td>${featuresHtml || ''}</td>
             <td>
                 <span class="badge bg-${getStatusColor(room.room_status)}">
                 ${room.room_status || 'unknown'}
                 </span>
             </td>
-            <td>${room.max_capacity || '-'}</td>
-            <td>₱${room.price_per_stay || '0.00'}</td>
+            <td>${room.max_capacity || ''}</td>
+            <td>₱${room.price_per_stay || ''}</td>
             <td>${formatDate(room.updated_at)}</td>
             <td class="text-center">
                 <i class="fas fa-eye text-info btn-view-room" data-room-id="${room.room_id}" title="View" style="cursor:pointer;margin-right:10px;"></i>
-                <i class="fas fa-image text-success btn-add-photo" data-room-id="${room.room_id}" title="Add/View Photos" style="cursor:pointer;margin-right:10px;"></i>
                 <i class="fas fa-edit text-primary btn-edit-room" data-room-id="${room.room_id}" title="Edit" style="cursor:pointer;margin-right:10px;"></i>
                 <i class="fas fa-trash text-danger btn-delete-room" data-room-id="${room.room_id}" title="Delete" style="cursor:pointer;"></i>
             </td>
@@ -527,12 +528,21 @@ function displayRoomTypes(types) {
                 <td>₱${type.price_per_stay || '0.00'}</td>
                 <td>${type.room_size_sqm || '-'} sqm</td>
                 <td class="text-center">
+                    <i class="fas fa-images text-success btn-manage-roomtype-images" data-roomtype-id="${type.room_type_id}" title="Manage Images" style="cursor:pointer;margin-right:10px;"></i>
                     <i class="fas fa-cogs text-success btn-manage-features" data-roomtype-id="${type.room_type_id}" title="Manage Features" style="cursor:pointer;margin-right:10px;"></i>
                     <i class="fas fa-edit text-primary btn-edit-roomtype" data-roomtype-id="${type.room_type_id}" title="Edit" style="cursor:pointer;margin-right:10px;"></i>
                     <i class="fas fa-trash text-danger btn-delete-roomtype" data-roomtype-id="${type.room_type_id}" title="Delete" style="cursor:pointer;"></i>
                 </td>
             </tr>
         `;
+        tableBody.querySelectorAll('.btn-manage-roomtype-images').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const roomTypeId = parseInt(btn.dataset.roomtypeId);
+                if (!isNaN(roomTypeId)) {
+                    showRoomTypeImagesModal(roomTypeId);
+                }
+            });
+        });
     });
 
     attachRoomTypeEventListeners(tableBody);
@@ -1208,6 +1218,7 @@ function setupFeatureModalEventListeners(roomTypeId, modal, allFeatures, assigne
     }
 }
 
+
 // ====================================================================
 // IMAGE MANAGEMENT
 // ====================================================================
@@ -1228,6 +1239,159 @@ function previewImage(event) {
         }
         reader.readAsDataURL(file);
     }
+}
+
+// Room Type Images Modal (NEW)
+async function showRoomTypeImagesModal(roomTypeId) {
+    if (!roomTypeId) return;
+
+    let images = [];
+    try {
+        const res = await axios.get(`${BASE_URL}/admin/rooms/room-images.php`, {
+            params: { room_type_id: roomTypeId }
+        });
+        images = Array.isArray(res.data) ? res.data : [];
+    } catch (error) {
+        console.error("Error fetching room type images:", error);
+        images = [];
+    }
+
+    let html = `
+        <div>
+            <div class="mb-3">
+                <label class="form-label">Upload New Photo</label>
+                <input type="file" id="roomTypeImageUpload" accept="image/*" class="form-control mb-2">
+                <button class="btn btn-primary btn-sm w-100" id="uploadRoomTypeImageBtn" data-roomtype-id="${roomTypeId}">
+                    <i class="fas fa-upload"></i> Upload
+                </button>
+            </div>
+            <div class="mb-2" id="roomTypeImagesPreview">
+                ${images.length === 0 ? '<div class="text-muted">No images yet.</div>' : ''}
+                <div class="d-flex flex-wrap" style="gap:20px;">
+                    ${images.map(img => `
+                        <div style="position:relative;display:inline-block;">
+                            <img src="/Hotel-Reservation-Billing-System/assets/images/uploads/room-images/${img.image_url}" style="max-width:320px;max-height:240px;" class="img-thumbnail mb-1">
+                            <div style="position:absolute;top:4px;right:4px;display:flex;gap:4px;">
+                                <button class="btn btn-danger btn-sm btn-delete-roomtype-image" data-image-id="${img.room_image_id}" title="Delete" style="padding:2px 6px;">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                                <button class="btn btn-secondary btn-sm btn-update-roomtype-image" data-image-id="${img.room_image_id}" title="Update" style="padding:2px 6px;">
+                                    <i class="fas fa-pen"></i>
+                                </button>
+                            </div>
+                            <input type="file" class="form-control form-control-sm mt-1 d-none update-roomtype-image-input" data-image-id="${img.room_image_id}" accept="image/*">
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+        </div>
+    `;
+
+    const blankModalTitle = document.getElementById("blank-modal-title");
+    const blankMainDiv = document.getElementById("blank-main-div");
+    const blankModal = document.getElementById("blank-modal");
+    const blankModalFooter = document.getElementById("blank-modal-footer");
+
+    if (!blankModalTitle || !blankMainDiv || !blankModal || !blankModalFooter) {
+        console.error("Required modal elements not found");
+        return;
+    }
+
+    blankModalTitle.innerText = "Room Type Images";
+    blankMainDiv.innerHTML = html;
+
+    const modalDialog = blankModal.querySelector('.modal-dialog');
+    if (modalDialog) modalDialog.classList.add('modal-xl');
+
+    blankModalFooter.innerHTML = `<button type="button" class="btn btn-secondary w-100 btn-close-roomtype-images-modal" data-bs-dismiss="modal">Close</button>`;
+    const myModal = bootstrap.Modal.getOrCreateInstance(blankModal);
+    myModal.show();
+
+    setupRoomTypeImageModalEventListeners(roomTypeId, myModal);
+}
+
+function setupRoomTypeImageModalEventListeners(roomTypeId, modal) {
+    const closeBtn = document.querySelector(".btn-close-roomtype-images-modal");
+    if (closeBtn) {
+        closeBtn.onclick = function () {
+            modal.hide();
+        };
+    }
+
+    const uploadBtn = document.getElementById("uploadRoomTypeImageBtn");
+    if (uploadBtn) {
+        uploadBtn.onclick = async function () {
+            const fileInput = document.getElementById("roomTypeImageUpload");
+            if (!fileInput || !fileInput.files[0]) {
+                showToast('warning', 'Please select an image to upload');
+                return;
+            }
+            const formData = new FormData();
+            formData.append('operation', 'insertRoomImage');
+            formData.append('room_type_id', roomTypeId);
+            formData.append('image', fileInput.files[0]);
+            try {
+                const res = await axios.post(`${BASE_URL}/admin/rooms/room-images.php`, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                if (res.data == 1) {
+                    showToast('success', 'Image uploaded!');
+                    await showRoomTypeImagesModal(roomTypeId);
+                } else {
+                    showToast('error', 'Failed to upload image');
+                }
+            } catch (error) {
+                showToast('error', 'Failed to upload image');
+            }
+        };
+    }
+
+    document.querySelectorAll(".btn-delete-roomtype-image").forEach(btn => {
+        btn.onclick = async function () {
+            const imageId = btn.getAttribute('data-image-id');
+            if (!imageId) return;
+            const result = await showConfirmDialog('Delete Image?', 'Are you sure you want to delete this image?', 'warning');
+            if (!result) return;
+            try {
+                await axios.delete(`${BASE_URL}/admin/rooms/room-images.php`, {
+                    data: { operation: 'deleteImage', room_image_id: imageId }
+                });
+                showToast('success', 'Image deleted');
+                await showRoomTypeImagesModal(roomTypeId);
+            } catch (error) {
+                showToast('error', 'Failed to delete image');
+            }
+        };
+    });
+
+    document.querySelectorAll(".btn-update-roomtype-image").forEach(btn => {
+        btn.onclick = function () {
+            const imageId = btn.getAttribute('data-image-id');
+            if (!imageId) return;
+            const input = document.querySelector(`.update-roomtype-image-input[data-image-id='${imageId}']`);
+            if (input) input.classList.toggle('d-none');
+        };
+    });
+
+    document.querySelectorAll(".update-roomtype-image-input").forEach(input => {
+        input.addEventListener('change', async function () {
+            const imageId = input.getAttribute('data-image-id');
+            if (!imageId || !input.files[0]) return;
+            const formData = new FormData();
+            formData.append('operation', 'updateImage');
+            formData.append('room_image_id', imageId);
+            formData.append('image', input.files[0]);
+            try {
+                await axios.post(`${BASE_URL}/admin/rooms/room-images.php`, formData, {
+                    headers: { 'Content-Type': 'multipart/form-data' }
+                });
+                showToast('success', 'Image updated!');
+                await showRoomTypeImagesModal(roomTypeId);
+            } catch (error) {
+                showToast('error', 'Failed to update image');
+            }
+        });
+    });
 }
 
 async function showRoomImagesModal(roomId) {
@@ -1451,82 +1615,90 @@ async function showRoomDetailsModal(roomId) {
         typeImg = window.location.origin + "/Hotel-Reservation-Billing-System/assets/images/uploads/room-types/placeholder-room.jpg";
     }
 
-    let featuresHtml = '<span class="text-muted">No features specified</span>';
+    // Features as grid, 3 per row, with Font Awesome check, no badge, no comma
+    let featuresArr = [];
     if (Array.isArray(room.features) && room.features.length) {
-        featuresHtml = room.features.map(f => `<span class="badge bg-success me-1 mb-1"><i class="fas fa-check-circle me-1"></i>${f.feature_name}</span>`).join('');
+        featuresArr = room.features.map(f => f.feature_name);
     } else if (room.key_features) {
-        featuresHtml = room.key_features.split(',').map(f => `<span class="badge bg-success me-1 mb-1"><i class="fas fa-check-circle me-1"></i>${f.trim()}</span>`).join('');
+        featuresArr = room.key_features.split(',').map(f => f.trim()).filter(f => !!f);
+    }
+    let featuresText = '<span class="text-muted">No features specified</span>';
+    if (featuresArr.length > 0) {
+        featuresText = '<div class="row">';
+        for (let i = 0; i < featuresArr.length; i += 3) {
+            featuresText += '<div class="d-flex mb-2">';
+            for (let j = 0; j < 3; j++) {
+                const idx = i + j;
+                if (idx < featuresArr.length) {
+                    featuresText += `<div class="flex-fill"><i class='fas fa-check-circle text-success me-2'></i>${featuresArr[idx]}</div>`;
+                } else {
+                    featuresText += '<div class="flex-fill"></div>';
+                }
+            }
+            featuresText += '</div>';
+        }
+        featuresText += '</div>';
     }
 
     let html = `
-        <div class="container-fluid">
-            <div class="row">
-                <div class="col-md-4 mb-3">
-                    <div class="card shadow border-0">
-                        <div class="card-header text-white" style="background: var(--primary-color, #007bff);">
-                            <i class="fas fa-tag me-2"></i> Room Type
+        <div class="container-fluid px-2 py-2">
+            <div class="row g-3">
+                <div class="col-12 mb-2">
+                    <div class="d-flex align-items-center gap-3 mb-2" style="border-bottom:1.5px solid #eee; padding-bottom:0.5rem;">
+                        <img src="${typeImg}" class="rounded shadow-sm" style="width: 80px; height: 80px; object-fit: cover; border: 2px solid #8B0000;">
+                        <div>
+                            <h4 class="fw-bold mb-0">${room.type_name || ''}</h4>
+                            <div class="text-muted small">${room.room_type_description || ''}</div>
                         </div>
-                        <div class="card-body text-center">
-                            <img src="${typeImg}" class="img-thumbnail mb-2" style="max-width:220px;max-height:180px;">
-                            <div class="fw-bold mt-2">${room.type_name || 'N/A'}</div>
-                            <div class="text-muted small mt-1">${room.room_type_description || 'No description available'}</div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-8 mb-3">
-                    <div class="card shadow border-0">
-                        <div class="card-header text-white" style="background: var(--primary-color, #007bff);">
-                            <i class="fas fa-bed me-2"></i> Room Details
-                        </div>
-                        <div class="card-body">
-                            <div class="row mb-2">
-                                <div class="col-6">
-                                    <h5 class="mb-1"><i class="fas fa-door-closed me-2"></i>Room #${room.room_number || 'N/A'}</h5>
-                                </div>
-                                <div class="col-6 text-end">
-                                    <span class="badge bg-${getStatusColor(room.room_status)} px-3 py-2 fs-6">
-                                        <i class="fas fa-info-circle me-1"></i>${room.room_status || 'unknown'}
-                                    </span>
-                                </div>
-                            </div>
-                            <div class="mb-2"><i class="fas fa-users me-2"></i><strong>Capacity:</strong> ${room.max_capacity || 'N/A'} guests</div>
-                            <div class="mb-2"><i class="fas fa-ruler-combined me-2"></i><strong>Room Size:</strong> ${room.room_size_sqm || 'N/A'} sqm</div>
-                            <div class="mb-2"><i class="fas fa-coins me-2"></i><strong>Price per Stay:</strong> ₱${room.price_per_stay || '0.00'}</div>
-                            <div class="mb-2"><i class="fas fa-calendar-alt me-2"></i><strong>Last Updated:</strong> ${formatDate(room.updated_at)}</div>
+                        <div class="ms-auto">
+                            <span class="badge bg-${getStatusColor(room.room_status)} px-3 py-2 fs-6">
+                                <i class="fas fa-info-circle me-1"></i>${room.room_status || ''}
+                            </span>
                         </div>
                     </div>
                 </div>
-            </div>
-            <div class="row mt-2">
-                <div class="col-12">
-                    <div class="card shadow border-0">
-                        <div class="card-header text-white" style="background: var(--primary-color, #007bff);">
+                <div class="col-md-4 mb-2">
+                    <div class="card border-0 shadow h-100">
+                        <div class="card-body p-3">
+                            <ul class="list-group list-group-flush text-start">
+                                <li class="list-group-item px-0 py-1"><i class="fas fa-door-closed me-2"></i><strong>Room # :</strong> ${room.room_number || ''}</li>
+                                <li class="list-group-item px-0 py-1"><i class="fas fa-users me-2"></i><strong>Capacity :</strong> ${room.max_capacity || ''}</li>
+                                <li class="list-group-item px-0 py-1"><i class="fas fa-ruler-combined me-2"></i><strong>Room Size :</strong> ${room.room_size_sqm || ''}</li>
+                                <li class="list-group-item px-0 py-1"><i class="fas fa-coins me-2"></i><strong>Price per Stay : </strong> ₱${room.price_per_stay || ''}</li>
+                                <li class="list-group-item px-0 py-1"><i class="fas fa-calendar-alt me-2"></i><strong>Last Updated : </strong> ${room.updated_at ? formatDate(room.updated_at) : ''}</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-8 mb-2">
+                    <div class="card border-0 shadow h-100">
+                        <div class="card-header bg-gradient fw-bold text-black" style="background: linear-gradient(90deg, #8B0000 0%, #b22222 100%);">
                             <i class="fas fa-list-ul me-2"></i> Features
                         </div>
-                        <div class="card-body">
-                            <div id="features-list" class="fs-5">
-                                ${featuresHtml}
+                        <div class="card-body pb-2 pt-3">
+                            <div id="features-list" class="fs-5 mb-2">
+                                ${featuresText}
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-            <div class="row mt-2">
-                <div class="col-12">
-                    <div class="card shadow border-0">
-                        <div class="card-header text-white" style="background: var(--primary-color, #007bff);">
-                            <i class="fas fa-images me-2"></i> Additional Room Images
+                <div class="col-12 mt-3">
+                    <div class="card border-0 shadow">
+                        <div class="card-header bg-light fw-bold">
+                            <i class="fas fa-images me-2"></i> Room Gallery
                         </div>
                         <div class="card-body">
-                            <div class="d-flex flex-wrap align-items-center" style="gap: 20px;">
+                            <div class="row g-3 justify-content-start align-items-center">
                                 ${images.length
             ? images.map(img =>
-                `<div class="d-inline-block text-center m-1">
-                                            <img src="/Hotel-Reservation-Billing-System/assets/images/uploads/room-images/${img.image_url}" class="img-thumbnail shadow-sm" style="max-width:220px;max-height:180px;">
-                                            <div class="small text-muted mt-1"><i class="fas fa-image"></i> #${img.room_image_id}</div>
-                                        </div>`
+                `<div class="col-6 col-md-4 col-lg-3 text-center mb-2">
+                    <div class="gallery-img-card position-relative border-0 shadow-sm rounded h-100 p-2 bg-white">
+                        <img src="/Hotel-Reservation-Billing-System/assets/images/uploads/room-images/${img.image_url}" class="img-fluid rounded" style="max-height:150px; object-fit:cover; border:1.5px solid #eee;">
+                        <div class="small text-muted mt-1"><i class="fas fa-image"></i> #${img.room_image_id}</div>
+                    </div>
+                </div>`
             ).join('')
-            : '<div class="text-muted"><i class="fas fa-images"></i> No additional images uploaded.</div>'
+            : '<div class="col-12 text-muted"><i class="fas fa-images"></i> No additional images uploaded.</div>'
         }
                             </div>
                         </div>

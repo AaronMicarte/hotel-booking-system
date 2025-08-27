@@ -136,13 +136,13 @@ CREATE TABLE ReservedRoom (
 
 CREATE TABLE RoomImage (
     room_image_id INT AUTO_INCREMENT PRIMARY KEY,
-    room_id INT NOT NULL,
+    room_type_id INT NOT NULL,
     image_url VARCHAR(255) NOT NULL,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     is_deleted BOOLEAN DEFAULT FALSE,
-    FOREIGN KEY (room_id) REFERENCES Room(room_id)
+    FOREIGN KEY (room_type_id) REFERENCES RoomType(room_type_id)
 );
-
+    
 -- BILLING & ADDONS
 CREATE TABLE BillingStatus (
     billing_status_id INT AUTO_INCREMENT PRIMARY KEY,

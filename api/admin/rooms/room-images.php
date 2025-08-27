@@ -13,18 +13,18 @@ class RoomImage
         $params = [];
         $where = ["ri.is_deleted = FALSE"];
 
-        if (isset($_GET['room_id']) && !empty($_GET['room_id'])) {
-            $where[] = "ri.room_id = :room_id";
-            $params[':room_id'] = $_GET['room_id'];
+        if (isset($_GET['room_type_id']) && !empty($_GET['room_type_id'])) {
+            $where[] = "ri.room_type_id = :room_type_id";
+            $params[':room_type_id'] = $_GET['room_type_id'];
         }
 
         $whereClause = implode(" AND ", $where);
 
         $query = "SELECT 
                     ri.*, 
-                    r.room_number
+                    rt.type_name
                   FROM RoomImage ri
-                  LEFT JOIN Room r ON ri.room_id = r.room_id
+                  LEFT JOIN RoomType rt ON ri.room_type_id = rt.room_type_id
                   WHERE {$whereClause}
                   ORDER BY ri.created_at DESC";
 
@@ -55,22 +55,26 @@ class RoomImage
         echo json_encode($image);
     }
 
-    function insertRoomImage($json)
+    function insertRoomImage($json = null)
     {
         include_once '../../config/database.php';
         $database = new Database();
         $db = $database->getConnection();
 
-        // Handle file upload if present
-        $room_id = null;
+        // Accept both POST (form) and JSON
+        $room_type_id = null;
         $image_url = null;
 
-        if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['json'])) {
-            $json = json_decode($_POST['json'], true);
-            $room_id = $json['room_id'];
-        } else {
-            $json = json_decode($json, true);
-            $room_id = $json['room_id'];
+        if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+            if (isset($_POST['room_type_id'])) {
+                $room_type_id = $_POST['room_type_id'];
+            } elseif (isset($_POST['json'])) {
+                $json = json_decode($_POST['json'], true);
+                $room_type_id = $json['room_type_id'] ?? null;
+            }
+        } else if ($json) {
+            $json = is_array($json) ? $json : json_decode($json, true);
+            $room_type_id = $json['room_type_id'] ?? null;
             $image_url = $json['image_url'] ?? null;
         }
 
@@ -85,10 +89,9 @@ class RoomImage
             $fileExt = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
             $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
             if (in_array($fileExt, $allowed)) {
-                $newFileName = uniqid('roomimg_', true) . '.' . $fileExt;
+                $newFileName = uniqid('roomtypeimg_', true) . '.' . $fileExt;
                 $destPath = $uploadDir . $newFileName;
                 if (move_uploaded_file($fileTmp, $destPath)) {
-                    // Save just the filename for DB
                     $image_url = $newFileName;
                 } else {
                     echo json_encode(['error' => 'Failed to upload image']);
@@ -100,16 +103,16 @@ class RoomImage
             }
         }
 
-        if (!$image_url) {
-            echo json_encode(['error' => 'No image provided']);
+        if (!$room_type_id || !$image_url) {
+            echo json_encode(['error' => 'No image or room type provided']);
             return;
         }
 
-        $sql = "INSERT INTO RoomImage (room_id, image_url) 
-                VALUES (:room_id, :image_url)";
+        $sql = "INSERT INTO RoomImage (room_type_id, image_url) 
+                VALUES (:room_type_id, :image_url)";
 
         $stmt = $db->prepare($sql);
-        $stmt->bindParam(':room_id', $room_id);
+        $stmt->bindParam(':room_type_id', $room_type_id);
         $stmt->bindParam(':image_url', $image_url);
         $stmt->execute();
 
@@ -139,7 +142,7 @@ class RoomImage
         $current = $stmt->fetch(PDO::FETCH_ASSOC);
 
         $image_url = $current ? $current['image_url'] : null;
-        $room_id = isset($json['room_id']) ? $json['room_id'] : ($current ? $current['room_id'] : null);
+        $room_type_id = isset($json['room_type_id']) ? $json['room_type_id'] : ($current ? $current['room_type_id'] : null);
 
         // If file uploaded, save it and update $image_url
         if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
@@ -152,7 +155,7 @@ class RoomImage
             $fileExt = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
             $allowed = ['jpg', 'jpeg', 'png', 'gif', 'webp'];
             if (in_array($fileExt, $allowed)) {
-                $newFileName = uniqid('roomimg_', true) . '.' . $fileExt;
+                $newFileName = uniqid('roomtypeimg_', true) . '.' . $fileExt;
                 $destPath = $uploadDir . $newFileName;
                 if (move_uploaded_file($fileTmp, $destPath)) {
                     // Optionally delete old image file
@@ -176,12 +179,12 @@ class RoomImage
         }
 
         $sql = "UPDATE RoomImage 
-                SET room_id = :room_id,
+                SET room_type_id = :room_type_id,
                     image_url = :image_url
                 WHERE room_image_id = :room_image_id";
 
         $stmt = $db->prepare($sql);
-        $stmt->bindParam(':room_id', $room_id);
+        $stmt->bindParam(':room_type_id', $room_type_id);
         $stmt->bindParam(':image_url', $image_url);
         $stmt->bindParam(':room_image_id', $room_image_id);
         $stmt->execute();
@@ -232,6 +235,10 @@ switch ($operation) {
         $roomImage->getAllRoomImages();
         break;
     case "insertRoomImage":
+        $roomImage->insertRoomImage($json);
+        break;
+    // For backward compatibility, allow 'insertImage' as alias
+    case "insertImage":
         $roomImage->insertRoomImage($json);
         break;
     case "getRoomImage":
