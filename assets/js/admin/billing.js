@@ -125,11 +125,26 @@ function displayBillings(billings) {
         document.getElementById("partialBillings").textContent = "0";
         return;
     }
+    // Helper to format date as 'Mmm d, yyyy'
+    function formatDate(dateStr) {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        if (isNaN(d)) return dateStr;
+        const month = d.toLocaleString('en-US', { month: 'short' });
+        const day = d.getDate();
+        const year = d.getFullYear();
+        return `${month} ${day}, ${year}`;
+    }
+
     billings.forEach(b => {
         if (b.billing_status === "paid") paid++;
         else if (b.billing_status === "unpaid") unpaid++;
         else if (b.billing_status === "partial") partial++;
-        const roomInfo = (b.type_name && b.room_number) ? `${b.type_name} (${b.room_number})` : "-";
+        // Show all reserved rooms as a comma-separated list of 'type (number)'
+        let roomInfo = "-";
+        if (Array.isArray(b.rooms) && b.rooms.length > 0) {
+            roomInfo = b.rooms.map(r => `${r.type_name} (${r.room_number})`).join(", ");
+        }
         const totalBill = b.total_bill !== undefined
             ? parseFloat(b.total_bill)
             : (b.total_amount !== undefined ? parseFloat(b.total_amount) : 0);
@@ -143,17 +158,23 @@ function displayBillings(billings) {
             canAddPayment = false;
         }
 
+        // Status color (same as modal)
+        let statusColor = '#6c757d';
+        if ((b.billing_status || '').toLowerCase() === 'paid') statusColor = '#198754';
+        else if ((b.billing_status || '').toLowerCase() === 'unpaid' || (b.billing_status || '').toLowerCase() === 'overdue') statusColor = '#dc3545';
+        else if ((b.billing_status || '').toLowerCase() === 'partial') statusColor = '#fd7e14';
+
         tbody.innerHTML += `
             <tr>
                 <td>${b.billing_id || ''}</td>
                 <td>${b.guest_name || "-"}</td>
                 <td>${b.reservation_id || "-"}</td>
-                <td>${b.billing_date || "-"}</td>
+                <td>${formatDate(b.billing_date) || "-"}</td>
                 <td>${roomInfo}</td>
                 <td>₱${totalBill.toFixed(2)}</td>
                 <td>₱${b.amount_paid ? parseFloat(b.amount_paid).toFixed(2) : "0.00"}</td>
                 <td>
-                    <span class="badge bg-${getStatusColor(b.billing_status || '')}">${b.billing_status || "-"}</span>
+                    <span style="font-weight:bold;text-transform:uppercase;color:${statusColor}">${b.billing_status || "-"}</span>
                     <i class="fas fa-edit text-primary btn-edit-status" data-billing-id="${b.billing_id}" title="Edit Status" style="cursor:pointer;margin-left:6px;"></i>
                 </td>
                 <td class="text-center">

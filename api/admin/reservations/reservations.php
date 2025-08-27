@@ -185,8 +185,10 @@ class Reservation
                                 }
                             }
                         }
-                        // Set room status to reserved
-                        $this->updateRoomStatus($room_id, 4);
+                        // Only set room status to reserved if reservation is confirmed
+                        if ($reservation_status_id == 2) { // 2 = confirmed
+                            $this->updateRoomStatus($room_id, 4); // 4 = reserved
+                        }
                     }
                 }
             }

@@ -604,6 +604,16 @@ function displayReservationsTable(reservations) {
 
 
     filteredReservations.forEach((res, index) => {
+        // Overdue logic: if not checked out/cancelled and today > check_out_date
+        let status = (res.reservation_status || res.room_status || 'pending').toLowerCase();
+        let isOverdue = false;
+        if (status !== 'checked-out' && status !== 'cancelled' && res.check_out_date) {
+            const today = new Date();
+            today.setHours(0, 0, 0, 0);
+            const outDate = new Date(res.check_out_date);
+            outDate.setHours(0, 0, 0, 0);
+            if (today > outDate) isOverdue = true;
+        }
         // Format check-in and check-out time to 12-hour format with AM/PM
         function format12Hour(timeStr) {
             if (!timeStr) return "";
@@ -636,7 +646,7 @@ function displayReservationsTable(reservations) {
         <td>${res.rooms_summary || 'No Room'}${mainGuestRoom ? `<br><span class='badge bg-success mt-1'>Main Guest: ${mainGuestRoom}</span>` : ''}</td>
         <td>${res.check_in_date || 'N/A'}${checkInTime12 ? " " + checkInTime12 : ""}</td>
         <td>${res.check_out_date || 'N/A'}${checkOutTime12 ? " " + checkOutTime12 : ""}</td>
-        <td>${getStatusBadge(res.reservation_status || res.room_status || 'pending')}</td>
+        <td>${isOverdue ? `<span class='text-danger fw-bold'><i class='fas fa-exclamation-circle'></i> Overdue</span>` : getStatusBadge(res.reservation_status || res.room_status || 'pending')}</td>
         <td>
             <i class="fas fa-user-edit action-icon" style="color: purple; cursor:pointer; margin-right:10px" data-action="change-booker" data-id="${res.reservation_id}" title="Change Booker"></i>
             <i class="fas fa-eye action-icon text-info" data-action="view" data-id="${res.reservation_id}" title="View Details" style="cursor:pointer; margin-right:10px"></i>

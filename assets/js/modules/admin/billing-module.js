@@ -2,6 +2,16 @@
 
 // --- Show Billing Details Modal ---
 export const showBillingDetailsModal = async (billingId) => {
+    // Helper to format date as 'Mmm d, yyyy'
+    function formatDate(dateStr) {
+        if (!dateStr) return '';
+        const d = new Date(dateStr);
+        if (isNaN(d)) return dateStr;
+        const month = d.toLocaleString('en-US', { month: 'short' });
+        const day = d.getDate();
+        const year = d.getFullYear();
+        return `${month} ${day}, ${year}`;
+    }
     try {
         console.debug("[BillingModule] showBillingDetailsModal called with billingId:", billingId);
 
@@ -64,8 +74,6 @@ export const showBillingDetailsModal = async (billingId) => {
         let totalBill = billing.total_bill !== undefined ? billing.total_bill : 0;
         let amountPaid = billing.amount_paid !== undefined ? billing.amount_paid : 0;
         let remainingAmount = billing.remaining_amount !== undefined ? billing.remaining_amount : 0;
-        let typeName = billing.type_name || '';
-        let roomNumber = billing.room_number || '';
         let billingStatus = billing.billing_status || '';
 
         const billingDetailsDiv = document.getElementById("billingDetails");
@@ -75,21 +83,79 @@ export const showBillingDetailsModal = async (billingId) => {
             return;
         }
 
+        // Show all reserved rooms in a table, type first then number
+        let roomsHtml = '';
+        if (billing.rooms && billing.rooms.length > 0) {
+            roomsHtml = `
+                <table class="table table-sm table-bordered mb-2">
+                    <thead>
+                        <tr>
+                            <th>Type</th>
+                            <th>Room Number</th>
+                            <th>Price/Stay</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${billing.rooms.map(r => `
+                            <tr>
+                                <td>${r.type_name}</td>
+                                <td>${r.room_number}</td>
+                                <td>₱${parseFloat(r.price_per_stay).toFixed(2)}</td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            `;
+        } else {
+            roomsHtml = `<div class="text-muted">No reserved rooms.</div>`;
+        }
+
+        // Determine color for status text
+        let statusColor = '#6c757d'; // default gray
+        if (billingStatus.toLowerCase() === 'paid') statusColor = '#198754'; // green
+        else if (billingStatus.toLowerCase() === 'unpaid' || billingStatus.toLowerCase() === 'overdue') statusColor = '#dc3545'; // red
+        else if (billingStatus.toLowerCase() === 'partial') statusColor = '#fd7e14'; // orange
+
+        // Make modal larger (add class to modal dialog)
+        const modalDialog = document.querySelector('#billingDetailsModal .modal-dialog');
+        if (modalDialog) {
+            modalDialog.classList.add('modal-xl');
+            modalDialog.style.maxWidth = '900px';
+        }
+
+        // Add icons using FontAwesome (assume already loaded in project)
         billingDetailsDiv.innerHTML = `
-            <table class="table table-sm">
-                <tr><td>Billing ID</td><td>${billing.billing_id || ''}</td></tr>
-                <tr><td>Guest</td><td>${billing.guest_name || ''}</td></tr>
-                <tr><td>Reservation</td><td>${billing.reservation_id || ''}</td></tr>
-                <tr><td>Date</td><td>${billing.billing_date || ''}</td></tr>
-                <tr><td>Room</td><td>${typeName} (${roomNumber})</td></tr>
-                <tr><td>Room Price</td><td>₱${parseFloat(roomPrice).toFixed(2)}</td></tr>
-                <tr><td>Status</td><td><span class="badge bg-${getStatusColor(billingStatus)}">${billingStatus}</span></td></tr>
+            <style>
+                .details-icon { width: 1.2em; margin-right: 7px; opacity: 0.85; }
+                .details-label { font-weight: 500; color: #495057; letter-spacing: 0.5px; }
+                .details-table td { vertical-align: middle; }
+                .details-table th { background: #f8f9fa; }
+                .details-section-title { font-size: 1.1em; margin-top: 1.2em; margin-bottom: 0.5em; color: #333; font-weight: 600; letter-spacing: 0.5px; }
+                .amount-label { font-weight: 500; }
+                .amount-value { font-weight: bold; font-size: 1.1em; }
+            </style>
+            <table class="table table-sm details-table mb-3">
+                <tr><td class="details-label"><i class="fas fa-receipt details-icon"></i>Billing ID</td><td>${billing.billing_id || ''}</td></tr>
+                <tr><td class="details-label"><i class="fas fa-user details-icon"></i>Guest</td><td>${billing.guest_name || ''}</td></tr>
+                <tr><td class="details-label"><i class="fas fa-calendar-check details-icon"></i>Reservation</td><td>${billing.reservation_id || ''}</td></tr>
+                <tr><td class="details-label"><i class="fas fa-calendar-day details-icon"></i>Date</td><td>${formatDate(billing.billing_date) || ''}</td></tr>
+                <tr><td class="details-label"><i class="fas fa-info-circle details-icon"></i>Status</td><td style="font-weight:bold;text-transform:uppercase;color:${statusColor}"><i style="font-size:0.8em;color:${statusColor};margin-right:6px;"></i>${billingStatus}</td></tr>
             </table>
-            <div class="mb-2"><strong>Addons:</strong></div>
+            <div class="details-section-title"><i class="fas fa-door-open details-icon"></i>Reserved Rooms</div>
+            ${roomsHtml}
+            <div class="details-section-title"><i class="fas fa-plus-circle details-icon"></i>Addons</div>
             ${addonsHtml}
-            <div class="mb-2"><strong>Total Bill:</strong> <span class="fw-bold text-primary">₱${parseFloat(totalBill).toFixed(2)}</span></div>
-            <div class="mb-2"><strong>Amount Paid:</strong> <span class="fw-bold text-success">₱${parseFloat(amountPaid).toFixed(2)}</span></div>
-            <div class="mb-2"><strong>Remaining Amount:</strong> <span class="fw-bold text-danger">₱${parseFloat(remainingAmount).toFixed(2)}</span></div>
+            <div class="row mb-2 mt-3">
+                <div class="col-md-4 col-12 mb-2">
+                    <span class="amount-label"><i class="fas fa-file-invoice-dollar details-icon"></i>Total Bill:</span> <span class="amount-value text-primary">₱${parseFloat(totalBill).toFixed(2)}</span>
+                </div>
+                <div class="col-md-4 col-12 mb-2">
+                    <span class="amount-label"><i class="fas fa-coins details-icon"></i>Amount Paid:</span> <span class="amount-value text-success">₱${parseFloat(amountPaid).toFixed(2)}</span>
+                </div>
+                <div class="col-md-4 col-12 mb-2">
+                    <span class="amount-label"><i class="fas fa-wallet details-icon"></i>Remaining Amount:</span> <span class="amount-value text-danger">₱${parseFloat(remainingAmount).toFixed(2)}</span>
+                </div>
+            </div>
         `;
 
         // Payment history
@@ -101,7 +167,7 @@ export const showBillingDetailsModal = async (billingId) => {
             (billing.payments || []).forEach(p => {
                 paymentHistoryBody.innerHTML += `
                     <tr>
-                        <td>${p.payment_date}</td>
+                        <td>${formatDate(p.payment_date)}</td>
                         <td>₱${p.amount_paid}</td>
                         <td>${p.method_name || '-'}</td>
                         <td>${p.notes || ''}</td>

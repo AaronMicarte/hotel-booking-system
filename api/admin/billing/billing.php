@@ -90,12 +90,13 @@ class Billing
         $db = $database->getConnection();
         $json = is_array($json) ? $json : json_decode($json, true);
 
-        $sql = "SELECT b.*, CONCAT(g.first_name, ' ', g.last_name) AS guest_name
-                FROM Billing b
-                LEFT JOIN Reservation res ON b.reservation_id = res.reservation_id
-                LEFT JOIN Guest g ON res.guest_id = g.guest_id
-                WHERE b.reservation_id = :reservation_id AND b.is_deleted = 0
-                LIMIT 1";
+        $sql = "SELECT b.*, CONCAT(g.first_name, ' ', g.last_name) AS guest_name, bs.billing_status
+        FROM Billing b
+        LEFT JOIN Reservation res ON b.reservation_id = res.reservation_id
+        LEFT JOIN Guest g ON res.guest_id = g.guest_id
+        LEFT JOIN BillingStatus bs ON b.billing_status_id = bs.billing_status_id
+        WHERE b.reservation_id = :reservation_id AND b.is_deleted = 0
+        LIMIT 1";
         $stmt = $db->prepare($sql);
         $stmt->bindParam(":reservation_id", $json['reservation_id']);
         $stmt->execute();
@@ -187,12 +188,13 @@ class Billing
         $db = $database->getConnection();
         $json = is_array($json) ? $json : json_decode($json, true);
 
-        $sql = "SELECT b.*, CONCAT(g.first_name, ' ', g.last_name) AS guest_name
-                FROM Billing b
-                LEFT JOIN Reservation res ON b.reservation_id = res.reservation_id
-                LEFT JOIN Guest g ON res.guest_id = g.guest_id
-                WHERE b.billing_id = :billing_id AND b.is_deleted = 0
-                LIMIT 1";
+        $sql = "SELECT b.*, CONCAT(g.first_name, ' ', g.last_name) AS guest_name, bs.billing_status
+        FROM Billing b
+        LEFT JOIN Reservation res ON b.reservation_id = res.reservation_id
+        LEFT JOIN Guest g ON res.guest_id = g.guest_id
+        LEFT JOIN BillingStatus bs ON b.billing_status_id = bs.billing_status_id
+        WHERE b.billing_id = :billing_id AND b.is_deleted = 0
+        LIMIT 1";
         $stmt = $db->prepare($sql);
         $stmt->bindParam(":billing_id", $json['billing_id']);
         $stmt->execute();
