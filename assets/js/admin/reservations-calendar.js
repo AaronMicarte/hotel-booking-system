@@ -318,13 +318,18 @@ document.addEventListener('DOMContentLoaded', function () {
                         });
                         html += `</ul>`;
                     }
-                    html += `
-                        <div class="d-flex justify-content-end mt-3">
-                            <button class="btn btn-primary btn-sm" id="addReservationOnDayBtn">
-                                <i class="fas fa-plus"></i> New Reservation
-                            </button>
-                        </div>
-                    `;
+                    // Prevent reservation for past days
+                    const today = new Date();
+                    today.setHours(0, 0, 0, 0);
+                    const selected = new Date(dateStr);
+                    selected.setHours(0, 0, 0, 0);
+                    let addBtnHtml = '';
+                    if (selected >= today) {
+                        addBtnHtml = `<button class="btn btn-primary btn-sm" id="addReservationOnDayBtn"><i class="fas fa-plus"></i> New Reservation</button>`;
+                    } else {
+                        addBtnHtml = `<button class="btn btn-primary btn-sm" id="addReservationOnDayBtn" disabled title="Cannot reserve in the past"><i class="fas fa-plus"></i> New Reservation</button>`;
+                    }
+                    html += `<div class="d-flex justify-content-end mt-3">${addBtnHtml}</div>`;
 
                     preserveScrollOnSwal();
                     Swal.fire({
@@ -354,10 +359,13 @@ document.addEventListener('DOMContentLoaded', function () {
                                     }
                                 });
                             });
-                            document.getElementById('addReservationOnDayBtn')?.addEventListener('click', () => {
-                                Swal.close();
-                                setTimeout(() => openAddReservationModal(dateStr), 350);
-                            });
+                            const addBtn = document.getElementById('addReservationOnDayBtn');
+                            if (addBtn && !addBtn.disabled) {
+                                addBtn.addEventListener('click', () => {
+                                    Swal.close();
+                                    setTimeout(() => openAddReservationModal(dateStr), 350);
+                                });
+                            }
                         }
                     });
                 }
@@ -618,6 +626,22 @@ document.addEventListener('DOMContentLoaded', function () {
             if (status === 'cancelled') return '#dc3545';
             return 'var(--primary-color, #d20707)';
         }
+    }
+
+
+    // Make the hidden addReservationBtn open the modal
+    const addBtn = document.getElementById('addReservationBtn');
+    if (addBtn) {
+        addBtn.addEventListener('click', function () {
+            const modalEl = document.getElementById('reservationModal');
+            if (modalEl && window.bootstrap) {
+                const modal = window.bootstrap.Modal.getOrCreateInstance(modalEl);
+                modal.show();
+            } else if (modalEl) {
+                // fallback for Bootstrap 4
+                $(modalEl).modal('show');
+            }
+        });
     }
 
     // Initial render

@@ -827,6 +827,17 @@ function displayReservationsTable(reservations) {
                     Swal.fire('No reserved rooms found for this reservation.');
                     return;
                 }
+                // Sort reservedRooms alphabetically by type_name, then room_number
+                reservedRooms.sort((a, b) => {
+                    const typeA = (a.type_name || '').toLowerCase();
+                    const typeB = (b.type_name || '').toLowerCase();
+                    if (typeA < typeB) return -1;
+                    if (typeA > typeB) return 1;
+                    // If type_name is the same, sort by room_number (as string for consistency)
+                    const numA = String(a.room_number || '');
+                    const numB = String(b.room_number || '');
+                    return numA.localeCompare(numB, undefined, { numeric: true, sensitivity: 'base' });
+                });
                 // Fetch all companions for all reserved rooms in this reservation
                 let allCompanions = [];
                 try {
@@ -1446,10 +1457,21 @@ async function saveReservation() {
         if (response.data == 1) {
             displayReservations();
             const modal = document.getElementById("reservationModal");
-            if (modal) {
-                const modalInstance = bootstrap.Modal.getInstance(modal);
-                if (modalInstance) modalInstance.hide();
+            if (modal && window.bootstrap) {
+                const modalInstance = window.bootstrap.Modal.getOrCreateInstance(modal);
+                modalInstance.hide();
+            } else if (modal) {
+                // fallback for Bootstrap 4
+                $(modal).modal('hide');
             }
+            // Fallback: forcibly remove any stuck modal-backdrop and always unlock scroll after modal closes
+            setTimeout(() => {
+                document.querySelectorAll('.modal-backdrop').forEach(bd => bd.parentNode && bd.parentNode.removeChild(bd));
+                // Remove modal-open regardless, as a last fallback
+                document.body.classList.remove('modal-open');
+                // Remove inline style that may block scroll
+                document.body.style.overflow = '';
+            }, 500);
             showSuccess("Reservation saved!");
         } else {
             showError("Failed to save reservation.");
