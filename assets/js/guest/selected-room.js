@@ -80,20 +80,46 @@ document.addEventListener('DOMContentLoaded', async function () {
                     })));
                 } catch { }
             }
-            if (allImages.length) {
+            // Deduplicate images by URL
+            const images = [];
+            const seenUrls = new Set();
+            for (const img of allImages) {
+                if (!seenUrls.has(img.url)) {
+                    images.push(img);
+                    seenUrls.add(img.url);
+                }
+            }
+            if (images.length) {
                 imagesContainer.innerHTML = `
-                            <div class="gallery-section mb-5">
-                                <h3 class="mb-3">Gallery</h3>
-                                <div class="gallery-images">
-                                    ${allImages.map(img =>
-                    `<div class="gallery-image-box">
-                                <img src="${img.url}" alt="Room Image" class="img-fluid rounded shadow mb-2">
-                                <div class="small text-muted">Room #${img.roomNum || ''}</div>
-                            </div>`
-                ).join('')}
+                    <div class="gallery-section mb-5">
+                        <h3 class="mb-4" style="color:#ff6b6b;font-weight:700;letter-spacing:1px;">Gallery</h3>
+                        <div class="row g-4 gallery-images-bootstrap">
+                            ${images.map(img => `
+                                <div class="col-12 col-sm-6 col-md-4 col-lg-3">
+                                    <div class="gallery-image-box h-100 p-2 bg-dark bg-opacity-75 rounded-4 shadow-sm position-relative overflow-hidden" style="transition:box-shadow .2s;">
+                                        <img src="${img.url}" alt="Room Image" class="img-fluid rounded-3 shadow gallery-img-hover" style="width:100%;height:100%;object-fit:cover;transition:transform .30s;">
+                                    </div>
                                 </div>
-                            </div>
-                        `;
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+                // Add hover effect for images (scale up)
+                const style = document.createElement('style');
+                style.innerHTML = `
+                    .gallery-img-hover:hover {
+                        transform: scale(1.07);
+                        box-shadow: 0 8px 32px rgba(255,107,107,0.18);
+                        z-index:2;
+                    }
+                    .gallery-image-box {
+                        transition: box-shadow .2s;
+                    }
+                    .gallery-image-box:hover {
+                        box-shadow: 0 8px 32px rgba(255,107,107,0.25), 0 1.5px 8px rgba(0,0,0,0.12);
+                    }
+                `;
+                document.head.appendChild(style);
             } else {
                 imagesContainer.innerHTML = '';
             }
