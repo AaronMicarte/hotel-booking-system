@@ -46,15 +46,32 @@ async function loadAddonCategories() {
 
 async function loadOrderStatuses() {
     const select = document.getElementById("orderStatusFilter");
-    select.innerHTML = '<option value="">All Statuses</option>';
+    // Clear all options
+    while (select.firstChild) {
+        select.removeChild(select.firstChild);
+    }
+    // Add default option
+    const defaultOption = document.createElement('option');
+    defaultOption.value = '';
+    defaultOption.textContent = 'All Statuses';
+    select.appendChild(defaultOption);
     try {
         const res = await axios.get(`${BASE_URL}/addons/order_status.php`, { params: { operation: "getAllOrderStatuses" } });
         if (Array.isArray(res.data)) {
+            const seen = new Set();
             res.data.forEach(s => {
-                select.innerHTML += `<option value="${s.order_status_name}">${s.order_status_name.charAt(0).toUpperCase() + s.order_status_name.slice(1)}</option>`;
+                // Only add if not already seen, not empty/null, and not just whitespace
+                const name = (s.order_status_name || '').trim();
+                if (name && !seen.has(name)) {
+                    seen.add(name);
+                    const opt = document.createElement('option');
+                    opt.value = name;
+                    opt.textContent = name.charAt(0).toUpperCase() + name.slice(1);
+                    select.appendChild(opt);
+                }
             });
         }
-    } catch { }
+    } catch (e) { /* Optionally log error: console.error(e); */ }
 }
 
 async function loadAddonOrders() {
@@ -290,9 +307,7 @@ async function submitOrder() {
 }
 
 async function viewOrder(orderId) {
-    // Fetch order details including items
     try {
-        // Load all statuses for dropdown
         const statusRes = await axios.get(`${BASE_URL}/addons/order_status.php`, { params: { operation: 'getAllOrderStatuses' } });
         const statusList = Array.isArray(statusRes.data) ? statusRes.data : [];
         const res = await axios.get(`${BASE_URL}/addons/order.php`, { params: { operation: 'getOrder', json: JSON.stringify({ addon_order_id: orderId }) } });

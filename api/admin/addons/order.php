@@ -104,12 +104,14 @@ class AddonOrder
         $db = $database->getConnection();
         $json = json_decode($json, true);
 
-        $sql = "SELECT ao.*, u.username, res.reservation_id, aos.order_status_name
-                FROM AddonOrder ao
-                LEFT JOIN User u ON ao.user_id = u.user_id
-                LEFT JOIN Reservation res ON ao.reservation_id = res.reservation_id
-                LEFT JOIN AddonOrderStatus aos ON ao.order_status_id = aos.order_status_id
-                WHERE ao.addon_order_id = :addon_order_id AND ao.is_deleted = 0";
+        $sql = "SELECT ao.*, u.username, res.reservation_id, aos.order_status_name,
+               g.first_name, g.last_name, CONCAT(g.first_name, ' ', g.last_name) AS guest_name
+        FROM AddonOrder ao
+        LEFT JOIN User u ON ao.user_id = u.user_id
+        LEFT JOIN Reservation res ON ao.reservation_id = res.reservation_id
+        LEFT JOIN Guest g ON res.guest_id = g.guest_id
+        LEFT JOIN AddonOrderStatus aos ON ao.order_status_id = aos.order_status_id
+        WHERE ao.addon_order_id = :addon_order_id AND ao.is_deleted = 0";
         $stmt = $db->prepare($sql);
         $stmt->bindParam(":addon_order_id", $json['addon_order_id']);
         $stmt->execute();
