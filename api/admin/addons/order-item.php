@@ -1,3 +1,4 @@
+
 <?php
 header('Content-Type: application/json');
 header("Access-Control-Allow-Origin: *");
@@ -62,6 +63,21 @@ class AddonOrderItemAPI
         $rs = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
         echo json_encode($rs);
+    }
+    public function getOrderItemsByOrderId($addon_order_id)
+    {
+        include_once '../../config/database.php';
+        $database = new Database();
+        $db = $database->getConnection();
+        $sql = "SELECT a.name, a.price, COUNT(*) as quantity
+            FROM AddonOrderItem oi
+            JOIN Addon a ON oi.addon_id = a.addon_id
+            WHERE oi.addon_order_id = ?
+            GROUP BY oi.addon_id, a.name, a.price";
+        $stmt = $db->prepare($sql);
+        $stmt->execute([$addon_order_id]);
+        $items = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode($items);
     }
 
     function updateOrderItem($json)
@@ -137,5 +153,10 @@ switch ($operation) {
         break;
     case "deleteOrderItem":
         $orderItem->deleteOrderItem($json);
+        break;
+    case "getOrderItemsByOrderId":
+        // expects ?addon_order_id=ID
+        $addon_order_id = isset($_GET['addon_order_id']) ? intval($_GET['addon_order_id']) : 0;
+        $orderItem->getOrderItemsByOrderId($addon_order_id);
         break;
 }

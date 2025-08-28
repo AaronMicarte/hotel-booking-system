@@ -33,43 +33,51 @@ class AddonOrder
         $db = $database->getConnection();
         $json = json_decode($json, true);
 
-        // 1. Insert AddonOrder
-        $user_id = isset($json['user_id']) ? $json['user_id'] : null;
-        $reservation_id = $json['reservation_id'];
-        $order_status_id = isset($json['order_status_id']) ? $json['order_status_id'] : 1; // default to 'pending'
-        $order_date = isset($json['order_date']) ? $json['order_date'] : date('Y-m-d');
-        $items = isset($json['items']) ? $json['items'] : [];
+        try {
+            // 1. Insert AddonOrder
+            $user_id = isset($json['user_id']) ? $json['user_id'] : null;
+            $reservation_id = $json['reservation_id'];
+            $order_status_id = isset($json['order_status_id']) ? $json['order_status_id'] : 1; // default to 'pending'
+            $order_date = isset($json['order_date']) ? $json['order_date'] : date('Y-m-d');
+            $items = isset($json['items']) ? $json['items'] : [];
 
-        $sql = "INSERT INTO AddonOrder (user_id, reservation_id, order_status_id, order_date)
-                VALUES (:user_id, :reservation_id, :order_status_id, :order_date)";
-        $stmt = $db->prepare($sql);
-        $stmt->bindParam(":user_id", $user_id);
-        $stmt->bindParam(":reservation_id", $reservation_id);
-        $stmt->bindParam(":order_status_id", $order_status_id);
-        $stmt->bindParam(":order_date", $order_date);
-        $stmt->execute();
+            $sql = "INSERT INTO AddonOrder (user_id, reservation_id, order_status_id, order_date)
+                    VALUES (:user_id, :reservation_id, :order_status_id, :order_date)";
+            $stmt = $db->prepare($sql);
+            $stmt->bindParam(":user_id", $user_id);
+            $stmt->bindParam(":reservation_id", $reservation_id);
+            $stmt->bindParam(":order_status_id", $order_status_id);
+            $stmt->bindParam(":order_date", $order_date);
+            $stmt->execute();
 
-        $addon_order_id = $db->lastInsertId();
-        $success = $addon_order_id ? true : false;
+            $addon_order_id = $db->lastInsertId();
+            $success = $addon_order_id ? true : false;
+            if (!$success) {
+                echo json_encode(['success' => false, 'message' => 'Failed to create order record.']);
+                return;
+            }
 
-        // 2. Insert AddonOrderItems
-        if ($success && is_array($items)) {
-            foreach ($items as $item) {
-                $addon_id = $item['addon_id'];
-                $quantity = isset($item['quantity']) ? $item['quantity'] : 1;
-                for ($i = 0; $i < $quantity; $i++) {
-                    $stmt2 = $db->prepare("INSERT INTO AddonOrderItem (addon_order_id, addon_id) VALUES (?, ?)");
-                    $stmt2->execute([$addon_order_id, $addon_id]);
+            // 2. Insert AddonOrderItems
+            if (is_array($items)) {
+                foreach ($items as $item) {
+                    $addon_id = $item['addon_id'];
+                    $quantity = isset($item['quantity']) ? $item['quantity'] : 1;
+                    for ($i = 0; $i < $quantity; $i++) {
+                        $stmt2 = $db->prepare("INSERT INTO AddonOrderItem (addon_order_id, addon_id) VALUES (?, ?)");
+                        $stmt2->execute([$addon_order_id, $addon_id]);
+                    }
                 }
             }
-        }
 
-        // 3. Add to BillingAddon
-        // Get billing_id for this reservation
-        $stmt3 = $db->prepare("SELECT billing_id FROM Billing WHERE reservation_id = ? AND is_deleted = 0 LIMIT 1");
-        $stmt3->execute([$reservation_id]);
-        $billing = $stmt3->fetch(PDO::FETCH_ASSOC);
-        if ($billing && is_array($items)) {
+            // 3. Add to BillingAddon
+            // Get billing_id for this reservation
+            $stmt3 = $db->prepare("SELECT billing_id FROM Billing WHERE reservation_id = ? AND is_deleted = 0 LIMIT 1");
+            $stmt3->execute([$reservation_id]);
+            $billing = $stmt3->fetch(PDO::FETCH_ASSOC);
+            if (!$billing) {
+                echo json_encode(['success' => false, 'message' => 'No billing record found for this reservation.']);
+                return;
+            }
             $billing_id = $billing['billing_id'];
             foreach ($items as $item) {
                 $addon_id = $item['addon_id'];
@@ -82,9 +90,11 @@ class AddonOrder
                 $stmt5 = $db->prepare("INSERT INTO BillingAddon (addon_id, billing_id, unit_price, quantity) VALUES (?, ?, ?, ?)");
                 $stmt5->execute([$addon_id, $billing_id, $unit_price, $quantity]);
             }
-        }
 
-        echo json_encode(['success' => $success, 'addon_order_id' => $addon_order_id]);
+            echo json_encode(['success' => true, 'addon_order_id' => $addon_order_id]);
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+        }
     }
 
     function getOrder($json)

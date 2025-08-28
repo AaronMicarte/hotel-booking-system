@@ -48,7 +48,7 @@ async function loadOrderStatuses() {
     const select = document.getElementById("orderStatusFilter");
     select.innerHTML = '<option value="">All Statuses</option>';
     try {
-        const res = await axios.get(`${BASE_URL}/addons/order_status.php`, { params: { operation: "getAllOrderStatus" } });
+        const res = await axios.get(`${BASE_URL}/addons/order_status.php`, { params: { operation: "getAllOrderStatuses" } });
         if (Array.isArray(res.data)) {
             res.data.forEach(s => {
                 select.innerHTML += `<option value="${s.order_status_name}">${s.order_status_name.charAt(0).toUpperCase() + s.order_status_name.slice(1)}</option>`;
@@ -79,16 +79,29 @@ async function loadAddonOrders() {
 }
 
 function renderOrderRow(order) {
-    let itemsHtml = Array.isArray(order.items) ? order.items.map(i => `<span class='badge bg-secondary me-1'>${i.name} x${i.quantity}</span>`).join(' ') : '';
     let statusBadge = `<span class='badge bg-info'>${order.order_status_name || 'pending'}</span>`;
     let guestName = (order.first_name || order.last_name) ? `${order.first_name || ''} ${order.last_name || ''}`.trim() : '-';
+    // Format date as 'M d, Y h:i A' in Asia/Manila timezone
+    let dateStr = '-';
+    if (order.order_date) {
+        // Parse as UTC then add 8 hours for Manila
+        let d = new Date(order.order_date + 'T00:00:00Z');
+        if (order.order_date.length > 10) d = new Date(order.order_date.replace(' ', 'T') + 'Z');
+        if (!isNaN(d)) {
+            // Add 8 hours for Manila
+            d = new Date(d.getTime() + 8 * 60 * 60 * 1000);
+            const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true };
+            dateStr = d.toLocaleString('en-US', options).replace(',', '');
+        } else {
+            dateStr = order.order_date;
+        }
+    }
     return `<tr>
         <td>${order.addon_order_id}</td>
         <td>${guestName}</td>
         <td>${order.reservation_id || '-'}</td>
         <td>${statusBadge}</td>
-        <td>${order.order_date || '-'}</td>
-        <td>${itemsHtml}</td>
+        <td>${dateStr}</td>
         <td><button class='btn btn-sm btn-outline-primary' onclick='viewOrder(${order.addon_order_id})'><i class='fas fa-eye'></i> View</button></td>
     </tr>`;
 }
@@ -182,9 +195,21 @@ async function renderPOS(categoryId = "") {
             </div>
         </div>`;
     });
-    html += `</div><div class='text-end'><button class='btn btn-success btn-lg px-4' id='showOrderSummaryBtn'><i class='fas fa-list'></i> Review Order</button></div>`;
+    html += `</div>`;
     container.innerHTML = html;
-    document.getElementById('showOrderSummaryBtn').onclick = showOrderSummary;
+    // The Review Order button is now outside the scrollable area, so just set up its handler once
+    const reviewBtn = document.getElementById('showOrderSummaryBtn');
+    if (reviewBtn) reviewBtn.onclick = showOrderSummary;
+    // Wire up submit button (only once)
+    const submitBtn = document.getElementById('submitOrderBtn');
+    if (submitBtn && !submitBtn.dataset.bound) {
+        submitBtn.addEventListener('click', async function () {
+            submitBtn.disabled = true;
+            await submitOrder();
+            submitBtn.disabled = false;
+        });
+        submitBtn.dataset.bound = '1';
+    }
 }
 
 function showOrderSummary() {
@@ -201,7 +226,7 @@ function showOrderSummary() {
             items.push({ addon_id: input.getAttribute('data-addon-id'), quantity: qty, name, price });
             total += price * qty;
             summaryHtml += `<li class='list-group-item d-flex justify-content-between align-items-center'>
-                <span>${name} <span class='badge bg-secondary ms-2'>x${qty}</span></span>
+                <span>${name} <span class='badge bg-primary ms-2'>x${qty}</span></span>
                 <span>₱${(price * qty).toFixed(2)}</span>
             </li>`;
         }
@@ -214,17 +239,8 @@ function showOrderSummary() {
     document.getElementById('orderSummaryTotal').textContent = `₱${total.toFixed(2)}`;
     document.getElementById('orderSummaryBox').classList.remove('d-none');
     // Show submit button
-    if (!document.getElementById('submitOrderBtn')) {
-        const btn = document.createElement('button');
-        btn.id = 'submitOrderBtn';
-        btn.className = 'btn btn-success btn-lg mt-2';
-        btn.innerHTML = '<i class="fas fa-check"></i> Submit Order';
-        btn.onclick = submitOrder;
-        document.getElementById('orderSummaryBox').appendChild(btn);
-    }
-}
-function showOrderSummary() {
-    // ...existing code...
+    const submitBtn = document.getElementById('submitOrderBtn');
+    if (submitBtn) submitBtn.classList.remove('d-none');
 }
 
 async function submitOrder() {
@@ -268,8 +284,80 @@ async function submitOrder() {
     } catch {
         Swal.fire('Failed to place order', '', 'error');
     }
+    // Hide submit button after order
+    const submitBtn = document.getElementById('submitOrderBtn');
+    if (submitBtn) submitBtn.classList.add('d-none');
 }
 
 async function viewOrder(orderId) {
-    Swal.fire('Order Details', 'Order ID: ' + orderId, 'info');
+    // Fetch order details including items
+    try {
+        // Load all statuses for dropdown
+        const statusRes = await axios.get(`${BASE_URL}/addons/order_status.php`, { params: { operation: 'getAllOrderStatuses' } });
+        const statusList = Array.isArray(statusRes.data) ? statusRes.data : [];
+        const res = await axios.get(`${BASE_URL}/addons/order.php`, { params: { operation: 'getOrder', json: JSON.stringify({ addon_order_id: orderId }) } });
+        const order = Array.isArray(res.data) ? res.data[0] : res.data;
+        let itemsHtml = '';
+        let total = 0;
+        if (order && order.addon_order_id) {
+            // Fetch items for this order (use order-item.php)
+            const itemsRes = await axios.get(`${BASE_URL}/addons/order-item.php`, { params: { operation: 'getOrderItemsByOrderId', addon_order_id: orderId } });
+            const items = Array.isArray(itemsRes.data) ? itemsRes.data : [];
+            if (items.length) {
+                itemsHtml = '<ul class="list-group mb-2">' + items.map(i => {
+                    total += parseFloat(i.price) * parseInt(i.quantity);
+                    return `<li class='list-group-item d-flex justify-content-between align-items-center'><span>${i.name} <span class='text-muted small'>(₱${parseFloat(i.price).toFixed(2)} each)</span></span><span class='badge bg-primary rounded-pill'>x${i.quantity}</span></li>`;
+                }).join('') + '</ul>';
+            } else {
+                itemsHtml = '<div class="text-muted">No items found for this order.</div>';
+            }
+        } else {
+            itemsHtml = '<div class="text-danger">Order not found.</div>';
+        }
+        // Format date in Asia/Manila timezone
+        let dateStr = '-';
+        if (order.order_date) {
+            let d = new Date(order.order_date + 'T00:00:00Z');
+            if (order.order_date.length > 10) d = new Date(order.order_date.replace(' ', 'T') + 'Z');
+            if (!isNaN(d)) {
+                d = new Date(d.getTime() + 8 * 60 * 60 * 1000);
+                const options = { year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: true };
+                dateStr = d.toLocaleString('en-US', options).replace(',', '');
+            } else {
+                dateStr = order.order_date;
+            }
+        }
+        // Status badge color mapping
+        const statusColorMap = {
+            pending: 'bg-secondary',
+            processing: 'bg-warning text-dark',
+            delivered: 'bg-success',
+            completed: 'bg-success',
+            cancelled: 'bg-danger',
+            ready: 'bg-info',
+        };
+        const statusName = (order.order_status_name || '').toLowerCase();
+        const badgeClass = statusColorMap[statusName] || 'bg-info';
+        // Status dropdown (disabled, just for display)
+        let statusOptions = statusList.map(s => `<option value="${s.order_status_name}"${s.order_status_name === order.order_status_name ? ' selected' : ''}>${s.order_status_name.charAt(0).toUpperCase() + s.order_status_name.slice(1)}</option>`).join('');
+        Swal.fire({
+            title: `Order #${orderId}`,
+            html: `<div class='text-start'>
+                <div class='mb-2'><b>Guest:</b> ${order.first_name || ''} ${order.last_name || ''}</div>
+                <div class='mb-2'><b>Reservation:</b> ${order.reservation_id || '-'}</div>
+                <div class='mb-2'><b>Status:</b> <span class='badge ${badgeClass}'>${order.order_status_name || 'pending'}</span></div>
+                <div class='mb-2'><b>Date:</b> ${dateStr}</div>
+                <hr>
+                <div><b>Items:</b></div>
+                ${itemsHtml}
+                <div class='fw-bold mt-2'>Total: <span class='text-success'>₱${total.toFixed(2)}</span></div>
+            </div>`,
+            width: 666,
+            showConfirmButton: true,
+            confirmButtonText: 'Close',
+            customClass: { popup: 'px-2' }
+        });
+    } catch (e) {
+        Swal.fire('Error', 'Failed to load order details.', 'error');
+    }
 }
