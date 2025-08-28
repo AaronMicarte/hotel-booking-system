@@ -1,61 +1,30 @@
 document.addEventListener("DOMContentLoaded", async () => {
-    // Log user id on reservation history page load
-    let userId = null;
-    try {
-        const userStr = sessionStorage.getItem('admin_user');
-        if (userStr) {
-            const user = JSON.parse(userStr);
-            if (user && user.user_id) {
-                userId = user.user_id;
-                console.log("[RESERVATION HISTORY] Current session user_id:", userId);
-            }
-        }
-    } catch (e) {
-    }
-
     const tbody = document.getElementById("historyTableBody");
-    const infoDiv = document.getElementById("historyInfo");
     const searchInput = document.getElementById("historySearchInput");
 
-    let allReservations = [];
-    let cachedReservedRooms = [];
+    let allHistory = [];
 
-    async function fetchAllHistory() {
+    async function fetchAllStatusHistory() {
         try {
-            // Fetch grouped reservations (one row per reservation)
-            const [resp, reservedRoomsRes] = await Promise.all([
-                axios.get("/Hotel-Reservation-Billing-System/api/admin/reservations/reservations.php", {
-                    params: { operation: "getAllReservations" }
-                }),
-                axios.get("/Hotel-Reservation-Billing-System/api/admin/reservations/reserved_rooms.php", {
-                    params: { operation: "getAllReservedRooms" }
-                })
-            ]);
-            allReservations = Array.isArray(resp.data) ? resp.data : [];
-            cachedReservedRooms = Array.isArray(reservedRoomsRes.data) ? reservedRoomsRes.data : [];
-            renderTable(allReservations);
+            const resp = await axios.get("/Hotel-Reservation-Billing-System/api/admin/reservations/reservation_status.php", {
+                params: { operation: "getAllStatusHistory" }
+            });
+            allHistory = Array.isArray(resp.data) ? resp.data : [];
+            renderTable(allHistory);
         } catch (err) {
-            tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Failed to load reservation history.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center text-danger">Failed to load status history.</td></tr>`;
         }
     }
 
     function renderTable(data) {
         if (!data.length) {
-            tbody.innerHTML = `<tr><td colspan="7" class="text-center">No reservation history found.</td></tr>`;
+            tbody.innerHTML = `<tr><td colspan="7" class="text-center">No status history found.</td></tr>`;
             return;
         }
         tbody.innerHTML = "";
-        data.forEach(res => {
-            // Find which room the main guest was assigned to
-            let mainGuestRoom = '';
-            if (res.reservation_id && res.guest_id) {
-                if (cachedReservedRooms && Array.isArray(cachedReservedRooms)) {
-                    const mainRoom = cachedReservedRooms.find(r => String(r.reservation_id) === String(res.reservation_id) && String(r.guest_id) === String(res.guest_id));
-                    if (mainRoom) mainGuestRoom = `${mainRoom.type_name || ''}${mainRoom.type_name && mainRoom.room_number ? ' ' : ''}${mainRoom.room_number || ''}`;
-                }
-            }
+        data.forEach(row => {
             // Status icon
-            let status = (res.reservation_status || '').toLowerCase();
+            let status = (row.reservation_status || '').toLowerCase();
             let statusIcon = '<i class="fas fa-question-circle text-secondary"></i>';
             if (status === 'confirmed') statusIcon = '<i class="fas fa-check-circle text-info"></i>';
             else if (status === 'pending') statusIcon = '<i class="fas fa-hourglass-half text-warning"></i>';
@@ -65,62 +34,22 @@ document.addEventListener("DOMContentLoaded", async () => {
 
             // Changed by user icon
             let userIcon = '<i class="fas fa-robot me-1 text-muted"></i>';
-            if (res.created_by_username) userIcon = '<i class="fas fa-user-circle me-1 text-primary"></i>';
-            else if (res.created_by_user_id) userIcon = '<i class="fas fa-user-circle me-1 text-secondary"></i>';
+            if (row.changed_by_username) userIcon = '<i class="fas fa-user-circle me-1 text-primary"></i>';
+
+            // Format date/time
+            let changedAt = row.changed_at ? new Date(row.changed_at) : null;
+            let changedAtStr = changedAt ? changedAt.toLocaleString('en-US', { year: 'numeric', month: 'short', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '-';
 
             tbody.innerHTML += `
                 <tr>
-                    <td>${res.reservation_id || 'N/A'}</td>
-                    <td>${res.guest_name || (res.first_name && res.last_name ? res.first_name + ' ' + res.last_name : 'No Name')}</td>
-                    <td>${res.rooms_summary || 'No Room'}${mainGuestRoom ? `<br><span class='badge bg-success mt-1'>Main Guest: ${mainGuestRoom}</span>` : ''}</td>
-                    <td>${res.check_in_date || 'N/A'}${res.check_in_time ? ' ' + res.check_in_time : ''} - ${res.check_out_date || 'N/A'}${res.check_out_time ? ' ' + res.check_out_time : ''}</td>
-                    <td>${statusIcon} ${res.reservation_status || '-'}</td>
-                    <td>${userIcon} ${res.created_by_username || '-'}</td>
-                    <td>${res.created_by_role || '-'}</td>
+                    <td>${row.reservation_id || 'N/A'}</td>
+                    <td>${row.guest_name || '-'}</td>
+                    <td>${statusIcon} ${row.reservation_status || '-'}</td>
+                    <td>${changedAtStr}</td>
+                    <td>${userIcon} ${row.changed_by_username || '-'}</td>
+                    <td>${row.changed_by_role || '-'}</td>
                 </tr>
             `;
-        });
-    }
-
-    // Use flatpickr for date pickers if available
-    if (window.flatpickr) {
-        flatpickr("#dateFrom", {
-            dateFormat: "Y-m-d",
-            allowInput: true,
-            onChange: function (selectedDates, dateStr) {
-                // Set minDate for dateTo
-                const dateToPicker = document.getElementById("dateTo")._flatpickr;
-                if (dateToPicker) {
-                    dateToPicker.set("minDate", dateStr || null);
-                }
-                filterTable();
-            }
-        });
-        flatpickr("#dateTo", {
-            dateFormat: "Y-m-d",
-            allowInput: true,
-            onChange: function (selectedDates, dateStr) {
-                // Set maxDate for dateFrom
-                const dateFromPicker = document.getElementById("dateFrom")._flatpickr;
-                if (dateFromPicker) {
-                    dateFromPicker.set("maxDate", dateStr || null);
-                }
-                filterTable();
-            }
-        });
-    } else {
-        // Fallback: native date input
-        document.getElementById("dateFrom")?.addEventListener("change", function () {
-            // Set min for dateTo
-            const dateTo = document.getElementById("dateTo");
-            if (dateTo) dateTo.min = this.value;
-            filterTable();
-        });
-        document.getElementById("dateTo")?.addEventListener("change", function () {
-            // Set max for dateFrom
-            const dateFrom = document.getElementById("dateFrom");
-            if (dateFrom) dateFrom.max = this.value;
-            filterTable();
         });
     }
 
@@ -129,7 +58,7 @@ document.addEventListener("DOMContentLoaded", async () => {
         const q = (document.getElementById("historySearchInput")?.value || "").toLowerCase();
         const dateFrom = document.getElementById("dateFrom")?.value;
         const dateTo = document.getElementById("dateTo")?.value;
-        let filtered = allReservations;
+        let filtered = allHistory;
         if (q) {
             filtered = filtered.filter(r =>
                 (r.reservation_id && r.reservation_id.toString().includes(q)) ||
@@ -137,10 +66,10 @@ document.addEventListener("DOMContentLoaded", async () => {
             );
         }
         if (dateFrom) {
-            filtered = filtered.filter(r => r.check_in_date && r.check_in_date >= dateFrom);
+            filtered = filtered.filter(r => r.changed_at && r.changed_at >= dateFrom);
         }
         if (dateTo) {
-            filtered = filtered.filter(r => r.check_out_date && r.check_out_date <= dateTo);
+            filtered = filtered.filter(r => r.changed_at && r.changed_at <= dateTo + ' 23:59:59');
         }
         renderTable(filtered);
     }
@@ -158,5 +87,5 @@ document.addEventListener("DOMContentLoaded", async () => {
         }
     });
 
-    await fetchAllHistory();
+    await fetchAllStatusHistory();
 });

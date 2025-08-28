@@ -4,6 +4,37 @@ header("Access-Control-Allow-Origin: *");
 
 class ReservationStatus
 {
+    // Get full status change history for all reservations
+    function getAllStatusHistory()
+    {
+        include_once '../../config/database.php';
+        $database = new Database();
+        $db = $database->getConnection();
+
+        $sql = "
+            SELECT
+                h.history_id,
+                h.reservation_id,
+                r.guest_id,
+                CONCAT(g.first_name, ' ', g.last_name) AS guest_name,
+                rs.reservation_status,
+                h.changed_at,
+                u.username AS changed_by_username,
+                ur.role_type AS changed_by_role
+            FROM ReservationStatusHistory h
+            JOIN Reservation r ON h.reservation_id = r.reservation_id
+            LEFT JOIN Guest g ON r.guest_id = g.guest_id
+            JOIN ReservationStatus rs ON h.status_id = rs.reservation_status_id
+            LEFT JOIN User u ON h.changed_by_user_id = u.user_id
+            LEFT JOIN UserRoles ur ON u.user_roles_id = ur.user_roles_id
+            WHERE r.is_deleted = 0
+            ORDER BY h.reservation_id DESC, h.changed_at DESC
+        ";
+        $stmt = $db->prepare($sql);
+        $stmt->execute();
+        $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo json_encode($rows);
+    }
     // Change reservation status with validation and audit
     function changeReservationStatus($json)
     {
@@ -235,6 +266,9 @@ $resStatus = new ReservationStatus();
 switch ($operation) {
     case "getAllStatuses":
         $resStatus->getAllStatuses();
+        break;
+    case "getAllStatusHistory":
+        $resStatus->getAllStatusHistory();
         break;
     case "insertStatus":
         $resStatus->insertStatus($json);
