@@ -1,5 +1,3 @@
-// Dynamically load sidebar into #sidebar-container and highlight active link
-
 function loadSidebar() {
     const container = document.getElementById('sidebar-container');
     if (!container) return;
@@ -49,7 +47,6 @@ function highlightActiveSidebar() {
     });
 }
 
-// For SPA navigation, also call highlightActiveSidebar on popstate or after content load
 window.addEventListener('popstate', highlightActiveSidebar);
 
 document.addEventListener('DOMContentLoaded', loadSidebar);
