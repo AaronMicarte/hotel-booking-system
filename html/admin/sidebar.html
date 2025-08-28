@@ -5,13 +5,19 @@
     </div>
     <ul class="sidebar-menu">
         <li><a href="dashboard.html"><i class="fas fa-tachometer-alt"></i><span>Dashboard</span></a></li>
-        <li><a href="reservations.html"><i class="fas fa-calendar-check"></i><span>Reservations</span></a></li>
-        <li><a href="reservation-calendar.html"><i class="fas fa-calendar-alt"></i><span>Calendar</span></a></li>
+        <li class="sidebar-dropdown">
+            <a href="#"><i class="fas fa-calendar-check"></i><span>Reservations</span><i
+                    class="fas fa-chevron-down dropdown-arrow"></i></a>
+            <ul class="sidebar-submenu">
+                <li><a href="reservations.html"><i class="fas fa-list"></i> All Reservations</a></li>
+                <li><a href="reservation-calendar.html"><i class="fas fa-calendar-alt"></i> Calendar</a></li>
+                <li><a href="reservation-history.html"><i class="fas fa-history"></i> History</a></li>
+            </ul>
+        </li>
         <li><a href="rooms.html"><i class="fas fa-bed"></i><span>Rooms</span></a></li>
         <li><a href="addons.html"><i class="fas fa-plus-circle"></i><span>Addons</span></a></li>
-        <li><a href="add-users.html"><i class="fas fa-user-plus"></i><span>Add Users</span></a></li>
         <li><a href="guests.html"><i class="fas fa-users"></i><span>Guests</span></a></li>
         <li><a href="billing.html"><i class="fas fa-file-invoice-dollar"></i><span>Billing</span></a></li>
-        <li><a href="reservation-history.html"><i class="fas fa-history"></i><span>Reservation History</span></a></li>
+        <li><a href="add-users.html"><i class="fas fa-user-plus"></i><span>Add Users</span></a></li>
     </ul>
 </nav>

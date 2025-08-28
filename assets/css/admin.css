@@ -1,7 +1,20 @@
+.sidebar-menu .sidebar-dropdown>a:hover,
+.sidebar-menu .sidebar-dropdown.open>a {
+    background: #f8f9fa;
+    color: var(--primary-color);
+    transition: var(--transition);
+}
+
+.sidebar-menu .sidebar-submenu li a:hover {
+    background: #f8f9fa;
+    color: var(--primary-color);
+    transition: var(--transition);
+}
+
 /* Admin Shared Styles - Common admin interface elements */
 :root {
     /* Use variables from style.css since we're importing it */
-    --admin-sidebar-width: 280px;
+    --admin-sidebar-width: 250px;
 }
 
 /* Common Admin Elements */
@@ -162,34 +175,52 @@ body.admin-page {
 }
 
 /* Sidebar dropdown styles */
-.sidebar-menu .has-dropdown {
+/* Sidebar dropdown (new structure) */
+.sidebar-menu .sidebar-dropdown {
     position: relative;
-    padding-right: 2rem;
 }
 
-.sidebar-menu .has-dropdown .fa-chevron-down {
-    position: absolute;
-    right: 1rem;
-    top: 50%;
-    transform: translateY(-50%);
+.sidebar-menu .sidebar-dropdown>a {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    cursor: pointer;
+    padding-right: 1.5rem;
+}
+
+.sidebar-menu .sidebar-dropdown .dropdown-arrow {
+    margin-left: 0.5rem;
+    font-size: 0.9em;
     transition: transform 0.3s;
 }
 
-.sidebar-menu .has-dropdown[aria-expanded="true"] .fa-chevron-down {
-    transform: translateY(-50%) rotate(180deg);
+.sidebar-menu .sidebar-dropdown.open .dropdown-arrow {
+    transform: rotate(180deg);
 }
 
-.sidebar-menu .collapse {
-    background: rgba(0, 0, 0, 0.1);
+.sidebar-menu .sidebar-submenu {
+    display: none;
+    background: rgba(0, 0, 0, 0.07);
+    padding-left: 0;
+    margin: 0;
+    list-style: none;
 }
 
-.sidebar-menu .collapse a {
-    padding-left: 3rem;
-    font-size: 0.9rem;
+.sidebar-menu .sidebar-dropdown.open .sidebar-submenu {
+    display: block;
 }
 
-.sidebar-menu .collapse li.active {
-    background: rgba(0, 0, 0, 0.2);
+.sidebar-menu .sidebar-submenu li a {
+    padding-left: 2.5rem;
+    font-size: 0.95em;
+    display: block;
+    color: #333;
+    background: none;
+}
+
+.sidebar-menu .sidebar-submenu li.active a {
+    background: rgba(0, 0, 0, 0.13);
+    color: var(--primary-color);
 }
 
 /* Responsive Design for all Admin Pages */
