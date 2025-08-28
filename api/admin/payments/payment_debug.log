@@ -22,3 +22,4 @@
 2025-08-20T17:12:26+02:00 insertPayment payload: {"user_id":2,"billing_id":"12","reservation_id":"36","sub_method_id":6,"amount_paid":"99","payment_date":"2025-08-20 23:12:26","notes":"pp"}
 2025-08-20T17:26:03+02:00 insertPayment payload: {"user_id":7,"billing_id":"12","reservation_id":"36","sub_method_id":6,"amount_paid":"100","payment_date":"2025-08-20 23:26:03","notes":"done"}
 2025-08-21T09:50:38+02:00 insertPayment payload: {"user_id":2,"billing_id":"11","reservation_id":"35","sub_method_id":6,"amount_paid":"99","payment_date":"2025-08-21 15:50:38","notes":"PP"}
+2025-08-28T16:02:21+02:00 insertPayment payload: {"user_id":2,"billing_id":"69","reservation_id":"91","sub_method_id":6,"amount_paid":"99.5","payment_date":"2025-08-28 22:02:21","notes":"Paid Bill"}

@@ -652,8 +652,86 @@ function displayReservationsTable(reservations) {
             <i class="fas fa-eye action-icon text-info" data-action="view" data-id="${res.reservation_id}" title="View Details" style="cursor:pointer; margin-right:10px"></i>
             <i class="fas fa-edit action-icon text-primary" data-action="edit" data-id="${res.reservation_id}" title="Edit" style="cursor:pointer; margin-right:10px"></i>
             <i class="fas fa-trash action-icon text-danger" data-action="delete" data-id="${res.reservation_id}" title="Delete" style="cursor:pointer;"></i>
+            ${renderStatusActions(res)}
         </td>
         `;
+        // Render status action icons for reservation row
+        function renderStatusActions(res) {
+            // Map status to next allowed actions
+            const status = (res.reservation_status || '').toLowerCase();
+            const id = res.reservation_id;
+            let actions = [];
+            // Use cachedStatuses to get status ids
+            const getStatusId = (name) => {
+                const s = cachedStatuses.find(s => s.reservation_status.toLowerCase() === name);
+                return s ? s.reservation_status_id : null;
+            };
+            if (status === 'pending') {
+                actions.push({ icon: 'fa-check-circle', color: 'text-info', label: 'Confirm', next: 'confirmed' });
+                actions.push({ icon: 'fa-times-circle', color: 'text-danger', label: 'Cancel', next: 'cancelled' });
+            } else if (status === 'confirmed') {
+                actions.push({ icon: 'fa-door-open', color: 'text-success', label: 'Check-in', next: 'checked-in' });
+                actions.push({ icon: 'fa-times-circle', color: 'text-danger', label: 'Cancel', next: 'cancelled' });
+            } else if (status === 'checked-in') {
+                actions.push({ icon: 'fa-sign-out-alt', color: 'text-primary', label: 'Check-out', next: 'checked-out' });
+            }
+            // Only show allowed actions
+            return actions.map(a =>
+                `<i class="fas ${a.icon} action-icon ${a.color}" style="cursor:pointer; margin-left:8px" title="${a.label}" data-action="status-${a.next}" data-id="${id}"></i>`
+            ).join('');
+        }
+        // Status action icons (Confirm, Check-in, Check-out, Cancel)
+        const statusActions = tr.querySelectorAll('.action-icon[data-action^="status-"]');
+        statusActions.forEach(icon => {
+            icon.addEventListener('click', async function () {
+                const action = this.getAttribute('data-action');
+                const nextStatus = action.replace('status-', '');
+                const statusObj = cachedStatuses.find(s => s.reservation_status.toLowerCase() === nextStatus);
+                if (!statusObj) {
+                    showError('Invalid status.');
+                    return;
+                }
+                // Confirmation dialog
+                let confirmMsg = '';
+                if (nextStatus === 'confirmed') confirmMsg = 'Are you sure you want to confirm this reservation?';
+                else if (nextStatus === 'checked-in') confirmMsg = 'Check-in this guest and mark room as occupied?';
+                else if (nextStatus === 'checked-out') confirmMsg = 'Check-out this guest? This will mark the room as available. Guest must be fully paid.';
+                else if (nextStatus === 'cancelled') confirmMsg = 'Cancel this reservation? This will release the room.';
+                else confirmMsg = 'Change status to ' + nextStatus + '?';
+                const result = await Swal.fire({
+                    title: 'Change Reservation Status',
+                    text: confirmMsg,
+                    icon: 'question',
+                    showCancelButton: true,
+                    confirmButtonText: 'Yes',
+                    cancelButtonText: 'No',
+                });
+                if (!result.isConfirmed) return;
+                // Call backend
+                try {
+                    const payload = {
+                        operation: 'changeReservationStatus',
+                        json: JSON.stringify({
+                            reservation_id: res.reservation_id,
+                            new_status_id: statusObj.reservation_status_id,
+                            changed_by_user_id: res.user_id || null
+                        })
+                    };
+                    const formData = new FormData();
+                    formData.append('operation', payload.operation);
+                    formData.append('json', payload.json);
+                    const apiRes = await axios.post(`${BASE_URL}/reservations/reservation_status.php`, formData);
+                    if (apiRes.data && apiRes.data.success) {
+                        showSuccess(apiRes.data.message || 'Status updated!');
+                        displayReservations();
+                    } else {
+                        showError(apiRes.data && apiRes.data.message ? apiRes.data.message : 'Failed to update status.');
+                    }
+                } catch (err) {
+                    showError('Failed to update status.');
+                }
+            });
+        });
         tbody.appendChild(tr);
 
         // Change Booker
