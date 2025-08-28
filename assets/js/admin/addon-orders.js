@@ -70,6 +70,9 @@ async function loadOrderStatuses() {
                     select.appendChild(opt);
                 }
             });
+            // Debug: log all dropdown options after population
+            const optionValues = Array.from(select.options).map(opt => opt.value);
+            console.log('Order Status Filter Options:', optionValues);
         }
     } catch (e) { /* Optionally log error: console.error(e); */ }
 }
@@ -80,8 +83,15 @@ async function loadAddonOrders() {
     let status = document.getElementById("orderStatusFilter").value;
     let search = document.getElementById("orderSearchInput").value.trim();
     try {
-        const res = await axios.get(`${BASE_URL}/addons/order.php`, { params: { operation: "getAllOrders", status, search } });
-        const orders = Array.isArray(res.data) ? res.data : [];
+        const res = await axios.get(`${BASE_URL}/addons/order.php`, { params: { operation: "getAllOrders", search } });
+        let orders = Array.isArray(res.data) ? res.data : [];
+        // Filter by status if selected
+        if (status) {
+            orders = orders.filter(order => {
+                const orderStatus = (order.order_status_name || '').trim().toLowerCase();
+                return orderStatus === status.trim().toLowerCase();
+            });
+        }
         if (!orders.length) {
             tbody.innerHTML = '<tr><td colspan="7" class="text-center">No orders found.</td></tr>';
             return;
